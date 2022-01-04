@@ -1,0 +1,36 @@
+Source: vulkan-profiles
+Section: unknown
+Priority: optional
+Maintainer: John Zupin <johnz@lunarg.com>
+Build-Depends: debhelper (>= 10),
+ cmake,
+ git,
+ python3,
+ bison,
+ libx11-xcb-dev,
+ libx11-xcb-dev,
+ libxkbcommon-dev,
+ libwayland-dev,
+ libxrandr-dev,
+ libxcb-randr0-dev,
+ wget,
+ autotools-dev,
+ libxcb-keysyms1,
+ libxcb-keysyms1-dev,
+ libxcb-ewmh-dev,
+ libjsoncpp-dev,
+ vulkan-headers,
+ libvulkan-dev,
+ vulkan-validationlayers-dev
+Standards-Version: 4.1.2
+Homepage: https://github.com/LunarG/VulkanProfiles
+Vcs-Git: https://github.com/LunarG/VulkanProfiles.git
+Vcs-Browser: https://github.com/LunarG/VulkanProfiles
+
+Package: vulkan-profiles
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ The Vulkan Profiles Tools are a collection of tools
+ for Vulkan application developers to leverage Vulkan
+ Profiles while developing a Vulkan application.
