@@ -1,0 +1,20 @@
+From: John Zupin <johnz@lunarg.com>
+Date: Mon, 17 Jan 2022 14:07:28 -0700
+Subject: packaging patch: update where VVL layer files are searched
+
+---
+ layer/CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/layer/CMakeLists.txt b/layer/CMakeLists.txt
+index 4e64286..7ee006e 100644
+--- a/layer/CMakeLists.txt
++++ b/layer/CMakeLists.txt
+@@ -59,6 +59,7 @@ else ()
+         ${vulkan-headers_SOURCE_DIR}/include
+         ${vulkan-validationlayers_SOURCE_DIR}/layers
+         ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
++	${vulkan-validationlayers_SOURCE_DIR}/include/vulkan/
+     )
+ endif()
+ 
