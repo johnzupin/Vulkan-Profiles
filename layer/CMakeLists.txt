@@ -61,6 +61,7 @@ else ()
         ${vulkan-headers_SOURCE_DIR}/include
         ${vulkan-validationlayers_SOURCE_DIR}/layers
         ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
+	${vulkan-validationlayers_SOURCE_DIR}/include/vulkan/
     )
 endif()
 
