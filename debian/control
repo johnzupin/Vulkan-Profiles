@@ -19,7 +19,10 @@ Build-Depends: debhelper (>= 10),
  libxcb-keysyms1-dev,
  libxcb-ewmh-dev,
  libjsoncpp-dev,
- nlohmann-json-dev
+ nlohmann-json-dev,
+ vulkan-headers,
+ vulkan-loader,
+ vulkan-validationlayers-dev
 Standards-Version: 4.1.2
 Homepage: https://github.com/LunarG/VulkanProfiles
 Vcs-Git: https://github.com/LunarG/VulkanProfiles.git
