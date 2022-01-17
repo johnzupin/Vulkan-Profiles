@@ -29,45 +29,46 @@ set(CMAKE_CXX_STANDARD 11)
 # FetchContent_MakeAvailable) it will also set <givenName>_*
 # variables, but this isn't consistent and isn't guaranteed
 # by the documentation.
-FetchContent_Declare(
-	googletest
-	GIT_REPOSITORY https://github.com/google/googletest
-	GIT_TAG release-1.11.0
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+# FetchContent_Declare(
+# 	googletest
+# 	GIT_REPOSITORY https://github.com/google/googletest
+# 	GIT_TAG release-1.11.0
+# )
+# set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-FetchContent_Declare(
-	jsoncpp
-	GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp
-	GIT_TAG 1.9.4
-)
+# FetchContent_Declare(
+# 	jsoncpp
+# 	GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp
+# 	GIT_TAG 1.9.4
+# )
+
 set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
 set(JSONCPP_WITH_POST_BUILD_UNITTEST OFF CACHE BOOL "" FORCE)
 set(JSONCPP_WITH_WARNING_AS_ERROR OFF CACHE BOOL "" FORCE)
 set(JSONCPP_WITH_PKGCONFIG_SUPPORT OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-	vulkan-headers
-	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
-	GIT_TAG ${VULKAN_TAG}
-)
-FetchContent_Declare(
-	vulkan-validationlayers
-	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
-	GIT_TAG v1.2.203
-#	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-ValidationLayers.git
-#	GIT_TAG tony-13staging-gitlab
-)
-# Desktop builds link against the loader vulkan library.  Android
-# builds just link against the system vulkan library.
-if (NOT ANDROID)
-    FetchContent_Declare(
-        vulkan-loader
-        GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Loader.git
-        GIT_TAG sdk-1.3.204
-    )
-endif()
+# FetchContent_Declare(
+# 	vulkan-headers
+# 	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
+# 	GIT_TAG ${VULKAN_TAG}
+# )
+# FetchContent_Declare(
+# 	vulkan-validationlayers
+# 	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
+# 	GIT_TAG v1.2.203
+# #	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-ValidationLayers.git
+# #	GIT_TAG tony-13staging-gitlab
+# )
+# # Desktop builds link against the loader vulkan library.  Android
+# # builds just link against the system vulkan library.
+# if (NOT ANDROID)
+#     FetchContent_Declare(
+#         vulkan-loader
+#         GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Loader.git
+#         GIT_TAG sdk-1.3.204
+#     )
+# endif()
 
 # After all the content is declared, it can safely be made available.
 FetchContent_MakeAvailable(googletest)
@@ -190,4 +191,4 @@ else()
 endif()
 add_subdirectory(layer)
 
-add_subdirectory(profiles/test)
+#add_subdirectory(profiles/test)

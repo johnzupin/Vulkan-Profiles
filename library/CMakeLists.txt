@@ -1,4 +1,4 @@
-add_subdirectory(test)
+#add_subdirectory(test)
 
 add_library(VulkanProfiles INTERFACE)
 target_include_directories(VulkanProfiles INTERFACE include)
