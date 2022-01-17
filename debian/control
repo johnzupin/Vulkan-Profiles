@@ -21,7 +21,7 @@ Build-Depends: debhelper (>= 10),
  libjsoncpp-dev,
  nlohmann-json-dev,
  vulkan-headers,
- vulkan-loader,
+ libvulkan-dev,
  vulkan-validationlayers-dev
 Standards-Version: 4.1.2
 Homepage: https://github.com/LunarG/VulkanProfiles
