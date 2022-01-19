@@ -2,5 +2,5 @@ library/include/vulkan/vulkan_profiles.hpp usr/include/vulkan/
 library/include/vulkan/vulkan_profiles.h usr/include/vulkan/
 library/source/vulkan_profiles.cpp usr/share/vulkan/vulkan-profiles-source/
 profiles/*.json usr/share/vulkan/config/VK_LAYER_KHRONOS_profiles/
-usr/lib/x86_64-linux-gnu/libVkLayer_khronos_profiles.so
-etc/vulkan/explicit_layer.d/VkLayer_khronos_profiles.json usr/share/vulkan/explicit_layer.d/
+debian/vulkan-profiles/usr/lib/x86_64-linux-gnu/libVkLayer_khronos_profiles.so
+debian/vulkan-profiles/etc/vulkan/explicit_layer.d/VkLayer_khronos_profiles.json usr/share/vulkan/explicit_layer.d/
