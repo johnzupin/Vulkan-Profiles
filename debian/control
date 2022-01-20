@@ -19,7 +19,6 @@ Build-Depends: debhelper (>= 10),
  libxcb-keysyms1-dev,
  libxcb-ewmh-dev,
  libjsoncpp-dev,
- nlohmann-json-dev,
  vulkan-headers,
  libvulkan-dev,
  vulkan-validationlayers-dev
