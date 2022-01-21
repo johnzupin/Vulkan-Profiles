@@ -25,4 +25,5 @@ override_dh_auto_configure:
 				-DVULKAN_HEADERS_SOURCE_DIR="/usr" \
 				-DVULKAN_LOADER_INSTALL_DIR="/usr" \
 				-DVULKAN_VALIDATIONLAYERS_SOURCE_DIR="/usr" \
-				-Djsoncpp_SOURCE_DIR="../library/include/jsoncpp/"
+				-Djsoncpp_SOURCE_DIR="../library/include/jsoncpp/" \
+				-DCMAKE_INSTALL_SYSCONFDIR="/usr/share"
