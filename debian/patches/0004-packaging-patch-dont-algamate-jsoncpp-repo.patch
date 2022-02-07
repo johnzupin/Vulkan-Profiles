@@ -3,19 +3,23 @@ Date: Mon, 17 Jan 2022 14:19:48 -0700
 Subject: packaging patch: dont algamate jsoncpp repo
 
 ---
- CMakeLists.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ CMakeLists.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index ccfae21..6245baa 100644
+index 80b3423..e22f897 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -79,7 +79,7 @@ set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
- # FetchContent_MakeAvailable(googletest)
- # FetchContent_MakeAvailable(json)
- # FetchContent_MakeAvailable(jsoncpp)
--execute_process(COMMAND python ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
-+#execute_process(COMMAND python ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
+@@ -71,9 +71,9 @@ set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
+ # endif()
+ 
+ # After all the content is declared, it can safely be made available.
+-FetchContent_MakeAvailable(googletest)
+-FetchContent_MakeAvailable(jsoncpp)
+-execute_process(COMMAND ${PYTHON_EXECUTABLE} ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
++# FetchContent_MakeAvailable(googletest)
++# FetchContent_MakeAvailable(jsoncpp)
++# execute_process(COMMAND ${PYTHON_EXECUTABLE} ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
  
  set(UPDATE_DEPS ON)
  set(BUILD_TESTS OFF)
