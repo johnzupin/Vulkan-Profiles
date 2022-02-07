@@ -1,7 +1,7 @@
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(TEST_FILE test_validate.cpp)
-set(TEST_NAME profile_test_validate)
+set(TEST_NAME VpProfile_test_schema_validation)
 
 file(GLOB FILES_UNIT_TEST ${CMAKE_CURRENT_SOURCE_DIR}/data/*.json)
 file(GLOB FILES_PROFILE ${CMAKE_CURRENT_SOURCE_DIR}/../*.json)
@@ -21,3 +21,5 @@ add_custom_command(TARGET ${TEST_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E co
 
 target_link_libraries(${TEST_NAME} PRIVATE gtest gtest_main)
 add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME} --gtest_catch_exceptions=0)
+
+set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles schema")

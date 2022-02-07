@@ -19,11 +19,25 @@
  */
 
 #include "mock_vulkan_api.hpp"
+#include "mock_debug_message_callback.hpp"
 #include <vulkan/vulkan_android.h>
+
+#if WITH_DEBUG_MESSAGES
+#include <vulkan/debug/vulkan_profiles.hpp>
+#else
 #include <vulkan/vulkan_profiles.hpp>
+#endif
 
 TEST(mocked_api_get_physdev_profile_support, vulkan10_supported) {
     MockVulkanAPI mock;
+
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_ANDROID_baseline_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/"
+    });
+#endif
 
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_0);
@@ -195,6 +209,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_no_gpdp2) {
 TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_version) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported API version: 1.1.142"
+    });
+#endif
+
     // Unsupported version
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_0);
@@ -317,6 +340,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_version) {
 TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_extension) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_ANDROID_baseline_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported extension: VK_GOOGLE_display_timing"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_0);
 
@@ -401,6 +433,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_extension) {
 
 TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_feature) {
     MockVulkanAPI mock;
+
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_ANDROID_baseline_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported feature condition: VkPhysicalDeviceFeatures2KHR::features.sampleRateShading == VK_TRUE"
+    });
+#endif
 
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_0);
@@ -488,6 +529,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_feature) {
 TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_property) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_ANDROID_baseline_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported properties condition: VkPhysicalDeviceProperties2KHR::properties.limits.maxImageDimension2D >= 4096"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_0);
 
@@ -527,7 +577,7 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_property) {
     VkPhysicalDeviceMultiviewPropertiesKHR multiviewProps{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHR };
     VkPhysicalDeviceProperties2KHR props{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR, &multiviewProps };
     vpGetProfileProperties(&profile, &props);
-    props.properties.limits.maxImageDimension2D = 4096; // Unsupported property
+    props.properties.limits.maxImageDimension2D = 2048; // Unsupported property
     props.properties.limits.maxBoundDescriptorSets = 8;
     props.properties.limits.subPixelPrecisionBits = 8;
     props.properties.limits.maxViewports = 4;
@@ -572,6 +622,21 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_property) {
 
 TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_format) {
     MockVulkanAPI mock;
+
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_ANDROID_baseline_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported format condition for VK_FORMAT_E5B9G9R9_UFLOAT_PACK32: "
+            "VkFormatProperties2KHR::formatProperties.optimalTilingFeatures contains "
+            "(VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | "
+            "VK_FORMAT_FEATURE_BLIT_SRC_BIT | "
+            "VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | "
+            "VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | "
+            "VK_FORMAT_FEATURE_TRANSFER_DST_BIT)"
+    });
+#endif
 
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_0);
@@ -660,6 +725,14 @@ TEST(mocked_api_get_physdev_profile_support, vulkan10_unsupported_format) {
 
 TEST(mocked_api_get_physdev_profile_support, vulkan11_supported) {
     MockVulkanAPI mock;
+
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/"
+    });
+#endif
 
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
@@ -783,6 +856,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_supported) {
 TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_version) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_KHR_roadmap_2022 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported API version: 1.3.203"
+    });
+#endif
+
     // Unsupported version
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
@@ -858,6 +940,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_version) {
 TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_extension) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported extension: VK_KHR_driver_properties"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
 
@@ -865,12 +956,11 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_extension) {
         VK_EXT(VK_KHR_8BIT_STORAGE),
         VK_EXT(VK_KHR_CREATE_RENDERPASS_2),
         VK_EXT(VK_KHR_DEPTH_STENCIL_RESOLVE),
-        VK_EXT(VK_KHR_DRIVER_PROPERTIES),
+        // Unsupported extension: VK_EXT(VK_KHR_DRIVER_PROPERTIES),
         VK_EXT(VK_KHR_IMAGE_FORMAT_LIST),
         VK_EXT(VK_KHR_IMAGELESS_FRAMEBUFFER),
         VK_EXT(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE),
         VK_EXT(VK_KHR_SHADER_FLOAT16_INT8),
-        // Unsupported extension: VK_KHR_shader_subgroup_extended_types
         VK_EXT(VK_KHR_TIMELINE_SEMAPHORE),
         VK_EXT(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT),
         VK_EXT(VK_EXT_DESCRIPTOR_INDEXING),
@@ -891,8 +981,7 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_extension) {
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR sf16i8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &vpFeatures };
     VkPhysicalDeviceShaderDrawParametersFeatures sdpFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES, &sf16i8Features };
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR ubslFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, &sdpFeatures };
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR ssgetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &ubslFeatures };
-    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ssgetFeatures };
+    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ubslFeatures};
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &hqResetFeatures };
     VkPhysicalDevice8BitStorageFeatures storage8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES, &descIndFeatures };
     VkPhysicalDevice16BitStorageFeatures storage16Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES, &storage8Features };
@@ -910,7 +999,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_extension) {
         VK_STRUCT(storage8Features),
         VK_STRUCT(descIndFeatures),
         VK_STRUCT(hqResetFeatures),
-        VK_STRUCT(ssgetFeatures),
         VK_STRUCT(ubslFeatures),
         VK_STRUCT(sdpFeatures),
         VK_STRUCT(sf16i8Features),
@@ -980,6 +1068,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_extension) {
 TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_feature) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported feature condition: VkPhysicalDeviceDescriptorIndexingFeaturesEXT::shaderUniformTexelBufferArrayDynamicIndexing == VK_TRUE"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
 
@@ -1013,8 +1110,7 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_feature) {
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR sf16i8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &vpFeatures };
     VkPhysicalDeviceShaderDrawParametersFeatures sdpFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES, &sf16i8Features };
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR ubslFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, &sdpFeatures };
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR ssgetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &ubslFeatures };
-    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ssgetFeatures };
+    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ubslFeatures};
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &hqResetFeatures };
     VkPhysicalDevice8BitStorageFeatures storage8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES, &descIndFeatures };
     VkPhysicalDevice16BitStorageFeatures storage16Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES, &storage8Features };
@@ -1033,7 +1129,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_feature) {
         VK_STRUCT(storage8Features),
         VK_STRUCT(descIndFeatures),
         VK_STRUCT(hqResetFeatures),
-        VK_STRUCT(ssgetFeatures),
         VK_STRUCT(ubslFeatures),
         VK_STRUCT(sdpFeatures),
         VK_STRUCT(sf16i8Features),
@@ -1103,6 +1198,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_feature) {
 TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_property) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported properties condition: VkPhysicalDeviceDescriptorIndexingPropertiesEXT::maxDescriptorSetUpdateAfterBindInputAttachments >= 8"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
 
@@ -1115,7 +1219,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_property) {
         VK_EXT(VK_KHR_IMAGELESS_FRAMEBUFFER),
         VK_EXT(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE),
         VK_EXT(VK_KHR_SHADER_FLOAT16_INT8),
-        VK_EXT(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES),
         VK_EXT(VK_KHR_TIMELINE_SEMAPHORE),
         VK_EXT(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT),
         VK_EXT(VK_EXT_DESCRIPTOR_INDEXING),
@@ -1136,8 +1239,7 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_property) {
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR sf16i8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &vpFeatures };
     VkPhysicalDeviceShaderDrawParametersFeatures sdpFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES, &sf16i8Features };
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR ubslFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, &sdpFeatures };
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR ssgetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &ubslFeatures };
-    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ssgetFeatures };
+    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ubslFeatures};
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &hqResetFeatures };
     VkPhysicalDevice8BitStorageFeatures storage8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES, &descIndFeatures };
     VkPhysicalDevice16BitStorageFeatures storage16Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES, &storage8Features };
@@ -1155,7 +1257,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_property) {
         VK_STRUCT(storage8Features),
         VK_STRUCT(descIndFeatures),
         VK_STRUCT(hqResetFeatures),
-        VK_STRUCT(ssgetFeatures),
         VK_STRUCT(ubslFeatures),
         VK_STRUCT(sdpFeatures),
         VK_STRUCT(sf16i8Features),
@@ -1226,6 +1327,21 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_property) {
 TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_format) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported format condition for VK_FORMAT_E5B9G9R9_UFLOAT_PACK32: "
+            "VkFormatProperties2KHR::formatProperties.optimalTilingFeatures contains "
+            "(VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | "
+            "VK_FORMAT_FEATURE_BLIT_SRC_BIT | "
+            "VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | "
+            "VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | "
+            "VK_FORMAT_FEATURE_TRANSFER_DST_BIT)"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
 
@@ -1238,7 +1354,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_format) {
         VK_EXT(VK_KHR_IMAGELESS_FRAMEBUFFER),
         VK_EXT(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE),
         VK_EXT(VK_KHR_SHADER_FLOAT16_INT8),
-        VK_EXT(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES),
         VK_EXT(VK_KHR_TIMELINE_SEMAPHORE),
         VK_EXT(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT),
         VK_EXT(VK_EXT_DESCRIPTOR_INDEXING),
@@ -1259,8 +1374,7 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_format) {
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR sf16i8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &vpFeatures };
     VkPhysicalDeviceShaderDrawParametersFeatures sdpFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES, &sf16i8Features };
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR ubslFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, &sdpFeatures };
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR ssgetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &ubslFeatures };
-    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ssgetFeatures };
+    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ubslFeatures};
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &hqResetFeatures };
     VkPhysicalDevice8BitStorageFeatures storage8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES, &descIndFeatures };
     VkPhysicalDevice16BitStorageFeatures storage16Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES, &storage8Features };
@@ -1278,7 +1392,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_format) {
         VK_STRUCT(storage8Features),
         VK_STRUCT(descIndFeatures),
         VK_STRUCT(hqResetFeatures),
-        VK_STRUCT(ssgetFeatures),
         VK_STRUCT(ubslFeatures),
         VK_STRUCT(sdpFeatures),
         VK_STRUCT(sf16i8Features),
@@ -1351,6 +1464,15 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_format) {
 TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_queue_family) {
     MockVulkanAPI mock;
 
+#if WITH_DEBUG_MESSAGES
+    MockDebugMessageCallback cb({
+        "Checking device support for profile VP_LUNARG_desktop_portability_2021 "
+            "(deviceName=, driverName=, driverInfo=). You may find the details "
+            "of the capabilities of this device on https://vulkan.gpuinfo.org/",
+        "Unsupported queue family defined at profile data index #0"
+    });
+#endif
+
     mock.SetInstanceAPIVersion(VK_API_VERSION_1_1);
     mock.SetDeviceAPIVersion(VK_API_VERSION_1_1);
 
@@ -1363,7 +1485,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_queue_family) 
         VK_EXT(VK_KHR_IMAGELESS_FRAMEBUFFER),
         VK_EXT(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE),
         VK_EXT(VK_KHR_SHADER_FLOAT16_INT8),
-        VK_EXT(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES),
         VK_EXT(VK_KHR_TIMELINE_SEMAPHORE),
         VK_EXT(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT),
         VK_EXT(VK_EXT_DESCRIPTOR_INDEXING),
@@ -1384,8 +1505,7 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_queue_family) 
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR sf16i8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &vpFeatures };
     VkPhysicalDeviceShaderDrawParametersFeatures sdpFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES, &sf16i8Features };
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR ubslFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, &sdpFeatures };
-    VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR ssgetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &ubslFeatures };
-    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ssgetFeatures };
+    VkPhysicalDeviceHostQueryResetFeaturesEXT hqResetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT, &ubslFeatures };
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &hqResetFeatures };
     VkPhysicalDevice8BitStorageFeatures storage8Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES, &descIndFeatures };
     VkPhysicalDevice16BitStorageFeatures storage16Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES, &storage8Features };
@@ -1403,7 +1523,6 @@ TEST(mocked_api_get_physdev_profile_support, vulkan11_unsupported_queue_family) 
         VK_STRUCT(storage8Features),
         VK_STRUCT(descIndFeatures),
         VK_STRUCT(hqResetFeatures),
-        VK_STRUCT(ssgetFeatures),
         VK_STRUCT(ubslFeatures),
         VK_STRUCT(sdpFeatures),
         VK_STRUCT(sf16i8Features),

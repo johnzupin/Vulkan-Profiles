@@ -1,3 +1,23 @@
+/*
+ * Copyright (C) 2021-2022 Valve Corporation
+ * Copyright (C) 2021-2022 LunarG, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author: Ziga Markus <ziga@lunarg.com>
+ * Author: Christophe Riccio <christophe@lunarg.com>
+ */
+
 #include <vulkan/vulkan_core.h>
 
 #include <gtest/gtest.h>
@@ -13,29 +33,72 @@ static const char* CONFIG_PATH = "bin/Release";
 static const char* CONFIG_PATH = "lib";
 #endif
 
-TEST(profiles, TestPhysicalDeviceProperties) {
-    VkResult err = VK_SUCCESS;
+struct TestInit {
+    TestInit() : instance(VK_NULL_HANDLE), physical_device(VK_NULL_HANDLE) {}
 
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
+    ~TestInit() {
+        if (this->instance != VK_NULL_HANDLE) {
+            vkDestroyInstance(this->instance, nullptr);
+            this->instance = VK_NULL_HANDLE;
+        }
+    }
 
+    void init() {
+        VkResult err = VK_SUCCESS;
+
+        const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
+        profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
+
+        const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
+        profiles_test::setProfilesFilename(filepath);
+        profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
+        profiles_test::setProfilesSimulateAllCapabilities();
+
+        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+
+        err = inst_builder.makeInstance();
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        this->instance = inst_builder.getInstance();
+
+        err = inst_builder.getPhysicalDevice(&this->physical_device);
+        ASSERT_EQ(err, VK_SUCCESS);
+    }
+
+    VkInstance instance;
+    VkPhysicalDevice physical_device;
     profiles_test::VulkanInstanceBuilder inst_builder;
+};
 
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
+static TestInit test;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+VkPhysicalDevice GetPhysicalDevice() {
+    if (test.instance == VK_NULL_HANDLE) {
+        test.init();
+    }
 
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
+    return test.physical_device;
+}
 
-    VkInstance test_inst = inst_builder.getInstance();
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
 
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return -1;
+
+    int result = RUN_ALL_TESTS();
+
+    if (test.instance != VK_NULL_HANDLE) {
+        vkDestroyInstance(test.instance, nullptr);
+        test.instance = VK_NULL_HANDLE;
+    }
+
+    return result;
+}
+
+TEST(profiles, TestPhysicalDeviceProperties) {
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceProperties2 gpu_props{};
     gpu_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -156,34 +219,12 @@ TEST(profiles, TestPhysicalDeviceProperties) {
     EXPECT_EQ(limits.optimalBufferCopyOffsetAlignment, 202u);
     EXPECT_EQ(limits.optimalBufferCopyRowPitchAlignment, 203u);
     EXPECT_EQ(limits.nonCoherentAtomSize, 204u);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestDepthStencilResolveProperties) {
 #ifdef VK_KHR_depth_stencil_resolve
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDepthStencilResolvePropertiesKHR depth_stencil_resolve_properties{};
     depth_stencil_resolve_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
@@ -199,35 +240,13 @@ TEST(profiles, TestDepthStencilResolveProperties) {
               VK_RESOLVE_MODE_AVERAGE_BIT);
     EXPECT_EQ(depth_stencil_resolve_properties.independentResolveNone, VK_TRUE);
     EXPECT_EQ(depth_stencil_resolve_properties.independentResolve, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSubgroupProperties) {
 #ifdef VK_VERSION_1_1
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSubgroupProperties subgroup_properties{};
     subgroup_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
@@ -242,35 +261,13 @@ TEST(profiles, TestSubgroupProperties) {
               (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT));
     EXPECT_EQ(subgroup_properties.supportedOperations & (VK_SUBGROUP_FEATURE_BASIC_BIT), (VK_SUBGROUP_FEATURE_BASIC_BIT));
     EXPECT_EQ(subgroup_properties.quadOperationsInAllStages, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDescriptorIndexingProperties) {
 #ifdef VK_EXT_descriptor_indexing
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDescriptorIndexingPropertiesEXT descriptor_indexing_properties{};
     descriptor_indexing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES_EXT;
@@ -303,35 +300,13 @@ TEST(profiles, TestDescriptorIndexingProperties) {
     EXPECT_EQ(descriptor_indexing_properties.maxDescriptorSetUpdateAfterBindSampledImages, 246u);
     EXPECT_EQ(descriptor_indexing_properties.maxDescriptorSetUpdateAfterBindStorageImages, 247u);
     EXPECT_EQ(descriptor_indexing_properties.maxDescriptorSetUpdateAfterBindInputAttachments, 248u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFloatControlsProperties) {
 #ifdef VK_KHR_shader_float_controls
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFloatControlsPropertiesKHR float_control_properties{};
     float_control_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES_KHR;
@@ -341,10 +316,8 @@ TEST(profiles, TestFloatControlsProperties) {
     gpu_props.pNext = &float_control_properties;
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
-    EXPECT_EQ(float_control_properties.denormBehaviorIndependence & VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL,
-              VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL);
-    EXPECT_EQ(float_control_properties.roundingModeIndependence & VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL,
-              VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL);
+    EXPECT_EQ(float_control_properties.denormBehaviorIndependence, VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL);
+    EXPECT_EQ(float_control_properties.roundingModeIndependence, VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL);
     EXPECT_EQ(float_control_properties.shaderSignedZeroInfNanPreserveFloat16, VK_TRUE);
     EXPECT_EQ(float_control_properties.shaderSignedZeroInfNanPreserveFloat32, VK_TRUE);
     EXPECT_EQ(float_control_properties.shaderSignedZeroInfNanPreserveFloat64, VK_TRUE);
@@ -360,35 +333,13 @@ TEST(profiles, TestFloatControlsProperties) {
     EXPECT_EQ(float_control_properties.shaderRoundingModeRTZFloat16, VK_TRUE);
     EXPECT_EQ(float_control_properties.shaderRoundingModeRTZFloat32, VK_TRUE);
     EXPECT_EQ(float_control_properties.shaderRoundingModeRTZFloat64, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMaintenance3Properties) {
 #ifdef VK_KHR_maintenance3
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMaintenance3PropertiesKHR maintenance_3_properties{};
     maintenance_3_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES_KHR;
@@ -400,35 +351,13 @@ TEST(profiles, TestMaintenance3Properties) {
 
     EXPECT_EQ(maintenance_3_properties.maxPerSetDescriptors, 208u);
     EXPECT_EQ(maintenance_3_properties.maxMemoryAllocationSize, 209u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMaintenance4Properties) {
 #ifdef VK_KHR_maintenance4
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMaintenance4PropertiesKHR maintenance_4_properties{};
     maintenance_4_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES_KHR;
@@ -439,35 +368,13 @@ TEST(profiles, TestMaintenance4Properties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(maintenance_4_properties.maxBufferSize, 260u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMultiviewProperties) {
 #ifdef VK_KHR_multiview
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMultiviewPropertiesKHR multiview_properties{};
     multiview_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHR;
@@ -479,35 +386,13 @@ TEST(profiles, TestMultiviewProperties) {
 
     EXPECT_EQ(multiview_properties.maxMultiviewViewCount, 206u);
     EXPECT_EQ(multiview_properties.maxMultiviewInstanceIndex, 207u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPointClippingProperties) {
 #ifdef VK_KHR_maintenance2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePointClippingPropertiesKHR point_clipping_properties{};
     point_clipping_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_POINT_CLIPPING_PROPERTIES_KHR;
@@ -519,35 +404,13 @@ TEST(profiles, TestPointClippingProperties) {
 
     EXPECT_EQ(point_clipping_properties.pointClippingBehavior & VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES,
               VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestProtectedMemoryProperties) {
 #ifdef VK_VERSION_1_1
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceProtectedMemoryProperties protected_memory_properties{};
     protected_memory_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_PROPERTIES;
@@ -558,35 +421,13 @@ TEST(profiles, TestProtectedMemoryProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(protected_memory_properties.protectedNoFault, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTimelineSemaphoreProperties) {
 #ifdef VK_KHR_timeline_semaphore
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTimelineSemaphorePropertiesKHR timeline_semaphore_properties{};
     timeline_semaphore_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES;
@@ -597,35 +438,13 @@ TEST(profiles, TestTimelineSemaphoreProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(timeline_semaphore_properties.maxTimelineSemaphoreValueDifference, 249u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSamplerFilterMinmaxProperties) {
 #ifdef VK_EXT_sampler_filter_minmax
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT sampler_filter_minmax_properties{};
     sampler_filter_minmax_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT;
@@ -637,35 +456,13 @@ TEST(profiles, TestSamplerFilterMinmaxProperties) {
 
     EXPECT_EQ(sampler_filter_minmax_properties.filterMinmaxSingleComponentFormats, VK_TRUE);
     EXPECT_EQ(sampler_filter_minmax_properties.filterMinmaxImageComponentMapping, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestAccelerationStructurePropertiesKHR) {
 #ifdef VK_KHR_acceleration_structure
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties{};
     acceleration_structure_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
@@ -683,35 +480,13 @@ TEST(profiles, TestAccelerationStructurePropertiesKHR) {
     EXPECT_EQ(acceleration_structure_properties.maxDescriptorSetAccelerationStructures, 366u);
     EXPECT_EQ(acceleration_structure_properties.maxDescriptorSetUpdateAfterBindAccelerationStructures, 367u);
     EXPECT_EQ(acceleration_structure_properties.minAccelerationStructureScratchOffsetAlignment, 368u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPerformanceQueryProperties) {
 #ifdef VK_KHR_performance_query
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePerformanceQueryPropertiesKHR performance_query_properties{};
     performance_query_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_PROPERTIES_KHR;
@@ -722,35 +497,13 @@ TEST(profiles, TestPerformanceQueryProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(performance_query_properties.allowCommandBufferQueryCopies, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPushDescriptorProperties) {
 #ifdef VK_KHR_push_descriptor
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePushDescriptorPropertiesKHR push_descriptor_properties{};
     push_descriptor_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR;
@@ -761,35 +514,13 @@ TEST(profiles, TestPushDescriptorProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(push_descriptor_properties.maxPushDescriptors, 250u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRayTracingPipelineProperties) {
 #ifdef VK_KHR_ray_tracing_pipeline
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties{};
     ray_tracing_pipeline_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
@@ -807,35 +538,13 @@ TEST(profiles, TestRayTracingPipelineProperties) {
     EXPECT_EQ(ray_tracing_pipeline_properties.maxRayDispatchInvocationCount, 374u);
     EXPECT_EQ(ray_tracing_pipeline_properties.shaderGroupHandleAlignment, 375u);
     EXPECT_EQ(ray_tracing_pipeline_properties.maxRayHitAttributeSize, 376u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderIntegerDotProductProperties) {
 #ifdef VK_KHR_shader_integer_dot_product
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR shader_integer_dot_product_properties{};
     shader_integer_dot_product_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES_KHR;
@@ -880,35 +589,13 @@ TEST(profiles, TestShaderIntegerDotProductProperties) {
     EXPECT_EQ(shader_integer_dot_product_properties.integerDotProductAccumulatingSaturating64BitSignedAccelerated, VK_TRUE);
     EXPECT_EQ(shader_integer_dot_product_properties.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated,
               VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestBlendOperationAdvancedProperties) {
 #ifdef VK_EXT_blend_operation_advanced
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT blend_operation_advanced_properties{};
     blend_operation_advanced_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_PROPERTIES_EXT;
@@ -924,35 +611,13 @@ TEST(profiles, TestBlendOperationAdvancedProperties) {
     EXPECT_EQ(blend_operation_advanced_properties.advancedBlendNonPremultipliedDstColor, VK_TRUE);
     EXPECT_EQ(blend_operation_advanced_properties.advancedBlendCorrelatedOverlap, VK_TRUE);
     EXPECT_EQ(blend_operation_advanced_properties.advancedBlendAllOperations, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestConservativeRasterizationProperties) {
 #ifdef VK_EXT_conservative_rasterization
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservative_rasterization_properties{};
     conservative_rasterization_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT;
@@ -971,35 +636,13 @@ TEST(profiles, TestConservativeRasterizationProperties) {
     EXPECT_EQ(conservative_rasterization_properties.degenerateLinesRasterized, VK_TRUE);
     EXPECT_EQ(conservative_rasterization_properties.fullyCoveredFragmentShaderInputVariable, VK_TRUE);
     EXPECT_EQ(conservative_rasterization_properties.conservativeRasterizationPostDepthCoverage, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCustomBorderColorProperties) {
 #ifdef VK_EXT_custom_border_color
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCustomBorderColorPropertiesEXT custom_border_color_properties{};
     custom_border_color_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_PROPERTIES_EXT;
@@ -1010,35 +653,13 @@ TEST(profiles, TestCustomBorderColorProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(custom_border_color_properties.maxCustomBorderColorSamplers, 356u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDiscardRectangleProperties) {
 #ifdef VK_EXT_discard_rectangles
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDiscardRectanglePropertiesEXT discard_rectangle_properties{};
     discard_rectangle_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT;
@@ -1049,35 +670,13 @@ TEST(profiles, TestDiscardRectangleProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(discard_rectangle_properties.maxDiscardRectangles, 267u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestExternalMemoryHostPropertiesEXT) {
 #ifdef VK_EXT_external_memory_host
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host_properties{};
     external_memory_host_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT;
@@ -1088,35 +687,13 @@ TEST(profiles, TestExternalMemoryHostPropertiesEXT) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(external_memory_host_properties.minImportedHostPointerAlignment, 296u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentDensityMapProperties) {
 #ifdef VK_EXT_fragment_density_map
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentDensityMapPropertiesEXT fragment_density_map_properties{};
     fragment_density_map_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT;
@@ -1131,35 +708,13 @@ TEST(profiles, TestFragmentDensityMapProperties) {
     EXPECT_EQ(fragment_density_map_properties.maxFragmentDensityTexelSize.width, 336u);
     EXPECT_EQ(fragment_density_map_properties.maxFragmentDensityTexelSize.height, 337u);
     EXPECT_EQ(fragment_density_map_properties.fragmentDensityInvocations, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestInlineUniformBlockProperties) {
 #ifdef VK_EXT_inline_uniform_block
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceInlineUniformBlockPropertiesEXT inline_uniform_block_properties{};
     inline_uniform_block_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT;
@@ -1174,35 +729,13 @@ TEST(profiles, TestInlineUniformBlockProperties) {
     EXPECT_EQ(inline_uniform_block_properties.maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks, 273u);
     EXPECT_EQ(inline_uniform_block_properties.maxDescriptorSetInlineUniformBlocks, 274u);
     EXPECT_EQ(inline_uniform_block_properties.maxDescriptorSetUpdateAfterBindInlineUniformBlocks, 275u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestLineRasterizationProperties) {
 #ifdef VK_EXT_line_rasterization
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceLineRasterizationPropertiesEXT line_rasterization_properties{};
     line_rasterization_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT;
@@ -1213,35 +746,13 @@ TEST(profiles, TestLineRasterizationProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(line_rasterization_properties.lineSubPixelPrecisionBits, 342u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMultiDrawProperties) {
 #ifdef VK_EXT_multi_draw
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMultiDrawPropertiesEXT mutli_draw_properties{};
     mutli_draw_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT;
@@ -1252,35 +763,13 @@ TEST(profiles, TestMultiDrawProperties) {
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
     EXPECT_EQ(mutli_draw_properties.maxMultiDrawCount, 360u);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestProvokingVertexProperties) {
 #ifdef VK_EXT_provoking_vertex
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceProvokingVertexPropertiesEXT provoking_vertex_properties{};
     provoking_vertex_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_PROPERTIES_EXT;
@@ -1293,34 +782,13 @@ TEST(profiles, TestProvokingVertexProperties) {
     EXPECT_EQ(provoking_vertex_properties.provokingVertexModePerPipeline, VK_TRUE);
     EXPECT_EQ(provoking_vertex_properties.transformFeedbackPreservesTriangleFanProvokingVertex, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRobustness2Properties) {
 #ifdef VK_EXT_robustness2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRobustness2PropertiesEXT robustness_2_properties{};
     robustness_2_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT;
@@ -1333,34 +801,13 @@ TEST(profiles, TestRobustness2Properties) {
     EXPECT_EQ(robustness_2_properties.robustStorageBufferAccessSizeAlignment, 354u);
     EXPECT_EQ(robustness_2_properties.robustUniformBufferAccessSizeAlignment, 355u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSampleLocationsProperties) {
 #ifdef VK_EXT_sample_locations
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSampleLocationsPropertiesEXT sample_locations_properties{};
     sample_locations_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT;
@@ -1378,34 +825,13 @@ TEST(profiles, TestSampleLocationsProperties) {
     EXPECT_EQ(sample_locations_properties.sampleLocationSubPixelBits, 280u);
     EXPECT_EQ(sample_locations_properties.variableSampleLocations, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSubgroupSizeControlProperties) {
 #ifdef VK_EXT_subgroup_size_control
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control_properties{};
     subgroup_size_control_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES_EXT;
@@ -1420,34 +846,13 @@ TEST(profiles, TestSubgroupSizeControlProperties) {
     EXPECT_EQ(subgroup_size_control_properties.maxComputeWorkgroupSubgroups, 340u);
     EXPECT_EQ(subgroup_size_control_properties.requiredSubgroupSizeStages & VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_VERTEX_BIT);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTexelBufferAlignmentProperties) {
 #ifdef VK_EXT_texel_buffer_alignment
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTexelBufferAlignmentPropertiesEXT texel_buffer_alignment_properties{};
     texel_buffer_alignment_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES_EXT;
@@ -1462,34 +867,13 @@ TEST(profiles, TestTexelBufferAlignmentProperties) {
     EXPECT_EQ(texel_buffer_alignment_properties.uniformTexelBufferOffsetAlignmentBytes, 353u);
     EXPECT_EQ(texel_buffer_alignment_properties.uniformTexelBufferOffsetSingleTexelAlignment, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTransformFeedbackProperties) {
 #ifdef VK_EXT_transform_feedback
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTransformFeedbackPropertiesEXT transform_feedback_properties{};
     transform_feedback_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
@@ -1510,34 +894,13 @@ TEST(profiles, TestTransformFeedbackProperties) {
     EXPECT_EQ(transform_feedback_properties.transformFeedbackRasterizationStreamSelect, VK_TRUE);
     EXPECT_EQ(transform_feedback_properties.transformFeedbackDraw, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestVertexAttributeDivisorProperties) {
 #ifdef VK_EXT_vertex_attribute_divisor
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT vertex_attribute_divisor_properties{};
     vertex_attribute_divisor_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT;
@@ -1549,34 +912,13 @@ TEST(profiles, TestVertexAttributeDivisorProperties) {
 
     EXPECT_EQ(vertex_attribute_divisor_properties.maxVertexAttribDivisor, 312u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentShadingRateProperties) {
 #ifdef VK_KHR_fragment_shading_rate
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentShadingRatePropertiesKHR fragment_shading_rate_properties{};
     fragment_shading_rate_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
@@ -1598,8 +940,7 @@ TEST(profiles, TestFragmentShadingRateProperties) {
     EXPECT_EQ(fragment_shading_rate_properties.maxFragmentSize.height, 257u);
     EXPECT_EQ(fragment_shading_rate_properties.maxFragmentSizeAspectRatio, 258u);
     EXPECT_EQ(fragment_shading_rate_properties.maxFragmentShadingRateCoverageSamples, 259u);
-    EXPECT_EQ(fragment_shading_rate_properties.maxFragmentShadingRateRasterizationSamples & VK_SAMPLE_COUNT_1_BIT,
-              VK_SAMPLE_COUNT_1_BIT);
+    EXPECT_EQ(fragment_shading_rate_properties.maxFragmentShadingRateRasterizationSamples, VK_SAMPLE_COUNT_4_BIT);
     EXPECT_EQ(fragment_shading_rate_properties.fragmentShadingRateWithShaderDepthStencilWrites, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties.fragmentShadingRateWithSampleMask, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties.fragmentShadingRateWithShaderSampleMask, VK_TRUE);
@@ -1608,34 +949,13 @@ TEST(profiles, TestFragmentShadingRateProperties) {
     EXPECT_EQ(fragment_shading_rate_properties.fragmentShadingRateWithCustomSampleLocations, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties.fragmentShadingRateStrictMultiplyCombiner, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderCoreProperties) {
 #ifdef VK_AMD_shader_core_properties
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderCorePropertiesAMD shader_core_properties{};
     shader_core_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_AMD;
@@ -1660,34 +980,13 @@ TEST(profiles, TestShaderCoreProperties) {
     EXPECT_EQ(shader_core_properties.maxVgprAllocation, 310u);
     EXPECT_EQ(shader_core_properties.vgprAllocationGranularity, 311u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderCoreProperties2) {
 #ifdef VK_AMD_shader_core_properties2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderCoreProperties2AMD shader_core_properties_2{};
     shader_core_properties_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD;
@@ -1700,34 +999,13 @@ TEST(profiles, TestShaderCoreProperties2) {
     EXPECT_EQ(shader_core_properties_2.shaderCoreFeatures, 0u);
     EXPECT_EQ(shader_core_properties_2.activeComputeUnitCount, 341u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSubpassShadingProperties) {
 #ifdef VK_HUAWEI_subpass_shading
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSubpassShadingPropertiesHUAWEI subpass_shading_properties{};
     subpass_shading_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBPASS_SHADING_PROPERTIES_HUAWEI;
@@ -1739,34 +1017,13 @@ TEST(profiles, TestSubpassShadingProperties) {
 
     EXPECT_EQ(subpass_shading_properties.maxSubpassShadingWorkgroupSizeAspectRatio, 359u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCooperativeMatrixProperties) {
 #ifdef VK_NV_cooperative_matrix
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCooperativeMatrixPropertiesNV cooperative_matrix_properties{};
     cooperative_matrix_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_NV;
@@ -1779,34 +1036,13 @@ TEST(profiles, TestCooperativeMatrixProperties) {
     EXPECT_EQ(cooperative_matrix_properties.cooperativeMatrixSupportedStages & VK_SHADER_STAGE_VERTEX_BIT,
               VK_SHADER_STAGE_VERTEX_BIT);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDeviceGeneratedCommandProperties) {
 #ifdef VK_NV_device_generated_commands
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV device_generated_commands_properties{};
     device_generated_commands_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV;
@@ -1826,34 +1062,13 @@ TEST(profiles, TestDeviceGeneratedCommandProperties) {
     EXPECT_EQ(device_generated_commands_properties.minSequencesIndexBufferOffsetAlignment, 350u);
     EXPECT_EQ(device_generated_commands_properties.minIndirectCommandsBufferOffsetAlignment, 351u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentShadingRateEnumsProperties) {
 #ifdef VK_NV_fragment_shading_rate_enums
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentShadingRateEnumsPropertiesNV fragment_shading_rate_enums_properties{};
     fragment_shading_rate_enums_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_ENUMS_PROPERTIES_NV;
@@ -1863,38 +1078,15 @@ TEST(profiles, TestFragmentShadingRateEnumsProperties) {
     gpu_props.pNext = &fragment_shading_rate_enums_properties;
     vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
-    EXPECT_EQ(fragment_shading_rate_enums_properties.maxFragmentShadingRateInvocationCount &
-                  (VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT),
-              VK_SAMPLE_COUNT_1_BIT | VK_SAMPLE_COUNT_4_BIT);
+    EXPECT_EQ(fragment_shading_rate_enums_properties.maxFragmentShadingRateInvocationCount, VK_SAMPLE_COUNT_4_BIT);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMeshShaderProperties) {
 #ifdef VK_NV_mesh_shader
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMeshShaderPropertiesNV mesh_shader_properties{};
     mesh_shader_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV;
@@ -1922,34 +1114,13 @@ TEST(profiles, TestMeshShaderProperties) {
     EXPECT_EQ(mesh_shader_properties.meshOutputPerVertexGranularity, 328u);
     EXPECT_EQ(mesh_shader_properties.meshOutputPerPrimitiveGranularity, 329u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRayTracingProperties) {
 #ifdef VK_NV_ray_tracing
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRayTracingPropertiesNV ray_tracing_properties{};
     ray_tracing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
@@ -1968,34 +1139,13 @@ TEST(profiles, TestRayTracingProperties) {
     EXPECT_EQ(ray_tracing_properties.maxTriangleCount, 294u);
     EXPECT_EQ(ray_tracing_properties.maxDescriptorSetAccelerationStructures, 295u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderSMBuiltinsProperties) {
 #ifdef VK_NV_shader_sm_builtins
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderSMBuiltinsPropertiesNV shader_sm_builtins_properties{};
     shader_sm_builtins_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV;
@@ -2008,34 +1158,13 @@ TEST(profiles, TestShaderSMBuiltinsProperties) {
     EXPECT_EQ(shader_sm_builtins_properties.shaderSMCount, 282u);
     EXPECT_EQ(shader_sm_builtins_properties.shaderWarpsPerSM, 283u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShadingRateImageProperties) {
 #ifdef VK_NV_shading_rate_image
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShadingRateImagePropertiesNV shading_rate_image_properties{};
     shading_rate_image_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADING_RATE_IMAGE_PROPERTIES_NV;
@@ -2050,34 +1179,13 @@ TEST(profiles, TestShadingRateImageProperties) {
     EXPECT_EQ(shading_rate_image_properties.shadingRatePaletteSize, 286u);
     EXPECT_EQ(shading_rate_image_properties.shadingRateMaxCoarseSamples, 287u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentDensityMapOffsetProperties) {
 #ifdef VK_QCOM_fragment_density_map_offset
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentDensityMapOffsetPropertiesQCOM fragment_density_map_offset_properties{};
     fragment_density_map_offset_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_PROPERTIES_QCOM;
@@ -2090,33 +1198,12 @@ TEST(profiles, TestFragmentDensityMapOffsetProperties) {
     EXPECT_EQ(fragment_density_map_offset_properties.fragmentDensityOffsetGranularity.width, 7u);
     EXPECT_EQ(fragment_density_map_offset_properties.fragmentDensityOffsetGranularity.height, 6u);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPhysicalDeviceFeatures) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFeatures2 features{};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -2177,34 +1264,12 @@ TEST(profiles, TestPhysicalDeviceFeatures) {
     EXPECT_EQ(features.features.sparseResidencyAliased, VK_TRUE);
     EXPECT_EQ(features.features.variableMultisampleRate, VK_TRUE);
     EXPECT_EQ(features.features.inheritedQueries, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestHostQueryResetFeatures) {
 #ifdef VK_EXT_host_query_reset
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceHostQueryResetFeaturesEXT host_query_reset_features{};
     host_query_reset_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
@@ -2216,34 +1281,13 @@ TEST(profiles, TestHostQueryResetFeatures) {
 
     EXPECT_EQ(host_query_reset_features.hostQueryReset, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMaintenance4Features) {
 #ifdef VK_KHR_maintenance4
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMaintenance4FeaturesKHR maintenance_4_features{};
     maintenance_4_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES_KHR;
@@ -2255,34 +1299,13 @@ TEST(profiles, TestMaintenance4Features) {
 
     EXPECT_EQ(maintenance_4_features.maintenance4, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, Test16BitStorageFeatures) {
 #ifdef VK_KHR_16bit_storage
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevice16BitStorageFeaturesKHR f_16_bit_storage_features{};
     f_16_bit_storage_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
@@ -2297,34 +1320,13 @@ TEST(profiles, Test16BitStorageFeatures) {
     EXPECT_EQ(f_16_bit_storage_features.storagePushConstant16, VK_TRUE);
     EXPECT_EQ(f_16_bit_storage_features.storageInputOutput16, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, Test8BitStorageFeatures) {
 #ifdef VK_KHR_8bit_storage
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevice8BitStorageFeaturesKHR f_8_bit_storage_features{};
     f_8_bit_storage_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
@@ -2338,34 +1340,13 @@ TEST(profiles, Test8BitStorageFeatures) {
     EXPECT_EQ(f_8_bit_storage_features.uniformAndStorageBuffer8BitAccess, VK_TRUE);
     EXPECT_EQ(f_8_bit_storage_features.storagePushConstant8, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestBufferDeviceAddressFeatures) {
 #ifdef VK_KHR_buffer_device_address
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address_features{};
     buffer_device_address_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
@@ -2379,34 +1360,13 @@ TEST(profiles, TestBufferDeviceAddressFeatures) {
     EXPECT_EQ(buffer_device_address_features.bufferDeviceAddressCaptureReplay, VK_TRUE);
     EXPECT_EQ(buffer_device_address_features.bufferDeviceAddressMultiDevice, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDescriptorIndexingFeatures) {
 #ifdef VK_EXT_descriptor_indexing
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descriptor_indexing_features{};
     descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
@@ -2437,34 +1397,13 @@ TEST(profiles, TestDescriptorIndexingFeatures) {
     EXPECT_EQ(descriptor_indexing_features.descriptorBindingVariableDescriptorCount, VK_TRUE);
     EXPECT_EQ(descriptor_indexing_features.runtimeDescriptorArray, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestImagelessFramebufferFeatures) {
 #ifdef VK_KHR_imageless_framebuffer
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceImagelessFramebufferFeaturesKHR imageless_framebuffer_features{};
     imageless_framebuffer_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGELESS_FRAMEBUFFER_FEATURES_KHR;
@@ -2476,34 +1415,13 @@ TEST(profiles, TestImagelessFramebufferFeatures) {
 
     EXPECT_EQ(imageless_framebuffer_features.imagelessFramebuffer, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMultiviewFeatures) {
 #ifdef VK_KHR_multiview
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMultiviewFeaturesKHR multiview_features{};
     multiview_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
@@ -2517,34 +1435,13 @@ TEST(profiles, TestMultiviewFeatures) {
     EXPECT_EQ(multiview_features.multiviewGeometryShader, VK_TRUE);
     EXPECT_EQ(multiview_features.multiviewTessellationShader, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestProtectedMemoryFeatures) {
 #ifdef VK_VERSION_1_1
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceProtectedMemoryFeatures protected_memory_features{};
     protected_memory_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES;
@@ -2556,34 +1453,13 @@ TEST(profiles, TestProtectedMemoryFeatures) {
 
     EXPECT_EQ(protected_memory_features.protectedMemory, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSamplerYcbcrConversionFeatures) {
 #ifdef VK_KHR_sampler_ycbcr_conversion
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR sampler_ycbcr_conversion_features{};
     sampler_ycbcr_conversion_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES_KHR;
@@ -2595,34 +1471,13 @@ TEST(profiles, TestSamplerYcbcrConversionFeatures) {
 
     EXPECT_EQ(sampler_ycbcr_conversion_features.samplerYcbcrConversion, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestScalarBlockLayoutFeatures) {
 #ifdef VK_EXT_scalar_block_layout
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalar_block_layout_features{};
     scalar_block_layout_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
@@ -2634,34 +1489,13 @@ TEST(profiles, TestScalarBlockLayoutFeatures) {
 
     EXPECT_EQ(scalar_block_layout_features.scalarBlockLayout, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSeparateDepthStencilLayoutsFeatures) {
 #ifdef VK_KHR_separate_depth_stencil_layouts
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSeparateDepthStencilLayoutsFeaturesKHR separate_depth_stencil_layout_featuers{};
     separate_depth_stencil_layout_featuers.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES_KHR;
@@ -2673,34 +1507,13 @@ TEST(profiles, TestSeparateDepthStencilLayoutsFeatures) {
 
     EXPECT_EQ(separate_depth_stencil_layout_featuers.separateDepthStencilLayouts, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderAtomicInt64Features) {
 #ifdef VK_KHR_shader_atomic_int64
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderAtomicInt64FeaturesKHR shader_atomic_int64_features{};
     shader_atomic_int64_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR;
@@ -2713,34 +1526,13 @@ TEST(profiles, TestShaderAtomicInt64Features) {
     EXPECT_EQ(shader_atomic_int64_features.shaderBufferInt64Atomics, VK_TRUE);
     EXPECT_EQ(shader_atomic_int64_features.shaderSharedInt64Atomics, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderDrawParametersFeatures) {
 #ifdef VK_VERSION_1_1
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderDrawParametersFeatures shader_draw_paramenters_features{};
     shader_draw_paramenters_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
@@ -2752,34 +1544,13 @@ TEST(profiles, TestShaderDrawParametersFeatures) {
 
     EXPECT_EQ(shader_draw_paramenters_features.shaderDrawParameters, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderFloat16Int8Features) {
 #ifdef VK_KHR_shader_float16_int8
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderFloat16Int8FeaturesKHR shader_float16_int8_features{};
     shader_float16_int8_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR;
@@ -2792,34 +1563,13 @@ TEST(profiles, TestShaderFloat16Int8Features) {
     EXPECT_EQ(shader_float16_int8_features.shaderFloat16, VK_TRUE);
     EXPECT_EQ(shader_float16_int8_features.shaderInt8, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderSubgroupExtendedTypesFeatures) {
 #ifdef VK_KHR_shader_subgroup_extended_types
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR shader_subgroup_extended_types_features{};
     shader_subgroup_extended_types_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
@@ -2831,34 +1581,13 @@ TEST(profiles, TestShaderSubgroupExtendedTypesFeatures) {
 
     EXPECT_EQ(shader_subgroup_extended_types_features.shaderSubgroupExtendedTypes, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTimelineSemaphoreFeatures) {
 #ifdef VK_KHR_timeline_semaphore
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTimelineSemaphoreFeaturesKHR timeline_semaphore_features{};
     timeline_semaphore_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
@@ -2870,34 +1599,13 @@ TEST(profiles, TestTimelineSemaphoreFeatures) {
 
     EXPECT_EQ(timeline_semaphore_features.timelineSemaphore, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestUniformBufferStandardLayoutFeatures) {
 #ifdef VK_KHR_uniform_buffer_standard_layout
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR uniform_buffer_standard_layout_features{};
     uniform_buffer_standard_layout_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR;
@@ -2909,34 +1617,13 @@ TEST(profiles, TestUniformBufferStandardLayoutFeatures) {
 
     EXPECT_EQ(uniform_buffer_standard_layout_features.uniformBufferStandardLayout, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestVariablePointersFeatures) {
 #ifdef VK_KHR_variable_pointers
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceVariablePointersFeaturesKHR variable_pointer_features{};
     variable_pointer_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES_KHR;
@@ -2949,34 +1636,13 @@ TEST(profiles, TestVariablePointersFeatures) {
     EXPECT_EQ(variable_pointer_features.variablePointersStorageBuffer, VK_TRUE);
     EXPECT_EQ(variable_pointer_features.variablePointers, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestVulkanMemoryModelFeatures) {
 #ifdef VK_KHR_vulkan_memory_model
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceVulkanMemoryModelFeaturesKHR vulkan_memory_model_features{};
     vulkan_memory_model_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR;
@@ -2990,34 +1656,13 @@ TEST(profiles, TestVulkanMemoryModelFeatures) {
     EXPECT_EQ(vulkan_memory_model_features.vulkanMemoryModelDeviceScope, VK_TRUE);
     EXPECT_EQ(vulkan_memory_model_features.vulkanMemoryModelAvailabilityVisibilityChains, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestZeroInitializeWorkgroupMemoryFeatures) {
 #ifdef VK_KHR_zero_initialize_workgroup_memory
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR zero_initialize_workgroup_memory_features{};
     zero_initialize_workgroup_memory_features.sType =
@@ -3030,34 +1675,13 @@ TEST(profiles, TestZeroInitializeWorkgroupMemoryFeatures) {
 
     EXPECT_EQ(zero_initialize_workgroup_memory_features.shaderZeroInitializeWorkgroupMemory, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestAccelerationStructureFeatures) {
 #ifdef VK_KHR_acceleration_structure
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
     acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
@@ -3073,34 +1697,13 @@ TEST(profiles, TestAccelerationStructureFeatures) {
     EXPECT_EQ(acceleration_structure_features.accelerationStructureHostCommands, VK_TRUE);
     EXPECT_EQ(acceleration_structure_features.descriptorBindingAccelerationStructureUpdateAfterBind, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPerformanceQueryFeatures) {
 #ifdef VK_KHR_performance_query
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePerformanceQueryFeaturesKHR performance_query_features{};
     performance_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR;
@@ -3113,34 +1716,13 @@ TEST(profiles, TestPerformanceQueryFeatures) {
     EXPECT_EQ(performance_query_features.performanceCounterQueryPools, VK_TRUE);
     EXPECT_EQ(performance_query_features.performanceCounterMultipleQueryPools, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPipelineExecutablePropertiesFeatures) {
 #ifdef VK_KHR_pipeline_executable_properties
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR pipeline_executable_properties_features{};
     pipeline_executable_properties_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR;
@@ -3152,34 +1734,13 @@ TEST(profiles, TestPipelineExecutablePropertiesFeatures) {
 
     EXPECT_EQ(pipeline_executable_properties_features.pipelineExecutableInfo, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPresentIdFeatures) {
 #ifdef VK_KHR_present_id
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePresentIdFeaturesKHR present_id_features{};
     present_id_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
@@ -3191,34 +1752,13 @@ TEST(profiles, TestPresentIdFeatures) {
 
     EXPECT_EQ(present_id_features.presentId, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPresentWaitFeatures) {
 #ifdef VK_KHR_present_wait
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePresentWaitFeaturesKHR present_wait_features{};
     present_wait_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR;
@@ -3230,34 +1770,13 @@ TEST(profiles, TestPresentWaitFeatures) {
 
     EXPECT_EQ(present_wait_features.presentWait, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRayQueryFeatures) {
 #ifdef VK_KHR_ray_query
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features{};
     ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
@@ -3269,34 +1788,13 @@ TEST(profiles, TestRayQueryFeatures) {
 
     EXPECT_EQ(ray_query_features.rayQuery, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRayTracingPipelineFeatures) {
 #ifdef VK_TEST
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
     ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
@@ -3312,34 +1810,13 @@ TEST(profiles, TestRayTracingPipelineFeatures) {
     EXPECT_EQ(ray_tracing_pipeline_features.rayTracingPipelineTraceRaysIndirect, VK_TRUE);
     EXPECT_EQ(ray_tracing_pipeline_features.rayTraversalPrimitiveCulling, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderClockFeatures) {
 #ifdef VK_KHR_ray_tracing_pipeline
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderClockFeaturesKHR shader_clock_features{};
     shader_clock_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
@@ -3352,34 +1829,13 @@ TEST(profiles, TestShaderClockFeatures) {
     EXPECT_EQ(shader_clock_features.shaderSubgroupClock, VK_TRUE);
     EXPECT_EQ(shader_clock_features.shaderDeviceClock, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderIntegerDotProductFeatures) {
 #ifdef VK_KHR_shader_integer_dot_product
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR shader_integer_dot_product_features{};
     shader_integer_dot_product_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR;
@@ -3391,34 +1847,13 @@ TEST(profiles, TestShaderIntegerDotProductFeatures) {
 
     EXPECT_EQ(shader_integer_dot_product_features.shaderIntegerDotProduct, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderSubgroupUniformControlFlowFeatures) {
 #ifdef VK_KHR_shader_subgroup_uniform_control_flow
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR shader_subgroup_uniform_control_flow_features{};
     shader_subgroup_uniform_control_flow_features.sType =
@@ -3431,34 +1866,13 @@ TEST(profiles, TestShaderSubgroupUniformControlFlowFeatures) {
 
     EXPECT_EQ(shader_subgroup_uniform_control_flow_features.shaderSubgroupUniformControlFlow, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderTerminateInvocationFeatures) {
 #ifdef VK_KHR_shader_terminate_invocation
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR shader_terminate_invocation_features{};
     shader_terminate_invocation_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR;
@@ -3470,34 +1884,13 @@ TEST(profiles, TestShaderTerminateInvocationFeatures) {
 
     EXPECT_EQ(shader_terminate_invocation_features.shaderTerminateInvocation, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSynchronization2Features) {
 #ifdef VK_KHR_synchronization2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSynchronization2FeaturesKHR synchronization_2_features{};
     synchronization_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
@@ -3509,34 +1902,13 @@ TEST(profiles, TestSynchronization2Features) {
 
     EXPECT_EQ(synchronization_2_features.synchronization2, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestWorkgroupMemoryExplicitLayoutFeatures) {
 #ifdef VK_KHR_workgroup_memory_explicit_layout
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR workgroup_memory_explicit_layout_features{};
     workgroup_memory_explicit_layout_features.sType =
@@ -3552,34 +1924,13 @@ TEST(profiles, TestWorkgroupMemoryExplicitLayoutFeatures) {
     EXPECT_EQ(workgroup_memory_explicit_layout_features.workgroupMemoryExplicitLayout8BitAccess, VK_TRUE);
     EXPECT_EQ(workgroup_memory_explicit_layout_features.workgroupMemoryExplicitLayout16BitAccess, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, Test4444FormatsFeatures) {
 #ifdef VK_EXT_4444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevice4444FormatsFeaturesEXT f_4444_formats_features{};
     f_4444_formats_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT;
@@ -3592,34 +1943,13 @@ TEST(profiles, Test4444FormatsFeatures) {
     EXPECT_EQ(f_4444_formats_features.formatA4R4G4B4, VK_TRUE);
     EXPECT_EQ(f_4444_formats_features.formatA4B4G4R4, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestASTCDecodeFeatures) {
 #ifdef VK_EXT_astc_decode_mode
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceASTCDecodeFeaturesEXT astc_decode_features{};
     astc_decode_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT;
@@ -3631,34 +1961,13 @@ TEST(profiles, TestASTCDecodeFeatures) {
 
     EXPECT_EQ(astc_decode_features.decodeModeSharedExponent, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestBlendOperationAdvancedFeatures) {
 #ifdef VK_EXT_blend_operation_advanced
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT blend_operation_advanced_features{};
     blend_operation_advanced_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_FEATURES_EXT;
@@ -3670,34 +1979,13 @@ TEST(profiles, TestBlendOperationAdvancedFeatures) {
 
     EXPECT_EQ(blend_operation_advanced_features.advancedBlendCoherentOperations, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestBorderColorSwizzleFeatures) {
 #ifdef VK_EXT_border_color_swizzle
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceBorderColorSwizzleFeaturesEXT border_color_swizzle_features{};
     border_color_swizzle_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BORDER_COLOR_SWIZZLE_FEATURES_EXT;
@@ -3710,34 +1998,13 @@ TEST(profiles, TestBorderColorSwizzleFeatures) {
     EXPECT_EQ(border_color_swizzle_features.borderColorSwizzle, VK_TRUE);
     EXPECT_EQ(border_color_swizzle_features.borderColorSwizzleFromImage, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestColorWriteEnableFeatures) {
 #ifdef VK_EXT_color_write_enable
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceColorWriteEnableFeaturesEXT color_write_enable_features{};
     color_write_enable_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT;
@@ -3749,34 +2016,13 @@ TEST(profiles, TestColorWriteEnableFeatures) {
 
     EXPECT_EQ(color_write_enable_features.colorWriteEnable, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestConditionalRenderingFeatures) {
 #ifdef VK_EXT_conditional_rendering
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceConditionalRenderingFeaturesEXT conditional_rendering_features{};
     conditional_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT;
@@ -3789,34 +2035,13 @@ TEST(profiles, TestConditionalRenderingFeatures) {
     EXPECT_EQ(conditional_rendering_features.conditionalRendering, VK_TRUE);
     EXPECT_EQ(conditional_rendering_features.inheritedConditionalRendering, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCustomBorderColorFeatures) {
 #ifdef VK_EXT_custom_border_color
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCustomBorderColorFeaturesEXT custom_border_color_features{};
     custom_border_color_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT;
@@ -3829,34 +2054,13 @@ TEST(profiles, TestCustomBorderColorFeatures) {
     EXPECT_EQ(custom_border_color_features.customBorderColors, VK_TRUE);
     EXPECT_EQ(custom_border_color_features.customBorderColorWithoutFormat, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDepthClipEnableFeatures) {
 #ifdef VK_EXT_depth_clip_enable
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDepthClipEnableFeaturesEXT depth_clip_enable_features{};
     depth_clip_enable_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT;
@@ -3868,34 +2072,13 @@ TEST(profiles, TestDepthClipEnableFeatures) {
 
     EXPECT_EQ(depth_clip_enable_features.depthClipEnable, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDeviceMemoryReportFeatures) {
 #ifdef VK_EXT_device_memory_report
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDeviceMemoryReportFeaturesEXT device_memory_report_features{};
     device_memory_report_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT;
@@ -3907,34 +2090,13 @@ TEST(profiles, TestDeviceMemoryReportFeatures) {
 
     EXPECT_EQ(device_memory_report_features.deviceMemoryReport, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestExtendedDynamicStateFeatures) {
 #ifdef VK_EXT_extended_dynamic_state
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state_features{};
     extended_dynamic_state_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
@@ -3946,34 +2108,13 @@ TEST(profiles, TestExtendedDynamicStateFeatures) {
 
     EXPECT_EQ(extended_dynamic_state_features.extendedDynamicState, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestExtendedDynamicState2Features) {
 #ifdef VK_EXT_extended_dynamic_state2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceExtendedDynamicState2FeaturesEXT extended_dynamic_state_2_features{};
     extended_dynamic_state_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
@@ -3987,34 +2128,13 @@ TEST(profiles, TestExtendedDynamicState2Features) {
     EXPECT_EQ(extended_dynamic_state_2_features.extendedDynamicState2LogicOp, VK_TRUE);
     EXPECT_EQ(extended_dynamic_state_2_features.extendedDynamicState2PatchControlPoints, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentDensityMapFeatures) {
 #ifdef VK_EXT_fragment_density_map
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentDensityMapFeaturesEXT fragment_density_map_features{};
     fragment_density_map_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT;
@@ -4028,34 +2148,13 @@ TEST(profiles, TestFragmentDensityMapFeatures) {
     EXPECT_EQ(fragment_density_map_features.fragmentDensityMapDynamic, VK_TRUE);
     EXPECT_EQ(fragment_density_map_features.fragmentDensityMapNonSubsampledImages, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentShaderInterlockFeatures) {
 #ifdef VK_EXT_fragment_shader_interlock
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT fragment_shader_interlock_features{};
     fragment_shader_interlock_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT;
@@ -4069,34 +2168,13 @@ TEST(profiles, TestFragmentShaderInterlockFeatures) {
     EXPECT_EQ(fragment_shader_interlock_features.fragmentShaderPixelInterlock, VK_TRUE);
     EXPECT_EQ(fragment_shader_interlock_features.fragmentShaderShadingRateInterlock, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestGlobalPriorityQueryFeatures) {
 #ifdef VK_EXT_global_priority_query
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT global_priority_query_features{};
     global_priority_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_EXT;
@@ -4108,34 +2186,13 @@ TEST(profiles, TestGlobalPriorityQueryFeatures) {
 
     EXPECT_EQ(global_priority_query_features.globalPriorityQuery, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestImageRobustnessFeatures) {
 #ifdef VK_EXT_image_robustness
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceImageRobustnessFeaturesEXT image_robustness_features{};
     image_robustness_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT;
@@ -4147,34 +2204,13 @@ TEST(profiles, TestImageRobustnessFeatures) {
 
     EXPECT_EQ(image_robustness_features.robustImageAccess, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestIndexTypeUint8Features) {
 #ifdef VK_EXT_index_type_uint8
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceIndexTypeUint8FeaturesEXT index_type_uint8_features{};
     index_type_uint8_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT;
@@ -4186,34 +2222,13 @@ TEST(profiles, TestIndexTypeUint8Features) {
 
     EXPECT_EQ(index_type_uint8_features.indexTypeUint8, VK_TRUE);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestInlineUniformBlockFeatures) {
 #ifdef VK_EXT_inline_uniform_block
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features{};
     inline_uniform_block_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT;
@@ -4225,35 +2240,13 @@ TEST(profiles, TestInlineUniformBlockFeatures) {
 
     EXPECT_EQ(inline_uniform_block_features.inlineUniformBlock, VK_TRUE);
     EXPECT_EQ(inline_uniform_block_features.descriptorBindingInlineUniformBlockUpdateAfterBind, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestLineRasterizationFeatures) {
 #ifdef VK_EXT_line_rasterization
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceLineRasterizationFeaturesEXT line_rasterization_features{};
     line_rasterization_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT;
@@ -4269,35 +2262,13 @@ TEST(profiles, TestLineRasterizationFeatures) {
     EXPECT_EQ(line_rasterization_features.stippledRectangularLines, VK_TRUE);
     EXPECT_EQ(line_rasterization_features.stippledBresenhamLines, VK_TRUE);
     EXPECT_EQ(line_rasterization_features.stippledSmoothLines, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMemoryPriorityFeatures) {
 #ifdef VK_EXT_memory_priority
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMemoryPriorityFeaturesEXT memory_priority_features{};
     memory_priority_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT;
@@ -4308,35 +2279,13 @@ TEST(profiles, TestMemoryPriorityFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(memory_priority_features.memoryPriority, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMultiDrawFeatures) {
 #ifdef VK_EXT_multi_draw
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMultiDrawFeaturesEXT multi_draw_features{};
     multi_draw_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT;
@@ -4347,35 +2296,13 @@ TEST(profiles, TestMultiDrawFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(multi_draw_features.multiDraw, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPageableDeviceLocalMemoryFeatures) {
 #ifdef VK_EXT_pageable_device_local_memory
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageable_device_local_memory_features{};
     pageable_device_local_memory_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PAGEABLE_DEVICE_LOCAL_MEMORY_FEATURES_EXT;
@@ -4386,35 +2313,13 @@ TEST(profiles, TestPageableDeviceLocalMemoryFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(pageable_device_local_memory_features.pageableDeviceLocalMemory, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPipelineCreationCacheControlFeatures) {
 #ifdef VK_EXT_pipeline_creation_cache_control
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT pipeline_creation_cache_control_features{};
     pipeline_creation_cache_control_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT;
@@ -4425,35 +2330,13 @@ TEST(profiles, TestPipelineCreationCacheControlFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(pipeline_creation_cache_control_features.pipelineCreationCacheControl, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPrimitiveTopologyListRestartFeatures) {
 #ifdef VK_EXT_primitive_topology_list_restart
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePrimitiveTopologyListRestartFeaturesEXT primitive_topology_list_restart_features{};
     primitive_topology_list_restart_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIMITIVE_TOPOLOGY_LIST_RESTART_FEATURES_EXT;
@@ -4465,35 +2348,13 @@ TEST(profiles, TestPrimitiveTopologyListRestartFeatures) {
 
     EXPECT_EQ(primitive_topology_list_restart_features.primitiveTopologyListRestart, VK_TRUE);
     EXPECT_EQ(primitive_topology_list_restart_features.primitiveTopologyPatchListRestart, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestPrivateDataFeatures) {
 #ifdef VK_EXT_private_data
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDevicePrivateDataFeaturesEXT private_data_features{};
     private_data_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES_EXT;
@@ -4504,35 +2365,13 @@ TEST(profiles, TestPrivateDataFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(private_data_features.privateData, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestProvokingVertexFeatures) {
 #ifdef VK_EXT_provoking_vertex
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceProvokingVertexFeaturesEXT provoking_vertex_features{};
     provoking_vertex_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT;
@@ -4544,35 +2383,13 @@ TEST(profiles, TestProvokingVertexFeatures) {
 
     EXPECT_EQ(provoking_vertex_features.provokingVertexLast, VK_TRUE);
     EXPECT_EQ(provoking_vertex_features.transformFeedbackPreservesProvokingVertex, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRGBA10X6FormatsFeatures) {
 #ifdef VK_EXT_rgba10x6_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT rgba10x6_formats_features{};
     rgba10x6_formats_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT;
@@ -4583,35 +2400,13 @@ TEST(profiles, TestRGBA10X6FormatsFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(rgba10x6_formats_features.formatRgba10x6WithoutYCbCrSampler, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRobustness2Features) {
 #ifdef VK_EXT_robustness2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRobustness2FeaturesEXT robustness_2_features{};
     robustness_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
@@ -4624,35 +2419,13 @@ TEST(profiles, TestRobustness2Features) {
     EXPECT_EQ(robustness_2_features.robustBufferAccess2, VK_TRUE);
     EXPECT_EQ(robustness_2_features.robustImageAccess2, VK_TRUE);
     EXPECT_EQ(robustness_2_features.nullDescriptor, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderAtomicFloatFeatures) {
 #ifdef VK_EXT_shader_atomic_float
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shader_atomic_float_features{};
     shader_atomic_float_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
@@ -4674,35 +2447,13 @@ TEST(profiles, TestShaderAtomicFloatFeatures) {
     EXPECT_EQ(shader_atomic_float_features.shaderImageFloat32AtomicAdd, VK_TRUE);
     EXPECT_EQ(shader_atomic_float_features.sparseImageFloat32Atomics, VK_TRUE);
     EXPECT_EQ(shader_atomic_float_features.sparseImageFloat32AtomicAdd, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderAtomicFloat2Features) {
 #ifdef VK_EXT_shader_atomic_float2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT shader_atomic_float_2_features{};
     shader_atomic_float_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT;
@@ -4724,35 +2475,13 @@ TEST(profiles, TestShaderAtomicFloat2Features) {
     EXPECT_EQ(shader_atomic_float_2_features.shaderSharedFloat64AtomicMinMax, VK_TRUE);
     EXPECT_EQ(shader_atomic_float_2_features.shaderImageFloat32AtomicMinMax, VK_TRUE);
     EXPECT_EQ(shader_atomic_float_2_features.sparseImageFloat32AtomicMinMax, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderDemoteToHelperInvocationFeatures) {
 #ifdef VK_EXT_shader_demote_to_helper_invocation
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT shader_demote_to_helper_invocation_features{};
     shader_demote_to_helper_invocation_features.sType =
@@ -4764,35 +2493,13 @@ TEST(profiles, TestShaderDemoteToHelperInvocationFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(shader_demote_to_helper_invocation_features.shaderDemoteToHelperInvocation, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderImageAtomicInt64Features) {
 #ifdef VK_EXT_shader_image_atomic_int64
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT shader_image_atomic_int_64_features{};
     shader_image_atomic_int_64_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT;
@@ -4804,35 +2511,13 @@ TEST(profiles, TestShaderImageAtomicInt64Features) {
 
     EXPECT_EQ(shader_image_atomic_int_64_features.shaderImageInt64Atomics, VK_TRUE);
     EXPECT_EQ(shader_image_atomic_int_64_features.sparseImageInt64Atomics, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSubgroupSizeControlFeatures) {
 #ifdef VK_EXT_subgroup_size_control
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control_features{};
     subgroup_size_control_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
@@ -4844,35 +2529,13 @@ TEST(profiles, TestSubgroupSizeControlFeatures) {
 
     EXPECT_EQ(subgroup_size_control_features.subgroupSizeControl, VK_TRUE);
     EXPECT_EQ(subgroup_size_control_features.computeFullSubgroups, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTexelBufferAlignmentFeatures) {
 #ifdef VK_EXT_texel_buffer_alignment
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT texel_buffer_alignment_features{};
     texel_buffer_alignment_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT;
@@ -4883,35 +2546,13 @@ TEST(profiles, TestTexelBufferAlignmentFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(texel_buffer_alignment_features.texelBufferAlignment, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTextureCompressionASTCHDRFeatures) {
 #ifdef VK_EXT_texture_compression_astc_hdr
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTextureCompressionASTCHDRFeaturesEXT texture_compression_astchdr_features{};
     texture_compression_astchdr_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXTURE_COMPRESSION_ASTC_HDR_FEATURES_EXT;
@@ -4922,35 +2563,13 @@ TEST(profiles, TestTextureCompressionASTCHDRFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(texture_compression_astchdr_features.textureCompressionASTC_HDR, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestTransformFeedbackFeatures) {
 #ifdef VK_EXT_transform_feedback
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceTransformFeedbackFeaturesEXT transform_feedback_features{};
     transform_feedback_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT;
@@ -4962,35 +2581,13 @@ TEST(profiles, TestTransformFeedbackFeatures) {
 
     EXPECT_EQ(transform_feedback_features.transformFeedback, VK_TRUE);
     EXPECT_EQ(transform_feedback_features.geometryStreams, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestVertexAttributeDivisorFeatures) {
 #ifdef VK_EXT_vertex_attribute_divisor
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT vertex_attribute_divisor_features{};
     vertex_attribute_divisor_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT;
@@ -5002,35 +2599,13 @@ TEST(profiles, TestVertexAttributeDivisorFeatures) {
 
     EXPECT_EQ(vertex_attribute_divisor_features.vertexAttributeInstanceRateDivisor, VK_TRUE);
     EXPECT_EQ(vertex_attribute_divisor_features.vertexAttributeInstanceRateZeroDivisor, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestVertexInputDynamicStateFeatures) {
 #ifdef VK_EXT_vertex_input_dynamic_state
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT vertex_input_dynamic_state_features{};
     vertex_input_dynamic_state_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
@@ -5041,35 +2616,13 @@ TEST(profiles, TestVertexInputDynamicStateFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(vertex_input_dynamic_state_features.vertexInputDynamicState, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestYcbcr2Plane444FormatsFeatures) {
 #ifdef VK_EXT_ycbcr_2plane_444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceYcbcr2Plane444FormatsFeaturesEXT ycbcr_2_plane_444_formats_features{};
     ycbcr_2_plane_444_formats_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_YCBCR_2_PLANE_444_FORMATS_FEATURES_EXT;
@@ -5080,35 +2633,13 @@ TEST(profiles, TestYcbcr2Plane444FormatsFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(ycbcr_2_plane_444_formats_features.ycbcr2plane444Formats, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestYcbcrImageArraysFeatures) {
 #ifdef VK_EXT_ycbcr_image_arrays
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceYcbcrImageArraysFeaturesEXT ycbcr_image_arrays_features{};
     ycbcr_image_arrays_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_YCBCR_IMAGE_ARRAYS_FEATURES_EXT;
@@ -5119,35 +2650,13 @@ TEST(profiles, TestYcbcrImageArraysFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(ycbcr_image_arrays_features.ycbcrImageArrays, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentShadingRateFeatures) {
 #ifdef VK_KHR_fragment_shading_rate
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentShadingRateFeaturesKHR fragment_shading_rate_features{};
     fragment_shading_rate_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
@@ -5160,35 +2669,13 @@ TEST(profiles, TestFragmentShadingRateFeatures) {
     EXPECT_EQ(fragment_shading_rate_features.pipelineFragmentShadingRate, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_features.primitiveFragmentShadingRate, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_features.attachmentFragmentShadingRate, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCoherentMemoryFeatures) {
 #ifdef VK_AMD_device_coherent_memory
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCoherentMemoryFeaturesAMD coherent_memory_features{};
     coherent_memory_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD;
@@ -5199,35 +2686,13 @@ TEST(profiles, TestCoherentMemoryFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(coherent_memory_features.deviceCoherentMemory, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestInvocationMaskFeatures) {
 #ifdef VK_HUAWEI_invocation_mask
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceInvocationMaskFeaturesHUAWEI invocation_mask_features{};
     invocation_mask_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INVOCATION_MASK_FEATURES_HUAWEI;
@@ -5238,35 +2703,13 @@ TEST(profiles, TestInvocationMaskFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(invocation_mask_features.invocationMask, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestSubpassShadingFeatures) {
 #ifdef VK_HUAWEI_subpass_shading
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceSubpassShadingFeaturesHUAWEI subpass_shading_features{};
     subpass_shading_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBPASS_SHADING_FEATURES_HUAWEI;
@@ -5277,35 +2720,13 @@ TEST(profiles, TestSubpassShadingFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(subpass_shading_features.subpassShading, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderIntegerFunctions2Features) {
 #ifdef VK_INTEL_shader_integer_functions2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL shader_integer_functions_2_features{};
     shader_integer_functions_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL;
@@ -5316,35 +2737,13 @@ TEST(profiles, TestShaderIntegerFunctions2Features) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(shader_integer_functions_2_features.shaderIntegerFunctions2, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestComputeShaderDerivativesFeatures) {
 #ifdef VK_NV_compute_shader_derivatives
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceComputeShaderDerivativesFeaturesNV compute_shader_derivatives_features{};
     compute_shader_derivatives_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV;
@@ -5356,35 +2755,13 @@ TEST(profiles, TestComputeShaderDerivativesFeatures) {
 
     EXPECT_EQ(compute_shader_derivatives_features.computeDerivativeGroupQuads, VK_TRUE);
     EXPECT_EQ(compute_shader_derivatives_features.computeDerivativeGroupLinear, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCooperativeMatrixFeatures) {
 #ifdef VK_NV_cooperative_matrix
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCooperativeMatrixFeaturesNV cooperative_matrix_features{};
     cooperative_matrix_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV;
@@ -5396,35 +2773,13 @@ TEST(profiles, TestCooperativeMatrixFeatures) {
 
     EXPECT_EQ(cooperative_matrix_features.cooperativeMatrix, VK_TRUE);
     EXPECT_EQ(cooperative_matrix_features.cooperativeMatrixRobustBufferAccess, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCornerSampledImageFeatures) {
 #ifdef VK_NV_corner_sampled_image
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCornerSampledImageFeaturesNV corner_sampled_image_features{};
     corner_sampled_image_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CORNER_SAMPLED_IMAGE_FEATURES_NV;
@@ -5435,35 +2790,13 @@ TEST(profiles, TestCornerSampledImageFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(corner_sampled_image_features.cornerSampledImage, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestCoverageReductionModeFeatures) {
 #ifdef VK_NV_coverage_reduction_mode
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceCoverageReductionModeFeaturesNV coverage_reduction_mode_features{};
     coverage_reduction_mode_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COVERAGE_REDUCTION_MODE_FEATURES_NV;
@@ -5474,35 +2807,13 @@ TEST(profiles, TestCoverageReductionModeFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(coverage_reduction_mode_features.coverageReductionMode, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDedicatedAllocationImageAliasingFeatures) {
 #ifdef VK_NV_dedicated_allocation_image_aliasing
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDedicatedAllocationImageAliasingFeaturesNV dedicated_allocation_image_aliasing_features{};
     dedicated_allocation_image_aliasing_features.sType =
@@ -5514,35 +2825,13 @@ TEST(profiles, TestDedicatedAllocationImageAliasingFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(dedicated_allocation_image_aliasing_features.dedicatedAllocationImageAliasing, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDiagnosticsConfigFeatures) {
 #ifdef VK_NV_device_diagnostics_config
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDiagnosticsConfigFeaturesNV diagnostic_config_features{};
     diagnostic_config_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DIAGNOSTICS_CONFIG_FEATURES_NV;
@@ -5553,35 +2842,13 @@ TEST(profiles, TestDiagnosticsConfigFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(diagnostic_config_features.diagnosticsConfig, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDeviceGeneratedCommandsFeatures) {
 #ifdef VK_NV_device_generated_commands
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV device_generated_commmands_features{};
     device_generated_commmands_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DIAGNOSTICS_CONFIG_FEATURES_NV;
@@ -5592,35 +2859,13 @@ TEST(profiles, TestDeviceGeneratedCommandsFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(device_generated_commmands_features.deviceGeneratedCommands, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestExternalMemoryRDMAFeatures) {
 #ifdef VK_NV_external_memory_rdma
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceExternalMemoryRDMAFeaturesNV external_memory_rdma_features{};
     external_memory_rdma_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_RDMA_FEATURES_NV;
@@ -5631,35 +2876,13 @@ TEST(profiles, TestExternalMemoryRDMAFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(external_memory_rdma_features.externalMemoryRDMA, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentShaderBarycentricFeatures) {
 #ifdef VK_NV_fragment_shader_barycentric
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV fragment_shader_barycentric_features{};
     fragment_shader_barycentric_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_NV;
@@ -5670,35 +2893,13 @@ TEST(profiles, TestFragmentShaderBarycentricFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(fragment_shader_barycentric_features.fragmentShaderBarycentric, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentShadingRateEnumsFeatures) {
 #ifdef VK_NV_fragment_shading_rate_enums
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentShadingRateEnumsFeaturesNV fragment_shading_rate_enums_features{};
     fragment_shading_rate_enums_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_ENUMS_FEATURES_NV;
@@ -5711,35 +2912,13 @@ TEST(profiles, TestFragmentShadingRateEnumsFeatures) {
     EXPECT_EQ(fragment_shading_rate_enums_features.fragmentShadingRateEnums, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_enums_features.supersampleFragmentShadingRates, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_enums_features.noInvocationFragmentShadingRates, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestInheritedViewportScissorFeatures) {
 #ifdef VK_NV_inherited_viewport_scissor
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceInheritedViewportScissorFeaturesNV inherited_viewport_scissor_features{};
     inherited_viewport_scissor_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INHERITED_VIEWPORT_SCISSOR_FEATURES_NV;
@@ -5750,35 +2929,13 @@ TEST(profiles, TestInheritedViewportScissorFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(inherited_viewport_scissor_features.inheritedViewportScissor2D, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMeshShaderFeatures) {
 #ifdef VK_NV_mesh_shader
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMeshShaderFeaturesNV mesh_shader_features{};
     mesh_shader_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV;
@@ -5790,35 +2947,13 @@ TEST(profiles, TestMeshShaderFeatures) {
 
     EXPECT_EQ(mesh_shader_features.taskShader, VK_TRUE);
     EXPECT_EQ(mesh_shader_features.meshShader, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRayTracingMotionBlurFeatures) {
 #ifdef VK_NV_ray_tracing_motion_blur
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRayTracingMotionBlurFeaturesNV ray_tracing_motion_blur_features{};
     ray_tracing_motion_blur_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV;
@@ -5830,35 +2965,13 @@ TEST(profiles, TestRayTracingMotionBlurFeatures) {
 
     EXPECT_EQ(ray_tracing_motion_blur_features.rayTracingMotionBlur, VK_TRUE);
     EXPECT_EQ(ray_tracing_motion_blur_features.rayTracingMotionBlurPipelineTraceRaysIndirect, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRepresentativeFragmentTestFeatures) {
 #ifdef VK_NV_representative_fragment_test
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV representative_fragment_test_features{};
     representative_fragment_test_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV;
@@ -5869,35 +2982,13 @@ TEST(profiles, TestRepresentativeFragmentTestFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(representative_fragment_test_features.representativeFragmentTest, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestExclusiveScissorFeatures) {
 #ifdef VK_NV_scissor_exclusive
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceExclusiveScissorFeaturesNV exclusive_scissor_features{};
     exclusive_scissor_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXCLUSIVE_SCISSOR_FEATURES_NV;
@@ -5908,35 +2999,13 @@ TEST(profiles, TestExclusiveScissorFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(exclusive_scissor_features.exclusiveScissor, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TesthaderImageFootprintFeatures) {
 #ifdef VK_NV_shader_image_footprint
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderImageFootprintFeaturesNV shader_image_footprint_features{};
     shader_image_footprint_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXCLUSIVE_SCISSOR_FEATURES_NV;
@@ -5947,35 +3016,13 @@ TEST(profiles, TesthaderImageFootprintFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(shader_image_footprint_features.imageFootprint, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShaderSMBuiltinsFeatures) {
 #ifdef VK_NV_shader_sm_builtins
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShaderSMBuiltinsFeaturesNV shader_sm_builtins_features{};
     shader_sm_builtins_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV;
@@ -5986,35 +3033,13 @@ TEST(profiles, TestShaderSMBuiltinsFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(shader_sm_builtins_features.shaderSMBuiltins, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestShadingRateImageFeatures) {
 #ifdef VK_NV_shading_rate_image
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceShadingRateImageFeaturesNV shading_rate_image_features{};
     shading_rate_image_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADING_RATE_IMAGE_FEATURES_NV;
@@ -6026,35 +3051,13 @@ TEST(profiles, TestShadingRateImageFeatures) {
 
     EXPECT_EQ(shading_rate_image_features.shadingRateImage, VK_TRUE);
     EXPECT_EQ(shading_rate_image_features.shadingRateCoarseSampleOrder, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestMutableDescriptorTypeFeatures) {
 #ifdef VK_VALVE_mutable_descriptor_type
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceMutableDescriptorTypeFeaturesVALVE mutable_descriptor_type_features{};
     mutable_descriptor_type_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_VALVE;
@@ -6065,35 +3068,13 @@ TEST(profiles, TestMutableDescriptorTypeFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(mutable_descriptor_type_features.mutableDescriptorType, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestDynamicRenderingFeatures) {
 #ifdef VK_KHR_dynamic_rendering
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features{};
     dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
@@ -6104,35 +3085,13 @@ TEST(profiles, TestDynamicRenderingFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(dynamic_rendering_features.dynamicRendering, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestImageViewMinLodFeatures) {
 #ifdef VK_EXT_image_view_min_lod
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceImageViewMinLodFeaturesEXT image_view_min_lod_features{};
     image_view_min_lod_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_VIEW_MIN_LOD_FEATURES_EXT;
@@ -6143,35 +3102,13 @@ TEST(profiles, TestImageViewMinLodFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(image_view_min_lod_features.minLod, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentDensityMap2Features) {
 #ifdef VK_EXT_fragment_density_map2
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentDensityMap2FeaturesEXT fragment_density_map_2_features{};
     fragment_density_map_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT;
@@ -6182,35 +3119,13 @@ TEST(profiles, TestFragmentDensityMap2Features) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(fragment_density_map_2_features.fragmentDensityMapDeferred, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentDensityMapOffsetFeatures) {
 #ifdef VK_QCOM_fragment_density_map_offset
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceFragmentDensityMapOffsetFeaturesQCOM fragment_density_map_offset_features{};
     fragment_density_map_offset_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_FEATURES_QCOM;
@@ -6221,35 +3136,13 @@ TEST(profiles, TestFragmentDensityMapOffsetFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(fragment_density_map_offset_features.fragmentDensityMapOffset, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFragmentDepthClipControlFeatures) {
 #ifdef VK_EXT_depth_clip_control
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceDepthClipControlFeaturesEXT depth_clip_control_features{};
     depth_clip_control_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_CONTROL_FEATURES_EXT;
@@ -6260,35 +3153,13 @@ TEST(profiles, TestFragmentDepthClipControlFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(depth_clip_control_features.depthClipControl, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestRasterizationOrderAttachmentAccessFeatures) {
 #ifdef VK_ARM_rasterization_order_attachment_access
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM rasterization_order_attachment_access_features{};
     rasterization_order_attachment_access_features.sType =
@@ -6303,35 +3174,13 @@ TEST(profiles, TestRasterizationOrderAttachmentAccessFeatures) {
     /*EXPECT_EQ(rasterization_order_attachment_access_features.rasterizationOrderColorAttachmentAccess, VK_TRUE);
     EXPECT_EQ(rasterization_order_attachment_access_features.rasterizationOrderDepthAttachmentAccess, VK_TRUE);
     EXPECT_EQ(rasterization_order_attachment_access_features.rasterizationOrderStencilAttachmentAccess, VK_TRUE);*/
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestLinearColorAttachmentFeatures) {
 #ifdef VK_NV_linear_color_attachment
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkPhysicalDeviceLinearColorAttachmentFeaturesNV linear_color_attachment_features{};
     linear_color_attachment_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINEAR_COLOR_ATTACHMENT_FEATURES_NV;
@@ -6342,34 +3191,12 @@ TEST(profiles, TestLinearColorAttachmentFeatures) {
     vkGetPhysicalDeviceFeatures2(gpu, &features);
 
     EXPECT_EQ(linear_color_attachment_features.linearColorAttachment, VK_TRUE);
-
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFormatR4G4UnormPack8) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R4G4_UNORM_PACK8;
     VkFormatProperties format_properties;
@@ -6387,33 +3214,11 @@ TEST(profiles, TestFormatR4G4UnormPack8) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR4G4B4A4UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R4G4B4A4_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6431,33 +3236,11 @@ TEST(profiles, TestFormatR4G4B4A4UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB4G4R4A4UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B4G4R4A4_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6473,33 +3256,11 @@ TEST(profiles, TestFormatB4G4R4A4UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR5G6B5UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R5G6B5_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6517,33 +3278,11 @@ TEST(profiles, TestFormatR5G6B5UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB5G6R5UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B5G6R5_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6566,33 +3305,11 @@ TEST(profiles, TestFormatB5G6R5UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR5G5B5A1UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R5G5B5A1_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6611,33 +3328,11 @@ TEST(profiles, TestFormatR5G5B5A1UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB5G5R5A1UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B5G5R5A1_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6658,33 +3353,11 @@ TEST(profiles, TestFormatB5G5R5A1UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA1R5G5B5UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A1R5G5B5_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -6704,33 +3377,11 @@ TEST(profiles, TestFormatA1R5G5B5UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_UNORM;
     VkFormatProperties format_properties;
@@ -6752,33 +3403,11 @@ TEST(profiles, TestFormatR8Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_SNORM;
     VkFormatProperties format_properties;
@@ -6799,33 +3428,11 @@ TEST(profiles, TestFormatR8Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_USCALED;
     VkFormatProperties format_properties;
@@ -6843,33 +3450,11 @@ TEST(profiles, TestFormatR8Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_SSCALED;
     VkFormatProperties format_properties;
@@ -6889,33 +3474,11 @@ TEST(profiles, TestFormatR8Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_UINT;
     VkFormatProperties format_properties;
@@ -6933,33 +3496,11 @@ TEST(profiles, TestFormatR8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_SINT;
     VkFormatProperties format_properties;
@@ -6978,33 +3519,11 @@ TEST(profiles, TestFormatR8Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8Srgb) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8_SRGB;
     VkFormatProperties format_properties;
@@ -7024,33 +3543,11 @@ TEST(profiles, TestFormatR8Srgb) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_UNORM;
     VkFormatProperties format_properties;
@@ -7068,33 +3565,11 @@ TEST(profiles, TestFormatR8G8Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_SNORM;
     VkFormatProperties format_properties;
@@ -7114,33 +3589,11 @@ TEST(profiles, TestFormatR8G8Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_USCALED;
     VkFormatProperties format_properties;
@@ -7160,33 +3613,11 @@ TEST(profiles, TestFormatR8G8Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_SSCALED;
     VkFormatProperties format_properties;
@@ -7207,33 +3638,11 @@ TEST(profiles, TestFormatR8G8Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_UINT;
     VkFormatProperties format_properties;
@@ -7254,33 +3663,11 @@ TEST(profiles, TestFormatR8G8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_SINT;
     VkFormatProperties format_properties;
@@ -7295,33 +3682,11 @@ TEST(profiles, TestFormatR8G8Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8Srgb) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8_SRGB;
     VkFormatProperties format_properties;
@@ -7338,33 +3703,11 @@ TEST(profiles, TestFormatR8G8Srgb) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_UNORM;
     VkFormatProperties format_properties;
@@ -7381,33 +3724,11 @@ TEST(profiles, TestFormatR8G8B8Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_SNORM;
     VkFormatProperties format_properties;
@@ -7426,33 +3747,11 @@ TEST(profiles, TestFormatR8G8B8Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_USCALED;
     VkFormatProperties format_properties;
@@ -7475,33 +3774,11 @@ TEST(profiles, TestFormatR8G8B8Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_SSCALED;
     VkFormatProperties format_properties;
@@ -7517,33 +3794,11 @@ TEST(profiles, TestFormatR8G8B8Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_UINT;
     VkFormatProperties format_properties;
@@ -7563,33 +3818,11 @@ TEST(profiles, TestFormatR8G8B8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_SINT;
     VkFormatProperties format_properties;
@@ -7606,33 +3839,11 @@ TEST(profiles, TestFormatR8G8B8Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8Srgb) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8_SRGB;
     VkFormatProperties format_properties;
@@ -7649,33 +3860,11 @@ TEST(profiles, TestFormatR8G8B8Srgb) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_UNORM;
     VkFormatProperties format_properties;
@@ -7695,33 +3884,11 @@ TEST(profiles, TestFormatB8G8R8Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_SNORM;
     VkFormatProperties format_properties;
@@ -7739,33 +3906,11 @@ TEST(profiles, TestFormatB8G8R8Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_USCALED;
     VkFormatProperties format_properties;
@@ -7781,33 +3926,11 @@ TEST(profiles, TestFormatB8G8R8Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_SSCALED;
     VkFormatProperties format_properties;
@@ -7828,33 +3951,11 @@ TEST(profiles, TestFormatB8G8R8Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_UINT;
     VkFormatProperties format_properties;
@@ -7872,33 +3973,11 @@ TEST(profiles, TestFormatB8G8R8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_SINT;
     VkFormatProperties format_properties;
@@ -7920,33 +3999,11 @@ TEST(profiles, TestFormatB8G8R8Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8Srgb) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8_SRGB;
     VkFormatProperties format_properties;
@@ -7960,33 +4017,11 @@ TEST(profiles, TestFormatB8G8R8Srgb) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormatProperties format_properties;
@@ -8003,33 +4038,11 @@ TEST(profiles, TestFormatR8G8B8A8Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_SNORM;
     VkFormatProperties format_properties;
@@ -8049,33 +4062,11 @@ TEST(profiles, TestFormatR8G8B8A8Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_USCALED;
     VkFormatProperties format_properties;
@@ -8094,33 +4085,11 @@ TEST(profiles, TestFormatR8G8B8A8Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_SSCALED;
     VkFormatProperties format_properties;
@@ -8142,33 +4111,11 @@ TEST(profiles, TestFormatR8G8B8A8Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_UINT;
     VkFormatProperties format_properties;
@@ -8184,33 +4131,11 @@ TEST(profiles, TestFormatR8G8B8A8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_SINT;
     VkFormatProperties format_properties;
@@ -8226,33 +4151,11 @@ TEST(profiles, TestFormatR8G8B8A8Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR8G8B8A8Srgb) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
     VkFormatProperties format_properties;
@@ -8272,33 +4175,11 @@ TEST(profiles, TestFormatR8G8B8A8Srgb) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
     VkFormatProperties format_properties;
@@ -8313,33 +4194,11 @@ TEST(profiles, TestFormatB8G8R8A8Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_SNORM;
     VkFormatProperties format_properties;
@@ -8359,33 +4218,11 @@ TEST(profiles, TestFormatB8G8R8A8Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_USCALED;
     VkFormatProperties format_properties;
@@ -8406,33 +4243,11 @@ TEST(profiles, TestFormatB8G8R8A8Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_SSCALED;
     VkFormatProperties format_properties;
@@ -8450,33 +4265,11 @@ TEST(profiles, TestFormatB8G8R8A8Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_UINT;
     VkFormatProperties format_properties;
@@ -8498,33 +4291,11 @@ TEST(profiles, TestFormatB8G8R8A8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_SINT;
     VkFormatProperties format_properties;
@@ -8538,33 +4309,11 @@ TEST(profiles, TestFormatB8G8R8A8Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8A8Srgb) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8A8_SRGB;
     VkFormatProperties format_properties;
@@ -8578,33 +4327,11 @@ TEST(profiles, TestFormatB8G8R8A8Srgb) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8UnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
     VkFormatProperties format_properties;
@@ -8624,33 +4351,11 @@ TEST(profiles, TestFormatA8B8G8R8UnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8SnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_SNORM_PACK32;
     VkFormatProperties format_properties;
@@ -8669,33 +4374,11 @@ TEST(profiles, TestFormatA8B8G8R8SnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8UscaledPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_USCALED_PACK32;
     VkFormatProperties format_properties;
@@ -8716,33 +4399,11 @@ TEST(profiles, TestFormatA8B8G8R8UscaledPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8SscaledPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_SSCALED_PACK32;
     VkFormatProperties format_properties;
@@ -8762,33 +4423,11 @@ TEST(profiles, TestFormatA8B8G8R8SscaledPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8UintPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_UINT_PACK32;
     VkFormatProperties format_properties;
@@ -8806,33 +4445,11 @@ TEST(profiles, TestFormatA8B8G8R8UintPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8SintPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_SINT_PACK32;
     VkFormatProperties format_properties;
@@ -8851,33 +4468,11 @@ TEST(profiles, TestFormatA8B8G8R8SintPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA8B8G8R8SrgbPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
     VkFormatProperties format_properties;
@@ -8896,33 +4491,11 @@ TEST(profiles, TestFormatA8B8G8R8SrgbPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2R10G10B10UnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
     VkFormatProperties format_properties;
@@ -8943,33 +4516,11 @@ TEST(profiles, TestFormatA2R10G10B10UnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2R10G10B10SnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2R10G10B10_SNORM_PACK32;
     VkFormatProperties format_properties;
@@ -8989,33 +4540,11 @@ TEST(profiles, TestFormatA2R10G10B10SnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2R10G10B10UscaledPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2R10G10B10_USCALED_PACK32;
     VkFormatProperties format_properties;
@@ -9032,33 +4561,11 @@ TEST(profiles, TestFormatA2R10G10B10UscaledPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2R10G10B10SscaledPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2R10G10B10_SSCALED_PACK32;
     VkFormatProperties format_properties;
@@ -9074,33 +4581,11 @@ TEST(profiles, TestFormatA2R10G10B10SscaledPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2R10G10B10UintPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2R10G10B10_UINT_PACK32;
     VkFormatProperties format_properties;
@@ -9120,33 +4605,11 @@ TEST(profiles, TestFormatA2R10G10B10UintPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2R10G10B10SintPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2R10G10B10_SINT_PACK32;
     VkFormatProperties format_properties;
@@ -9164,33 +4627,11 @@ TEST(profiles, TestFormatA2R10G10B10SintPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2B10G10R10UnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
     VkFormatProperties format_properties;
@@ -9210,33 +4651,11 @@ TEST(profiles, TestFormatA2B10G10R10UnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2B10G10R10SnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2B10G10R10_SNORM_PACK32;
     VkFormatProperties format_properties;
@@ -9253,33 +4672,11 @@ TEST(profiles, TestFormatA2B10G10R10SnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2B10G10R10UscaledPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2B10G10R10_USCALED_PACK32;
     VkFormatProperties format_properties;
@@ -9295,33 +4692,11 @@ TEST(profiles, TestFormatA2B10G10R10UscaledPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2B10G10R10SscaledPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2B10G10R10_SSCALED_PACK32;
     VkFormatProperties format_properties;
@@ -9338,33 +4713,11 @@ TEST(profiles, TestFormatA2B10G10R10SscaledPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2B10G10R10UintPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2B10G10R10_UINT_PACK32;
     VkFormatProperties format_properties;
@@ -9380,33 +4733,11 @@ TEST(profiles, TestFormatA2B10G10R10UintPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatA2B10G10R10SintPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A2B10G10R10_SINT_PACK32;
     VkFormatProperties format_properties;
@@ -9426,33 +4757,11 @@ TEST(profiles, TestFormatA2B10G10R10SintPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_UNORM;
     VkFormatProperties format_properties;
@@ -9471,33 +4780,11 @@ TEST(profiles, TestFormatR16Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_SNORM;
     VkFormatProperties format_properties;
@@ -9514,33 +4801,11 @@ TEST(profiles, TestFormatR16Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_USCALED;
     VkFormatProperties format_properties;
@@ -9563,33 +4828,11 @@ TEST(profiles, TestFormatR16Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_SSCALED;
     VkFormatProperties format_properties;
@@ -9608,33 +4851,11 @@ TEST(profiles, TestFormatR16Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_UINT;
     VkFormatProperties format_properties;
@@ -9656,33 +4877,11 @@ TEST(profiles, TestFormatR16Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_SINT;
     VkFormatProperties format_properties;
@@ -9700,33 +4899,11 @@ TEST(profiles, TestFormatR16Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16_SFLOAT;
     VkFormatProperties format_properties;
@@ -9745,33 +4922,11 @@ TEST(profiles, TestFormatR16Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_UNORM;
     VkFormatProperties format_properties;
@@ -9792,33 +4947,11 @@ TEST(profiles, TestFormatR16G16Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_SNORM;
     VkFormatProperties format_properties;
@@ -9838,33 +4971,11 @@ TEST(profiles, TestFormatR16G16Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_USCALED;
     VkFormatProperties format_properties;
@@ -9885,33 +4996,11 @@ TEST(profiles, TestFormatR16G16Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_SSCALED;
     VkFormatProperties format_properties;
@@ -9930,33 +5019,11 @@ TEST(profiles, TestFormatR16G16Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_UINT;
     VkFormatProperties format_properties;
@@ -9976,33 +5043,11 @@ TEST(profiles, TestFormatR16G16Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_SINT;
     VkFormatProperties format_properties;
@@ -10019,33 +5064,11 @@ TEST(profiles, TestFormatR16G16Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16_SFLOAT;
     VkFormatProperties format_properties;
@@ -10062,33 +5085,11 @@ TEST(profiles, TestFormatR16G16Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_UNORM;
     VkFormatProperties format_properties;
@@ -10105,33 +5106,11 @@ TEST(profiles, TestFormatR16G16B16Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_SNORM;
     VkFormatProperties format_properties;
@@ -10150,33 +5129,11 @@ TEST(profiles, TestFormatR16G16B16Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_USCALED;
     VkFormatProperties format_properties;
@@ -10194,33 +5151,11 @@ TEST(profiles, TestFormatR16G16B16Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_SSCALED;
     VkFormatProperties format_properties;
@@ -10238,33 +5173,11 @@ TEST(profiles, TestFormatR16G16B16Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_UINT;
     VkFormatProperties format_properties;
@@ -10282,33 +5195,11 @@ TEST(profiles, TestFormatR16G16B16Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_SINT;
     VkFormatProperties format_properties;
@@ -10326,33 +5217,11 @@ TEST(profiles, TestFormatR16G16B16Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16_SFLOAT;
     VkFormatProperties format_properties;
@@ -10375,33 +5244,11 @@ TEST(profiles, TestFormatR16G16B16Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_UNORM;
     VkFormatProperties format_properties;
@@ -10417,33 +5264,11 @@ TEST(profiles, TestFormatR16G16B16A16Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Snorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_SNORM;
     VkFormatProperties format_properties;
@@ -10465,33 +5290,11 @@ TEST(profiles, TestFormatR16G16B16A16Snorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Uscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_USCALED;
     VkFormatProperties format_properties;
@@ -10511,33 +5314,11 @@ TEST(profiles, TestFormatR16G16B16A16Uscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Sscaled) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_SSCALED;
     VkFormatProperties format_properties;
@@ -10555,33 +5336,11 @@ TEST(profiles, TestFormatR16G16B16A16Sscaled) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_UINT;
     VkFormatProperties format_properties;
@@ -10602,33 +5361,11 @@ TEST(profiles, TestFormatR16G16B16A16Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_SINT;
     VkFormatProperties format_properties;
@@ -10648,33 +5385,11 @@ TEST(profiles, TestFormatR16G16B16A16Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR16G16B16A16Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R16G16B16A16_SFLOAT;
     VkFormatProperties format_properties;
@@ -10694,33 +5409,11 @@ TEST(profiles, TestFormatR16G16B16A16Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32_UINT;
     VkFormatProperties format_properties;
@@ -10742,33 +5435,11 @@ TEST(profiles, TestFormatR32Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32_SINT;
     VkFormatProperties format_properties;
@@ -10784,33 +5455,11 @@ TEST(profiles, TestFormatR32Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32_SFLOAT;
     VkFormatProperties format_properties;
@@ -10827,33 +5476,11 @@ TEST(profiles, TestFormatR32Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32_UINT;
     VkFormatProperties format_properties;
@@ -10871,33 +5498,11 @@ TEST(profiles, TestFormatR32G32Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32_SINT;
     VkFormatProperties format_properties;
@@ -10915,33 +5520,11 @@ TEST(profiles, TestFormatR32G32Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32_SFLOAT;
     VkFormatProperties format_properties;
@@ -10959,33 +5542,11 @@ TEST(profiles, TestFormatR32G32Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32B32Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32B32_UINT;
     VkFormatProperties format_properties;
@@ -11005,33 +5566,11 @@ TEST(profiles, TestFormatR32G32B32Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32B32Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32B32_SINT;
     VkFormatProperties format_properties;
@@ -11047,33 +5586,11 @@ TEST(profiles, TestFormatR32G32B32Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32B32Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32B32_SFLOAT;
     VkFormatProperties format_properties;
@@ -11092,33 +5609,11 @@ TEST(profiles, TestFormatR32G32B32Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32B32A32Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32B32A32_UINT;
     VkFormatProperties format_properties;
@@ -11137,33 +5632,11 @@ TEST(profiles, TestFormatR32G32B32A32Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32B32A32Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32B32A32_SINT;
     VkFormatProperties format_properties;
@@ -11184,33 +5657,11 @@ TEST(profiles, TestFormatR32G32B32A32Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR32G32B32A32Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
     VkFormatProperties format_properties;
@@ -11228,33 +5679,11 @@ TEST(profiles, TestFormatR32G32B32A32Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64_UINT;
     VkFormatProperties format_properties;
@@ -11273,33 +5702,11 @@ TEST(profiles, TestFormatR64Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64_SINT;
     VkFormatProperties format_properties;
@@ -11317,33 +5724,11 @@ TEST(profiles, TestFormatR64Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64_SFLOAT;
     VkFormatProperties format_properties;
@@ -11364,33 +5749,11 @@ TEST(profiles, TestFormatR64Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64_UINT;
     VkFormatProperties format_properties;
@@ -11405,33 +5768,11 @@ TEST(profiles, TestFormatR64G64Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64_SINT;
     VkFormatProperties format_properties;
@@ -11452,33 +5793,11 @@ TEST(profiles, TestFormatR64G64Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64_SFLOAT;
     VkFormatProperties format_properties;
@@ -11500,33 +5819,11 @@ TEST(profiles, TestFormatR64G64Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64B64Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64B64_UINT;
     VkFormatProperties format_properties;
@@ -11545,33 +5842,11 @@ TEST(profiles, TestFormatR64G64B64Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64B64Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64B64_SINT;
     VkFormatProperties format_properties;
@@ -11589,33 +5864,11 @@ TEST(profiles, TestFormatR64G64B64Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64B64Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64B64_SFLOAT;
     VkFormatProperties format_properties;
@@ -11632,33 +5885,11 @@ TEST(profiles, TestFormatR64G64B64Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64B64A64Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64B64A64_UINT;
     VkFormatProperties format_properties;
@@ -11678,33 +5909,11 @@ TEST(profiles, TestFormatR64G64B64A64Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64B64A64Sint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64B64A64_SINT;
     VkFormatProperties format_properties;
@@ -11722,33 +5931,11 @@ TEST(profiles, TestFormatR64G64B64A64Sint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR64G64B64A64Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R64G64B64A64_SFLOAT;
     VkFormatProperties format_properties;
@@ -11764,33 +5951,11 @@ TEST(profiles, TestFormatR64G64B64A64Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB10G11R11UfloatPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
     VkFormatProperties format_properties;
@@ -11812,35 +5977,11 @@ TEST(profiles, TestFormatB10G11R11UfloatPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatE5b9g9r9UfloatPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
     VkFormatProperties format_properties;
@@ -11860,33 +6001,11 @@ TEST(profiles, TestFormatE5b9g9r9UfloatPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatD16Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_D16_UNORM;
     VkFormatProperties format_properties;
@@ -11904,33 +6023,11 @@ TEST(profiles, TestFormatD16Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatX8D24UnormPack32) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_X8_D24_UNORM_PACK32;
     VkFormatProperties format_properties;
@@ -11945,33 +6042,11 @@ TEST(profiles, TestFormatX8D24UnormPack32) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatD32Sfloat) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_D32_SFLOAT;
     VkFormatProperties format_properties;
@@ -11991,33 +6066,11 @@ TEST(profiles, TestFormatD32Sfloat) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatS8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_S8_UINT;
     VkFormatProperties format_properties;
@@ -12033,33 +6086,11 @@ TEST(profiles, TestFormatS8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatD16UnormS8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_D16_UNORM_S8_UINT;
     VkFormatProperties format_properties;
@@ -12080,33 +6111,11 @@ TEST(profiles, TestFormatD16UnormS8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatD24UnormS8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_D24_UNORM_S8_UINT;
     VkFormatProperties format_properties;
@@ -12122,33 +6131,11 @@ TEST(profiles, TestFormatD24UnormS8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatD32SfloatS8Uint) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_D32_SFLOAT_S8_UINT;
     VkFormatProperties format_properties;
@@ -12165,33 +6152,11 @@ TEST(profiles, TestFormatD32SfloatS8Uint) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC1RGBUnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12207,33 +6172,11 @@ TEST(profiles, TestFormatBC1RGBUnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC1RGBSrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -12251,33 +6194,11 @@ TEST(profiles, TestFormatBC1RGBSrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC1RGBAUnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12298,33 +6219,11 @@ TEST(profiles, TestFormatBC1RGBAUnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC1RGBASrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -12342,33 +6241,11 @@ TEST(profiles, TestFormatBC1RGBASrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC2UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC2_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12388,33 +6265,11 @@ TEST(profiles, TestFormatBC2UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC2SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC2_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -12433,33 +6288,11 @@ TEST(profiles, TestFormatBC2SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC3UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC3_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12481,33 +6314,11 @@ TEST(profiles, TestFormatBC3UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC3SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC3_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -12526,33 +6337,11 @@ TEST(profiles, TestFormatBC3SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC4UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC4_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12570,33 +6359,11 @@ TEST(profiles, TestFormatBC4UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC4SnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC4_SNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12613,33 +6380,11 @@ TEST(profiles, TestFormatBC4SnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC5UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC5_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12654,33 +6399,11 @@ TEST(profiles, TestFormatBC5UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC5SnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC5_SNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12696,33 +6419,11 @@ TEST(profiles, TestFormatBC5SnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC6hUfloatBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC6H_UFLOAT_BLOCK;
     VkFormatProperties format_properties;
@@ -12739,33 +6440,11 @@ TEST(profiles, TestFormatBC6hUfloatBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC6hSfloatBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC6H_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
@@ -12784,33 +6463,11 @@ TEST(profiles, TestFormatBC6hSfloatBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC7UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC7_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12828,33 +6485,11 @@ TEST(profiles, TestFormatBC7UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatBC7SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_BC7_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -12870,33 +6505,11 @@ TEST(profiles, TestFormatBC7SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEtc2R8G8B8UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -12912,33 +6525,11 @@ TEST(profiles, TestFormatEtc2R8G8B8UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEtc2R8G8B8SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -12959,33 +6550,11 @@ TEST(profiles, TestFormatEtc2R8G8B8SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEtc2R8G8B8A1UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13004,33 +6573,11 @@ TEST(profiles, TestFormatEtc2R8G8B8A1UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEtc2R8G8B8A1SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13049,33 +6596,11 @@ TEST(profiles, TestFormatEtc2R8G8B8A1SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEtc2R8G8B8A8UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13094,33 +6619,11 @@ TEST(profiles, TestFormatEtc2R8G8B8A8UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEtc2R8G8B8A8SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13137,33 +6640,11 @@ TEST(profiles, TestFormatEtc2R8G8B8A8SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEacR11UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_EAC_R11_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13182,33 +6663,11 @@ TEST(profiles, TestFormatEacR11UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEacR11SnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_EAC_R11_SNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13227,33 +6686,11 @@ TEST(profiles, TestFormatEacR11SnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEacR11G11UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_EAC_R11G11_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13271,33 +6708,11 @@ TEST(profiles, TestFormatEacR11G11UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatEacR11G11SnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_EAC_R11G11_SNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13317,33 +6732,11 @@ TEST(profiles, TestFormatEacR11G11SnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc4x4UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13363,33 +6756,11 @@ TEST(profiles, TestFormatAstc4x4UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc4x4SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13409,33 +6780,11 @@ TEST(profiles, TestFormatAstc4x4SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc5x4UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_5x4_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13452,33 +6801,11 @@ TEST(profiles, TestFormatAstc5x4UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc5x4SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_5x4_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13497,33 +6824,11 @@ TEST(profiles, TestFormatAstc5x4SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc5x5UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_5x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13541,33 +6846,11 @@ TEST(profiles, TestFormatAstc5x5UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc5x5SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13586,33 +6869,11 @@ TEST(profiles, TestFormatAstc5x5SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc6x5UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_6x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13630,33 +6891,11 @@ TEST(profiles, TestFormatAstc6x5UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc6x5SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_6x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13674,33 +6913,11 @@ TEST(profiles, TestFormatAstc6x5SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc6x6UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13718,33 +6935,11 @@ TEST(profiles, TestFormatAstc6x6UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc6x6SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13766,33 +6961,11 @@ TEST(profiles, TestFormatAstc6x6SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x5UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13814,33 +6987,11 @@ TEST(profiles, TestFormatAstc8x5UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x5SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13857,33 +7008,11 @@ TEST(profiles, TestFormatAstc8x5SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x6UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x6_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -13904,33 +7033,11 @@ TEST(profiles, TestFormatAstc8x6UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x6SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x6_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -13952,33 +7059,11 @@ TEST(profiles, TestFormatAstc8x6SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x8UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14000,33 +7085,11 @@ TEST(profiles, TestFormatAstc8x8UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x8SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14048,33 +7111,11 @@ TEST(profiles, TestFormatAstc8x8SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x5UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14093,33 +7134,11 @@ TEST(profiles, TestFormatAstc10x5UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x5SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14139,33 +7158,11 @@ TEST(profiles, TestFormatAstc10x5SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x6UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x6_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14182,33 +7179,11 @@ TEST(profiles, TestFormatAstc10x6UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x6SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x6_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14227,33 +7202,11 @@ TEST(profiles, TestFormatAstc10x6SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x8UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x8_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14270,33 +7223,11 @@ TEST(profiles, TestFormatAstc10x8UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x8SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x8_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14312,33 +7243,11 @@ TEST(profiles, TestFormatAstc10x8SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x10UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x10_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14357,33 +7266,11 @@ TEST(profiles, TestFormatAstc10x10UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x10SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14400,33 +7287,11 @@ TEST(profiles, TestFormatAstc10x10SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc12x10UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_12x10_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14444,33 +7309,11 @@ TEST(profiles, TestFormatAstc12x10UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc12x10SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_12x10_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14487,33 +7330,11 @@ TEST(profiles, TestFormatAstc12x10SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc12x12UnormBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
     VkFormatProperties format_properties;
@@ -14530,33 +7351,11 @@ TEST(profiles, TestFormatAstc12x12UnormBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc12x12SrgbBLock) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
     VkFormatProperties format_properties;
@@ -14572,33 +7371,11 @@ TEST(profiles, TestFormatAstc12x12SrgbBLock) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8G8R8422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8B8G8R8_422_UNORM;
     VkFormatProperties format_properties;
@@ -14615,33 +7392,11 @@ TEST(profiles, TestFormatG8B8G8R8422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB8G8R8G8422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B8G8R8G8_422_UNORM;
     VkFormatProperties format_properties;
@@ -14658,33 +7413,11 @@ TEST(profiles, TestFormatB8G8R8G8422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8R83Plane420Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
     VkFormatProperties format_properties;
@@ -14704,33 +7437,11 @@ TEST(profiles, TestFormatG8B8R83Plane420Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8R82Plane420Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
     VkFormatProperties format_properties;
@@ -14749,33 +7460,11 @@ TEST(profiles, TestFormatG8B8R82Plane420Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8R83Plane422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM;
     VkFormatProperties format_properties;
@@ -14791,33 +7480,11 @@ TEST(profiles, TestFormatG8B8R83Plane422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8R82Plane422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_422_UNORM;
     VkFormatProperties format_properties;
@@ -14835,33 +7502,11 @@ TEST(profiles, TestFormatG8B8R82Plane422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8R83Plane444Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM;
     VkFormatProperties format_properties;
@@ -14879,33 +7524,11 @@ TEST(profiles, TestFormatG8B8R83Plane444Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR10X6UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R10X6_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -14929,33 +7552,11 @@ TEST(profiles, TestFormatR10X6UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR10X6g10x6Unorm2Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R10X6G10X6_UNORM_2PACK16;
     VkFormatProperties format_properties;
@@ -14971,33 +7572,11 @@ TEST(profiles, TestFormatR10X6g10x6Unorm2Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR10X6g10x6b10x6a10x6Unorm4Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16;
     VkFormatProperties format_properties;
@@ -15015,33 +7594,11 @@ TEST(profiles, TestFormatR10X6g10x6b10x6a10x6Unorm4Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG10X6b10x6g10x6r10x6422Unorm4Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
@@ -15061,33 +7618,11 @@ TEST(profiles, TestFormatG10X6b10x6g10x6r10x6422Unorm4Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB10X6g10x6r10x6g10x6422Unorm4Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
@@ -15111,33 +7646,11 @@ TEST(profiles, TestFormatB10X6g10x6r10x6g10x6422Unorm4Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG10X6B10X6R10X63Plane420Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15155,33 +7668,11 @@ TEST(profiles, TestFormatG10X6B10X6R10X63Plane420Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG10X6B10X6r10x62Plane420Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15197,33 +7688,11 @@ TEST(profiles, TestFormatG10X6B10X6r10x62Plane420Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG10X6B10X6R10X63Plane422Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15244,33 +7713,11 @@ TEST(profiles, TestFormatG10X6B10X6R10X63Plane422Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG10X6B10X6r10x62Plane422Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15291,33 +7738,11 @@ TEST(profiles, TestFormatG10X6B10X6r10x62Plane422Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG10X6B10X6R10X63Plane444Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15334,33 +7759,11 @@ TEST(profiles, TestFormatG10X6B10X6R10X63Plane444Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR12X4UnormPack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R12X4_UNORM_PACK16;
     VkFormatProperties format_properties;
@@ -15377,33 +7780,11 @@ TEST(profiles, TestFormatR12X4UnormPack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR12X4g12x4Unorm2Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
     VkFormatProperties format_properties;
@@ -15417,33 +7798,11 @@ TEST(profiles, TestFormatR12X4g12x4Unorm2Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatR12X4g12x4b12x4a12x4Unorm4Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16;
     VkFormatProperties format_properties;
@@ -15466,33 +7825,11 @@ TEST(profiles, TestFormatR12X4g12x4b12x4a12x4Unorm4Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG12X4b12x4g12x4r12x4422Unorm4Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
@@ -15509,33 +7846,11 @@ TEST(profiles, TestFormatG12X4b12x4g12x4r12x4422Unorm4Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB12X4g12x4r12x4g12x4422Unorm4Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
@@ -15553,33 +7868,11 @@ TEST(profiles, TestFormatB12X4g12x4r12x4g12x4422Unorm4Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG12X4B12X4R12X43Plane420Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15597,33 +7890,11 @@ TEST(profiles, TestFormatG12X4B12X4R12X43Plane420Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG12X4B12X4r12x42Plane420Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15643,33 +7914,11 @@ TEST(profiles, TestFormatG12X4B12X4r12x42Plane420Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG12X4B12X4R12X43Plane422Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15684,33 +7933,11 @@ TEST(profiles, TestFormatG12X4B12X4R12X43Plane422Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG12X4B12X4r12x42Plane422Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15729,33 +7956,11 @@ TEST(profiles, TestFormatG12X4B12X4r12x42Plane422Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG12X4B12X4R12X43Plane444Unorm3Pack16) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
@@ -15773,33 +7978,11 @@ TEST(profiles, TestFormatG12X4B12X4R12X43Plane444Unorm3Pack16) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG16B16G16R16422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16B16G16R16_422_UNORM;
     VkFormatProperties format_properties;
@@ -15814,33 +7997,11 @@ TEST(profiles, TestFormatG16B16G16R16422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatB16G16R16G16422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_B16G16R16G16_422_UNORM;
     VkFormatProperties format_properties;
@@ -15862,33 +8023,11 @@ TEST(profiles, TestFormatB16G16R16G16422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG16B16R163Plane420Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM;
     VkFormatProperties format_properties;
@@ -15908,33 +8047,11 @@ TEST(profiles, TestFormatG16B16R163Plane420Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG16B16R162Plane420Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16_B16R16_2PLANE_420_UNORM;
     VkFormatProperties format_properties;
@@ -15952,33 +8069,11 @@ TEST(profiles, TestFormatG16B16R162Plane420Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG16B16R163Plane422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM;
     VkFormatProperties format_properties;
@@ -16001,33 +8096,11 @@ TEST(profiles, TestFormatG16B16R163Plane422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG16B16R162Plane422Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16_B16R16_2PLANE_422_UNORM;
     VkFormatProperties format_properties;
@@ -16045,33 +8118,11 @@ TEST(profiles, TestFormatG16B16R162Plane422Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG16B16R163Plane444Unorm) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM;
     VkFormatProperties format_properties;
@@ -16090,33 +8141,11 @@ TEST(profiles, TestFormatG16B16R163Plane444Unorm) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc12BPpUnormBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16135,33 +8164,11 @@ TEST(profiles, TestFormatPvrtc12BPpUnormBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc14BPpUnormBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16177,33 +8184,11 @@ TEST(profiles, TestFormatPvrtc14BPpUnormBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc22BPpUnormBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16224,33 +8209,11 @@ TEST(profiles, TestFormatPvrtc22BPpUnormBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc24BPpUnormBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16268,33 +8231,11 @@ TEST(profiles, TestFormatPvrtc24BPpUnormBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc12BPpSrgbBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16311,33 +8252,11 @@ TEST(profiles, TestFormatPvrtc12BPpSrgbBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc14BPpSrgbBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16357,33 +8276,11 @@ TEST(profiles, TestFormatPvrtc14BPpSrgbBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc22BPpSrgbBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16404,33 +8301,11 @@ TEST(profiles, TestFormatPvrtc22BPpSrgbBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatPvrtc24BPpSrgbBLockImg) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
@@ -16453,33 +8328,11 @@ TEST(profiles, TestFormatPvrtc24BPpSrgbBLockImg) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc4x4SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_4x4_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16495,33 +8348,11 @@ TEST(profiles, TestFormatAstc4x4SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc5x4SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_5x4_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16540,33 +8371,11 @@ TEST(profiles, TestFormatAstc5x4SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc5x5SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_5x5_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16587,33 +8396,11 @@ TEST(profiles, TestFormatAstc5x5SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc6x5SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_6x5_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16632,33 +8419,11 @@ TEST(profiles, TestFormatAstc6x5SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc6x6SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16679,33 +8444,11 @@ TEST(profiles, TestFormatAstc6x6SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x5SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x5_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16721,33 +8464,11 @@ TEST(profiles, TestFormatAstc8x5SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x6SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x6_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16762,33 +8483,11 @@ TEST(profiles, TestFormatAstc8x6SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc8x8SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16808,33 +8507,11 @@ TEST(profiles, TestFormatAstc8x8SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x5SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x5_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16850,33 +8527,11 @@ TEST(profiles, TestFormatAstc10x5SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x6SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x6_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16893,33 +8548,11 @@ TEST(profiles, TestFormatAstc10x6SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x8SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x8_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16941,33 +8574,11 @@ TEST(profiles, TestFormatAstc10x8SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc10x10SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_10x10_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -16986,33 +8597,11 @@ TEST(profiles, TestFormatAstc10x10SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc12x10SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_12x10_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -17031,33 +8620,11 @@ TEST(profiles, TestFormatAstc12x10SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatAstc12x12SfloatBLockExt) {
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_ASTC_12x12_SFLOAT_BLOCK_EXT;
     VkFormatProperties format_properties;
@@ -17075,34 +8642,12 @@ TEST(profiles, TestFormatAstc12x12SfloatBLockExt) {
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-
-    vkDestroyInstance(test_inst, nullptr);
 }
 
 TEST(profiles, TestFormatG8B8R82Plane444UnormExt) {
 #ifdef VK_EXT_ycbcr_2plane_444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT;
     VkFormatProperties format_properties;
@@ -17120,34 +8665,13 @@ TEST(profiles, TestFormatG8B8R82Plane444UnormExt) {
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFormatG10X6B10X6r10x62Plane444Unorm3Pack16Ext) {
 #ifdef VK_EXT_ycbcr_2plane_444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT;
     VkFormatProperties format_properties;
@@ -17167,34 +8691,13 @@ TEST(profiles, TestFormatG10X6B10X6r10x62Plane444Unorm3Pack16Ext) {
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFormatG12X4B12X4r12x42Plane444Unorm3Pack16Ext) {
 #ifdef VK_EXT_ycbcr_2plane_444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT;
     VkFormatProperties format_properties;
@@ -17211,34 +8714,13 @@ TEST(profiles, TestFormatG12X4B12X4r12x42Plane444Unorm3Pack16Ext) {
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFormatG16B16R162Plane444UnormExt) {
 #ifdef VK_EXT_ycbcr_2plane_444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT;
     VkFormatProperties format_properties;
@@ -17256,34 +8738,13 @@ TEST(profiles, TestFormatG16B16R162Plane444UnormExt) {
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFormatA4R4G4B4UnormPack16Ext) {
 #ifdef VK_EXT_4444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A4R4G4B4_UNORM_PACK16_EXT;
     VkFormatProperties format_properties;
@@ -17306,34 +8767,13 @@ TEST(profiles, TestFormatA4R4G4B4UnormPack16Ext) {
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }
 
 TEST(profiles, TestFormatA4B4G4R4UnormPack16Ext) {
 #ifdef VK_EXT_4444_formats
-    VkResult err = VK_SUCCESS;
-
-    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-    profiles_test::VulkanInstanceBuilder inst_builder;
-
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-    profiles_test::setProfilesSimulateAllCapabilities();
-
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
-    err = inst_builder.getPhysicalDevice(&gpu);
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkPhysicalDevice gpu = GetPhysicalDevice();
+    if (gpu == VK_NULL_HANDLE) return;
 
     VkFormat format = VK_FORMAT_A4B4G4R4_UNORM_PACK16_EXT;
     VkFormatProperties format_properties;
@@ -17352,6 +8792,5 @@ TEST(profiles, TestFormatA4B4G4R4UnormPack16Ext) {
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 
-    vkDestroyInstance(test_inst, nullptr);
 #endif
 }

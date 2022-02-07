@@ -43,6 +43,7 @@ set(TARGET_NAME khronos_profiles)
 if (APPLE)
     include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
         ${jsoncpp_SOURCE_DIR}/include
@@ -53,6 +54,7 @@ if (APPLE)
 else ()
     include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
         ${jsoncpp_SOURCE_DIR}/include
@@ -100,6 +102,7 @@ set(VulkanHeaders_VERSION_MAJOR "0")
 set(VulkanHeaders_VERSION_MINOR "0")
 set(VulkanHeaders_VERSION_PATCH "0")
 set(VulkanHeaders_main_header ${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_core.h)
+message(STATUS "Parsing ${VulkanHeaders_main_header} to get Vulkan Version")
 
 # Find all lines in the header file that contain any version we may be interested in
 #  NOTE: They start with #define and then have other keywords
@@ -158,6 +161,7 @@ set(CONFIG_DEFINES ${CONFIG_DEFINES}
 )
 
 add_custom_target(VkLayer_${TARGET_NAME}-json ALL COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake")
+set_target_properties(VkLayer_${TARGET_NAME}-json PROPERTIES FOLDER "Profiles layer")
 
 # Add target for JSON file install.
 if(NOT WIN32)
@@ -170,6 +174,7 @@ if(NOT WIN32)
         VERBATIM
         DEPENDS VkLayer_${TARGET_NAME}-json
         )
+    set_target_properties(VkLayer_${TARGET_NAME}-staging-json PROPERTIES FOLDER "Profiles layer")
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/staging-json/VkLayer_${TARGET_NAME}.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/vulkan/explicit_layer.d)
 endif()
 

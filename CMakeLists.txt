@@ -6,13 +6,13 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X deployment ve
 set(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM FALSE) # Workaround to fix C.I. build on VS2015
 
 project(VULKAN_PROFILES)
-set(VULKAN_TAG v1.2.199)
+set(VULKAN_TAG v1.3.204)
 
 # Define GNU standard installation directories.
 include(GNUInstallDirs)
 
-# Using Python 3
-find_package(PythonInterp 3 REQUIRED)
+# Using Python 3.7.2 or better (required for typing.OrderedDict)
+find_package(PythonInterp 3.7.2 REQUIRED)
 
 # Third-party libraries
 include(FetchContent)
@@ -35,11 +35,7 @@ FetchContent_Declare(
 	GIT_TAG release-1.11.0
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_Declare(
-	json
-	GIT_REPOSITORY https://github.com/nlohmann/json
-	GIT_TAG v3.10.0
-)
+
 FetchContent_Declare(
 	jsoncpp
 	GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp
@@ -53,33 +49,30 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
 	vulkan-headers
-#	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
-#	GIT_TAG ${VULKAN_TAG}
-	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-Headers.git
-	GIT_TAG 13staging
+	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
+	GIT_TAG ${VULKAN_TAG}
 )
 FetchContent_Declare(
 	vulkan-validationlayers
-#	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
-#	GIT_TAG ${VULKAN_TAG}
-	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-ValidationLayers.git
-	GIT_TAG tony-13staging-gitlab
+	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
+	GIT_TAG v1.2.203
+#	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-ValidationLayers.git
+#	GIT_TAG tony-13staging-gitlab
 )
 # Desktop builds link against the loader vulkan library.  Android
 # builds just link against the system vulkan library.
 if (NOT ANDROID)
     FetchContent_Declare(
         vulkan-loader
-        GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-Loader.git
-        GIT_TAG staging13
+        GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Loader.git
+        GIT_TAG sdk-1.3.204
     )
 endif()
 
 # After all the content is declared, it can safely be made available.
 FetchContent_MakeAvailable(googletest)
-FetchContent_MakeAvailable(json)
 FetchContent_MakeAvailable(jsoncpp)
-execute_process(COMMAND python ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
+execute_process(COMMAND ${PYTHON_EXECUTABLE} ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
 
 set(UPDATE_DEPS ON)
 set(BUILD_TESTS OFF)
@@ -154,24 +147,31 @@ if (NOT ANDROID)
     endif()
 endif()
 
+include_directories(external)
+
 set(API_NAME "Vulkan" CACHE STRING "API name to use when building")
 string(TOLOWER ${API_NAME} API_LOWERCASE)
 add_definitions(-DAPI_NAME="${API_NAME}")
 
+add_subdirectory(scripts)
+
 add_subdirectory(library)
 
-add_subdirectory(vku)
+add_subdirectory(layer-utils)
 
 # add_vk_layer macro is used by layer/.
 if (WIN32)
     macro(add_vk_layer target)
     FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_${target}.def DEF_FILE)
-    add_custom_target(copy-${target}-def-file ALL
+    add_custom_target(VkLayer_copy-${target}-def-file ALL
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DEF_FILE} VkLayer_${target}.def
         VERBATIM
     )
+    set_target_properties(VkLayer_copy-${target}-def-file PROPERTIES FOLDER "Profiles layer")
+
     add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
     target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY} vku)
+    set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
     endmacro()
 else()
     macro(add_vk_layer target)
@@ -184,11 +184,10 @@ else()
     if (NOT APPLE)
         set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
     endif ()
+    set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
     install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
     endmacro()
 endif()
 add_subdirectory(layer)
-
-include_directories(external)
 
 add_subdirectory(profiles/test)
