@@ -1,3 +1,271 @@
+vulkan-profiles (1.3.204.0~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * profiles: add M1 support for desktop portability
+
+  [ ziga-lunarg ]
+  * profiles layer: Add profiles authors
+
+  [ Christophe ]
+  * profile: fix unit tests on M1
+  * library: fix format unit tests
+  * library: add test dependences checks
+  * layer: remove SIMULATE_FORMAT_PROPERTIES_BIT
+  * docs: change name to reduce confusion, the file remains out dated
+
+  [ Daniel Rakos ]
+  * Cherry pick draft generated schema
+
+  [ Christophe ]
+  * profile: remove VK_KHR_shader_subgroup_extended_types required from desktop port for mac NVIDA support
+  * layer: factorize test initialization
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix parsing deviceType twice
+  * profiels layer: Remove unused functions
+  * profiles layer: Remove unused old devsim code
+
+  [ Christophe ]
+  * library: slight improvement of unit test execution time, reducing initiation cost
+  * library: facotrize unit tests
+  * library: clean up unit tests
+  * Clean up target names
+  * Clean up target names
+  * cmake: add folder for targets
+  * docs: reorganize files
+  * docs: show overview image
+
+  [ ziga-lunarg ]
+  * profiles layer: Update layer tutorial
+
+  [ Christophe ]
+  * docs: use LunarG profiles repository to reference the overview.png
+  * docs: use the images directory for images
+
+  [ ziga-lunarg ]
+  * profiles: Update copyrights
+  * profiles layer: Remove more unused old devsim code
+  * profiles layer: Fix parsing promoted extensions
+
+  [ Christophe ]
+  * layer: implement SIMULATE_API_VERSION_BIT #288
+  * layer: add schema validation
+  * layer: by default the validation doesn't show notifications
+
+  [ ziga-lunarg ]
+  * profiles layer: Warn if struct members are repeated
+
+  [ Bob Ellison ]
+  * build: log where the Vulkan Version is computed
+
+  [ Daniel Rakos ]
+  * Add library variant with debug message support
+  * Prettify variable names in debug messages
+  * Prettify and compact flag conditions
+  * Prettify debug messages even further
+  * Fixes and refactoring
+  * Rebase related changes
+
+  [ Christophe ]
+  * docs: update-url to new repo
+
+  [ ziga-lunarg ]
+  * profiles layer: Warn if greater api version is used
+  * profiles layer: Warn using same structures
+  * profiles layer: Improve missing format feature log
+  * profiles layer: Add missing debug bit log
+  * profiles layer: Improve GetValue functions
+  * profiles layer: Rename bool compare function to make it more clear
+  * profiles layer: Fix log typos
+
+  [ Christophe ]
+  * layer: implement SIMULATE_API_VERSION_BIT
+  * library: move test into solution folder
+  * Revert "library: move test into solution folder"
+  * Revert "layer: implement SIMULATE_API_VERSION_BIT"
+  * docs: BETA
+  * cmake: move test target into solution folder
+  * layer: implement SIMULATE_API_VERSION_BIT
+  * layer: notification to display the API -version
+  * layer: fix call to AddPromotedExtensions
+
+  [ Daniel Rakos ]
+  * Schema generator prototype
+  * Temporarily disable JSON validation
+  * Reenable JSON validation
+
+  [ Bob Ellison ]
+  * generation: fix python reference
+
+  [ Daniel Rakos ]
+  * WIP stuff that should fix test failures
+  * Deal with some more corner cases
+  * Draft features and properties/limits documentation
+  * Rebase related changes
+  * Collect enum value aliases
+  * Generate queue family data to the documentation
+  * Generate format properties to documentation
+  * Updating generated profiles documentation
+  * Refactoring and delete accidental commit of vk.xml
+  * Tweaks to documentation generation
+  * Add python requirements to BUILD.md
+
+  [ Christophe ]
+  * docs: clean up README
+
+  [ James Riordon ]
+  * Add REUSE complaince
+
+  [ Trevor David Black ]
+  * Replace ABP with final draft
+  * Update VP_ANDROID_baseline_2021.json
+
+  [ Christophe ]
+  * profile: update generated docs
+  * profiles: remove space changes
+  * library: fix unit test
+  * library: fix unit test
+  * library: uniformalize test target name
+  * docs: updated change log
+  * docs: fix style
+  * docs: fisrt draft of the overview document
+  * docs: refine overview
+  * docs: clean up schema
+  * docs: refined overview
+  * docs: add missing queue properties
+  * cmake: use public vk13 headers
+  * profile: updated schema for vk1.3.204 update
+  * cmake: use 1.3.204 loader
+
+  [ Daniel Rakos ]
+  * Add newline to default stderr library debug output
+  * Add workaround for missing queueFlags limittype
+
+  [ Christophe ]
+  * profile: fix m1 support
+  * cmake: fix missmatch
+  * cmake: use the loader we want to ship
+  * library: fix unit test to reflect desktop port changes
+  * cmake: try using v1.3.204 branch
+  * layer: improve unit test execution time
+  * layer: jump to BETA status
+
+  [ Mark Lobodzinski ]
+  * vku: Fix TrimPrefix early assert
+
+  [ Christophe ]
+  * library: use debug version to get log
+  * library: use debug version to get log
+  * library: removed useless test
+  * layer: improve unit test execution time
+
+  [ ziga-lunarg ]
+  * profiles layer: Remove append macro
+
+  [ Christophe ]
+  * profile: add desktop portability supports for mac GTX 750
+  * profile: fix reflection test on desktop portability
+  * layer: split unit tests to try to identify SEGFAULT on mac
+  * library: add Android test
+
+  [ Bob Ellison ]
+  * build: use Vulkan-Loader 1.3.204
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix getting SDK env variable
+  * profiles layer: Update documentation and set default values
+
+  [ Christophe ]
+  * docs: fix links
+  * layer: fix unit tests
+
+  [ Daniel Rakos ]
+  * Add legends to the generated documentation tables
+
+  [ Christophe ]
+  * docs: clarify Vulkan requirements
+  * layer: fix API version check
+  * cmake: using the public validation layer
+  * layer: kill DRM extension that is ill designed
+
+  [ Mark Lobodzinski ]
+  * layer: Change Json load/parse parameters to std::string
+  * layer: Ensure Parsefile filename has no trailing newline
+  * layer: Use correct versions of core APIs
+  * vku: Changed dir name to layer-utils
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix extensions in test profile
+  * profiles layer: Update tutorial
+  * profiles layer: Fix parsing VkPhysicalDeviceProperties
+  * profiles layer: Fix desktop portability tests
+  * profiles layer: Add vkGetPhysicalDeviceToolProperties
+  * profiles layer: Update tutorial
+
+  [ Christophe ]
+  * docs: global improvements after first draft
+  * docs: fix layer binary path
+
+  [ Daniel Rakos ]
+  * Profiles doc - add man page links and fix bugs
+  * Add debug message containing device/driver info
+  * Fix accidental double-parantheses
+
+  [ Christophe ]
+  * docs: add vkconfig details to the layer doc
+  * docs: fix typo
+
+  [ ziga-lunarg ]
+  * profiles layer: Add instance extensions to test profile
+
+  [ Christophe ]
+  * docs: clean up
+
+  [ Daniel Rakos ]
+  * Move generator script out of library subdirectory
+
+  [ Christophe ]
+  * docs: overview docs feedback
+
+  [ Mark Lobodzinski ]
+  * layer: Add header file for shared data definitions
+  * layer: Use new header file for shared layer/test data
+
+  [ ziga-lunarg ]
+  * profiles layer tutorial: Warn about using multiple versions of same structure
+
+  [ Christophe ]
+  * layer: fix missing macos preset entry
+  * layer: fix schema validation crash, turn it off by default as schema need to be found
+
+  [ John Zupin ]
+  * doc: update copyright symbol to (c) on overview.md
+
+  [ ziga-lunarg ]
+  * profiles layer: Add setting to disabled selected extensions
+  * profiles layer: Add test for disabling extensions
+  * profiles layer: Format code
+
+  [ Christophe ]
+  * layer: use a list setting type for extensions disabling
+  * layer: add exclude formats front-end
+  * layer: rename to device extension
+
+  [ ziga-lunarg ]
+  * profiles layer: Implement excluding formats
+  * profiles layer: Add test for excluding formats
+  * profiles layer: Fix json list
+  * profiles layer: Add valid values to settings lists
+  * profiles layer: Document exclude settings
+  * profiles layer: Print all warnings before failing
+
+  [ John Zupin ]
+  * packaging patches: rebased
+  * packaging: need jsonschema python module for build dep
+  * packaging patch: new patch to disable scripts/ call
+
+ -- John Zupin <john@odin>  Mon, 07 Feb 2022 16:42:17 -0700
+
 vulkan-profiles (1.3.000.0-1) unstable; urgency=medium
 
   * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
