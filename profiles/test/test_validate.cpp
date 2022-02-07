@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2020-2021 Valve Corporation
- * Copyright (c) 2020-2021 LunarG, Inc.
+ * Copyright (c) 2020-2022 Valve Corporation
+ * Copyright (c) 2020-2022 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,6 +165,34 @@ TEST(test_validate, VP_LUNARG_test_api) {
     JsonValidator validator;
 
     const Json::Value document = ParseJsonFile("VP_LUNARG_test_api.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_api_alternate) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_api_alternate.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_promoted_api) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_promoted_api.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_duplicated) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_duplicated.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_formats) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_formats.json");
     EXPECT_TRUE(validator.Check(document));
 }
 

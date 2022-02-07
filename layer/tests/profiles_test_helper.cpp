@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2020-2021 Valve Corporation
- * Copyright (c) 2020-2021 LunarG, Inc.
+ * Copyright (c) 2021-2022 Valve Corporation
+ * Copyright (c) 2021-2022 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ std::string profiles_test::getAbsolutePath(std::string filepath) {
 
 void profiles_test::setProfilesFilename(const std::string& filepath) {
     profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_PROFILE_FILE", filepath.c_str());
+    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_PROFILE_VALIDATION", "false"); // Never validate profile files, it's done by a dedicated test.
 }
 
 void profiles_test::setProfilesDebugEnable(bool enable) {
@@ -132,6 +133,24 @@ void profiles_test::setProfilesProfileName(const std::string& profile) {
 
 void profiles_test::setProfilesFailOnError(bool fail) {
     profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_DEBUG_FAIL_ON_ERROR", fail ? "true" : "false");
+}
+
+void profiles_test::setExcludeDeviceExtensions(const std::vector<std::string>& extensions) {
+    std::string combined = {};
+    for (const auto& ext : extensions) {
+        if (!combined.empty()) combined += ';';
+        combined += ext;
+    }
+    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_EXCLUDE_DEVICE_EXTENSIONS", combined.c_str());
+}
+
+void profiles_test::setExcludeFormats(const std::vector<std::string>& formats) {
+    std::string combined = {};
+    for (const auto& format : formats) {
+        if (!combined.empty()) combined += ';';
+        combined += format;
+    }
+    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_EXCLUDE_FORMATS", combined.c_str());
 }
 
 VkApplicationInfo profiles_test::GetDefaultApplicationInfo() {
