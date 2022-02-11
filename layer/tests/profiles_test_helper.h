@@ -31,16 +31,7 @@ void unsetEnvironmentSetting(std::string setting);
 
 std::string getAbsolutePath(std::string filepath);
 
-void setProfilesFilename(const std::string& filepath);
-void setProfilesDebugEnable(bool enable);
-void setProfilesEmulatePortabilitySubsetExtension(bool enable);
 std::string GetSimulateCapabilitiesLog(SimulateCapabilityFlags flags);
-void setProfilesSimulateCapabilities(SimulateCapabilityFlags flags);
-void setProfilesSimulateAllCapabilities();
-void setProfilesProfileName(const std::string& profile);
-void setProfilesFailOnError(bool fail);
-void setExcludeDeviceExtensions(const std::vector<std::string>& extensions);
-void setExcludeFormats(const std::vector<std::string>& formats);
 
 VkApplicationInfo GetDefaultApplicationInfo();
 
@@ -50,6 +41,7 @@ class VulkanInstanceBuilder {
     void addLayer(const char* layer_name) { _layer_names.push_back(layer_name); }
     void addExtension(const char* extension_name) { _extension_names.push_back(extension_name); }
     VkResult makeInstance();
+    VkResult makeInstance(void* pnext);
     VkResult getPhysicalDevice(VkPhysicalDevice* phys_dev);
 
     void reset();

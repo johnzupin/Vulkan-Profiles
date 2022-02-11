@@ -11,16 +11,21 @@ function(LayerTest NAME)
     add_executable(${TEST_NAME} ${TEST_FILE} ${FILES_JSON} profiles_test_helper.h profiles_test_helper.cpp ${jsoncpp_SOURCE_DIR}/dist/jsoncpp.cpp)
     add_dependencies(${TEST_NAME} VkLayer_khronos_profiles)
 
-    target_include_directories(${TEST_NAME} PUBLIC "${vulkan-headers_SOURCE_DIR}/include")
+    target_include_directories(${TEST_NAME} PUBLIC
+        "${vulkan-headers_SOURCE_DIR}/include"
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../layer-utils
+        )
     target_link_libraries(${TEST_NAME} gtest gtest_main)
     if(ANDROID)
         # Android executables generally need these libraries.
         target_link_libraries(${TEST_NAME} log android dl vulkan)
+        target_compile_definitions(${TEST_NAME} PUBLIC JSON_TEST_FILES_PATH="/sdcard/Android/data/com.example.VulkanProfilesLayerTests/files/")
     else()
         # Everyone else links to the built loader.
         target_link_libraries(${TEST_NAME} Vulkan::Vulkan)
+        target_compile_definitions(${TEST_NAME} PUBLIC JSON_TEST_FILES_PATH="${CMAKE_BINARY_DIR}/profiles/test/")
     endif()
-    target_compile_definitions(${TEST_NAME} PUBLIC TEST_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
+
     target_compile_definitions(${TEST_NAME} PUBLIC TEST_BINARY_PATH="${CMAKE_BINARY_DIR}/")
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 

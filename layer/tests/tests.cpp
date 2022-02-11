@@ -46,13 +46,14 @@ TEST(layer, TestSetCombinationMode) {
 
     {
         inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-        profiles_test::setProfilesFilename(filepath);
-        profiles_test::setProfilesEmulatePortabilitySubsetExtension(true);
-        profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-        profiles_test::setProfilesSimulateCapabilities(0);
 
-        err = inst_builder.makeInstance();
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+        settings.emulate_portability = true;
+        settings.profile_name = "VP_LUNARG_test_api";
+        settings.simulate_capabilities = 0;
+
+        err = inst_builder.makeInstance(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkInstance test_inst = inst_builder.getInstance();
@@ -90,14 +91,14 @@ TEST(layer, TestSetCombinationMode) {
 
     {
         inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-        profiles_test::setProfilesFilename(filepath);
-        profiles_test::setProfilesEmulatePortabilitySubsetExtension(true);
-        profiles_test::setProfilesProfileName("VP_LUNARG_test_api_1_2_198");
-        profiles_test::setProfilesSimulateCapabilities(SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT);
-        profiles_test::setProfilesFailOnError(false);
 
-        err = inst_builder.makeInstance();
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+        settings.emulate_portability = true;
+        settings.profile_name = "VP_LUNARG_test_api_1_2_198";
+        settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
+
+        err = inst_builder.makeInstance(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkInstance test_inst = inst_builder.getInstance();
@@ -135,14 +136,14 @@ TEST(layer, TestSetCombinationMode) {
 
     {
         inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-        profiles_test::setProfilesFilename(filepath);
-        profiles_test::setProfilesEmulatePortabilitySubsetExtension(true);
-        profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-        profiles_test::setProfilesSimulateCapabilities(SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT);
-        profiles_test::setProfilesFailOnError(false);
 
-        err = inst_builder.makeInstance();
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+        settings.emulate_portability = true;
+        settings.profile_name = "VP_LUNARG_test_api";
+        settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
+
+        err = inst_builder.makeInstance(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkInstance test_inst = inst_builder.getInstance();
@@ -170,6 +171,7 @@ TEST(layer, TestSetCombinationMode) {
         vkDestroyInstance(test_inst, nullptr);
         inst_builder.reset();
     }
+
 }
 
 TEST(layer, TestExtensionNotSupported) {
@@ -202,14 +204,15 @@ TEST(layer, TestExtensionNotSupported) {
 
     {
         inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        const std::string filepath = TEST_SOURCE_PATH "/../../profiles/test/data/VP_LUNARG_test_api.json";
-        profiles_test::setProfilesFilename(filepath);
-        profiles_test::setProfilesEmulatePortabilitySubsetExtension(true);
-        profiles_test::setProfilesProfileName("VP_LUNARG_test_api");
-        profiles_test::setProfilesSimulateCapabilities(SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT);
-        profiles_test::setProfilesFailOnError(true);
 
-        err = inst_builder.makeInstance();
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+        settings.emulate_portability = true;
+        settings.profile_name = "VP_LUNARG_test_api";
+        settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
+        settings.debug_fail_on_error = true;
+
+        err = inst_builder.makeInstance(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkInstance test_inst = inst_builder.getInstance();
@@ -234,22 +237,20 @@ TEST(layer, TestExcludingDeviceExtensions) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/VP_LUNARG_desktop_portability_2021.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_desktop_portability_2021");
-    profiles_test::setProfilesEmulatePortabilitySubsetExtension(true);
-    profiles_test::setProfilesFailOnError(false);
-    std::vector<std::string> disable = {
+    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+
+    VkProfileLayerSettingsEXT settings;
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_portability_2021.json";
+    settings.profile_name = "VP_LUNARG_desktop_portability_2021";
+    settings.emulate_portability = true;
+    settings.debug_fail_on_error = false;
+    settings.exclude_device_extensions = {
         VK_KHR_MAINTENANCE_1_EXTENSION_NAME,
         VK_KHR_MAINTENANCE_2_EXTENSION_NAME,
         VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
-        VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
-    };
-    profiles_test::setExcludeDeviceExtensions(disable);
+        VK_KHR_MAINTENANCE_4_EXTENSION_NAME};
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-    err = inst_builder.makeInstance();
+    err = inst_builder.makeInstance(&settings);
     ASSERT_EQ(err, VK_SUCCESS);
 
     VkInstance test_inst = inst_builder.getInstance();
@@ -301,20 +302,16 @@ TEST(layer, TestExcludingFormats) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    const std::string filepath = TEST_SOURCE_PATH "/../../profiles/VP_LUNARG_desktop_portability_2021.json";
-    profiles_test::setProfilesFilename(filepath);
-    profiles_test::setProfilesProfileName("VP_LUNARG_desktop_portability_2021");
-    profiles_test::setProfilesEmulatePortabilitySubsetExtension(true);
-    profiles_test::setProfilesFailOnError(false);
-    std::vector<std::string> disable = {
-        "VK_FORMAT_R8G8B8A8_UNORM",
-    };
-    profiles_test::setExcludeFormats(disable);
-
     inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
 
-    err = inst_builder.makeInstance();
-    ASSERT_EQ(err, VK_SUCCESS);
+    VkProfileLayerSettingsEXT settings;
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_portability_2021.json";
+    settings.profile_name = "VP_LUNARG_desktop_portability_2021";
+    settings.emulate_portability = true;
+    settings.debug_fail_on_error = false;
+    settings.exclude_formats = {"VK_FORMAT_R8G8B8A8_UNORM"};
+
+    err = inst_builder.makeInstance(&settings);    ASSERT_EQ(err, VK_SUCCESS);
 
     VkInstance test_inst = inst_builder.getInstance();
 
@@ -332,4 +329,167 @@ TEST(layer, TestExcludingFormats) {
     ASSERT_EQ(format_properties.linearTilingFeatures, 0);
     ASSERT_EQ(format_properties.optimalTilingFeatures, 0);
     ASSERT_EQ(format_properties.bufferFeatures, 0);
+}
+
+TEST(layer, TestMissingPhysDevProps2) {
+    VkResult err = VK_SUCCESS;
+
+    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
+    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
+
+    profiles_test::VulkanInstanceBuilder inst_builder;
+
+    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+    inst_builder.setApiVersion(VK_API_VERSION_1_0);
+
+    VkProfileLayerSettingsEXT settings;
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_portability_2021.json";
+    settings.profile_name = "VP_LUNARG_desktop_portability_2021";
+    settings.emulate_portability = false;
+    settings.debug_fail_on_error = false;
+    settings.simulate_capabilities = SIMULATE_ALL_CAPABILITIES;
+
+    err = inst_builder.makeInstance(&settings);    ASSERT_EQ(err, VK_SUCCESS);
+
+    VkPhysicalDevice gpu;
+    err = inst_builder.getPhysicalDevice(&gpu);
+
+    uint32_t count = 0;
+    vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
+    ASSERT_EQ(count, 19);
+}
+
+TEST(layer, TestNotSettingProfileFile) {
+    VkResult err = VK_SUCCESS;
+
+    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
+    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
+
+    profiles_test::VulkanInstanceBuilder inst_builder;
+
+    std::vector<VkExtensionProperties> device_extensions;
+    {
+        err = inst_builder.makeInstance();
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        VkInstance test_inst = inst_builder.getInstance();
+
+        VkPhysicalDevice gpu;
+        err = inst_builder.getPhysicalDevice(&gpu);
+
+        if (err != VK_SUCCESS) {
+            printf("Profile not supported on device, skipping test.\n");
+        } else {
+            uint32_t count;
+            vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
+            device_extensions.resize(count);
+            vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, device_extensions.data());
+        }
+
+        vkDestroyInstance(test_inst, nullptr);
+        inst_builder.reset();
+    }
+    {
+        const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
+        profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
+
+        profiles_test::VulkanInstanceBuilder inst_builder;
+
+        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+        inst_builder.setApiVersion(VK_API_VERSION_1_0);
+
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = {};
+        settings.profile_name = {};
+        settings.emulate_portability = false;
+        settings.debug_fail_on_error = false;
+        settings.simulate_capabilities = SIMULATE_ALL_CAPABILITIES;
+
+        err = inst_builder.makeInstance(&settings);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        VkPhysicalDevice gpu;
+        err = inst_builder.getPhysicalDevice(&gpu);
+
+        uint32_t count = 0;
+        vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
+        ASSERT_EQ(device_extensions.size(), count);
+    }
+}
+
+TEST(layer, TestExcludedExtensions) {
+#ifdef VK_EXT_shader_atomic_float2
+    VkResult err = VK_SUCCESS;
+
+    const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
+    profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
+
+    profiles_test::VulkanInstanceBuilder inst_builder;
+
+    VkPhysicalDeviceTransformFeedbackPropertiesEXT device_properties{};
+    device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
+    {
+        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+        inst_builder.setApiVersion(VK_API_VERSION_1_3);
+
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+        settings.profile_name = "VP_LUNARG_test_api";
+        settings.emulate_portability = true;
+        settings.debug_fail_on_error = false;
+        settings.simulate_capabilities = SIMULATE_API_VERSION_BIT;
+
+        err = inst_builder.makeInstance(&settings);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        VkPhysicalDevice gpu;
+        err = inst_builder.getPhysicalDevice(&gpu);
+
+        VkPhysicalDeviceProperties2 properties;
+        properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        properties.pNext = &device_properties;
+        vkGetPhysicalDeviceProperties2(gpu, &properties);
+        inst_builder.reset();
+    }
+
+    {
+        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
+        inst_builder.setApiVersion(VK_API_VERSION_1_3);
+
+        VkProfileLayerSettingsEXT settings;
+        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+        settings.profile_name = "VP_LUNARG_test_api";
+        settings.emulate_portability = true;
+        settings.debug_fail_on_error = false;
+        settings.simulate_capabilities = SIMULATE_ALL_CAPABILITIES;
+        settings.exclude_device_extensions.push_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
+
+        err = inst_builder.makeInstance(&settings);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        VkPhysicalDevice gpu;
+        err = inst_builder.getPhysicalDevice(&gpu);
+
+        VkPhysicalDeviceTransformFeedbackPropertiesEXT profile_properties{};
+        profile_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
+
+        VkPhysicalDeviceProperties2 properties;
+        properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        properties.pNext = &profile_properties;
+        vkGetPhysicalDeviceProperties2(gpu, &properties);
+
+        ASSERT_EQ(device_properties.maxTransformFeedbackStreams, profile_properties.maxTransformFeedbackStreams);
+        ASSERT_EQ(device_properties.maxTransformFeedbackBuffers, profile_properties.maxTransformFeedbackBuffers);
+        ASSERT_EQ(device_properties.maxTransformFeedbackBufferSize, profile_properties.maxTransformFeedbackBufferSize);
+        ASSERT_EQ(device_properties.maxTransformFeedbackStreamDataSize, profile_properties.maxTransformFeedbackStreamDataSize);
+        ASSERT_EQ(device_properties.maxTransformFeedbackBufferDataSize, profile_properties.maxTransformFeedbackBufferDataSize);
+        ASSERT_EQ(device_properties.maxTransformFeedbackBufferDataStride, profile_properties.maxTransformFeedbackBufferDataStride);
+        ASSERT_EQ(device_properties.transformFeedbackQueries, profile_properties.transformFeedbackQueries);
+        ASSERT_EQ(device_properties.transformFeedbackStreamsLinesTriangles,
+                  profile_properties.transformFeedbackStreamsLinesTriangles);
+        ASSERT_EQ(device_properties.transformFeedbackRasterizationStreamSelect,
+                  profile_properties.transformFeedbackRasterizationStreamSelect);
+        ASSERT_EQ(device_properties.transformFeedbackDraw, profile_properties.transformFeedbackDraw);
+    }
+#endif
 }

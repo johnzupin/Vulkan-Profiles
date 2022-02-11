@@ -32,6 +32,7 @@
 #define VK_MAKE_API_VERSION(variant, major, minor, patch) VK_MAKE_VERSION(major, minor, patch)
 #endif
 
+// TODO: When the layer path issue is resolved with CI (set outside of the tests) remove this function
 void profiles_test::setEnvironmentSetting(std::string setting, const char* val) {
 #ifdef _WIN32
     _putenv_s(setting.c_str(), val);
@@ -62,25 +63,6 @@ std::string profiles_test::getAbsolutePath(std::string filepath) {
     return out;
 }
 
-void profiles_test::setProfilesFilename(const std::string& filepath) {
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_PROFILE_FILE", filepath.c_str());
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_PROFILE_VALIDATION", "false"); // Never validate profile files, it's done by a dedicated test.
-}
-
-void profiles_test::setProfilesDebugEnable(bool enable) {
-    if (enable)
-        profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_DEBUG_ENABLE", "true");
-    else
-        profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_DEBUG_ENABLE", "false");
-}
-
-void profiles_test::setProfilesEmulatePortabilitySubsetExtension(bool enable) {
-    if (enable)
-        profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_EMULATE_PORTABILITY", "true");
-    else
-        profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_EMULATE_PORTABILITY", "false");
-}
-
 std::string profiles_test::GetSimulateCapabilitiesLog(SimulateCapabilityFlags flags) {
     std::string result = {};
     bool need_comma = false;
@@ -109,53 +91,14 @@ std::string profiles_test::GetSimulateCapabilitiesLog(SimulateCapabilityFlags fl
         result += "SIMULATE_FORMATS_BIT";
         need_comma = true;
     }
-    if (flags & SIMULATE_FORMAT_PROPERTIES_BIT) {
-        if (need_comma) result += ",";
-        result += "SIMULATE_FORMAT_PROPERTIES_BIT";
-        need_comma = true;
-    }
 
     return result;
 }
 
-void profiles_test::setProfilesSimulateCapabilities(SimulateCapabilityFlags flags) {
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_SIMULATE_CAPABILITIES", GetSimulateCapabilitiesLog(flags).c_str());
-}
-
-void profiles_test::setProfilesSimulateAllCapabilities() {
-    setProfilesSimulateCapabilities(SIMULATE_API_VERSION_BIT | SIMULATE_FEATURES_BIT | SIMULATE_PROPERTIES_BIT |
-                                    SIMULATE_EXTENSIONS_BIT | SIMULATE_FORMATS_BIT | SIMULATE_FORMAT_PROPERTIES_BIT);
-}
-
-void profiles_test::setProfilesProfileName(const std::string& profile) {
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_PROFILE_NAME", profile.c_str());
-}
-
-void profiles_test::setProfilesFailOnError(bool fail) {
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_DEBUG_FAIL_ON_ERROR", fail ? "true" : "false");
-}
-
-void profiles_test::setExcludeDeviceExtensions(const std::vector<std::string>& extensions) {
-    std::string combined = {};
-    for (const auto& ext : extensions) {
-        if (!combined.empty()) combined += ';';
-        combined += ext;
-    }
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_EXCLUDE_DEVICE_EXTENSIONS", combined.c_str());
-}
-
-void profiles_test::setExcludeFormats(const std::vector<std::string>& formats) {
-    std::string combined = {};
-    for (const auto& format : formats) {
-        if (!combined.empty()) combined += ';';
-        combined += format;
-    }
-    profiles_test::setEnvironmentSetting("VK_KHRONOS_PROFILES_EXCLUDE_FORMATS", combined.c_str());
-}
 
 VkApplicationInfo profiles_test::GetDefaultApplicationInfo() {
     VkApplicationInfo out{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
-    out.apiVersion = VK_API_VERSION_1_1;
+    out.apiVersion = VK_API_VERSION_1_3;
     out.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
     out.pApplicationName = "profiles_tests";
     out.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
@@ -189,6 +132,12 @@ VkResult profiles_test::VulkanInstanceBuilder::makeInstance() {
     _inst_create_info.ppEnabledExtensionNames = _extension_names.data();
 
     return vkCreateInstance(&_inst_create_info, nullptr, &_instance);
+}
+
+VkResult profiles_test::VulkanInstanceBuilder::makeInstance(void* pnext) {
+    _inst_create_info.pNext = pnext;
+
+    return makeInstance();
 }
 
 void profiles_test::VulkanInstanceBuilder::reset() {
