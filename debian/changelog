@@ -1,3 +1,114 @@
+vulkan-profiles (1.3.204.0~rc2-1lunarg18.04-1) bionic; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles layer: Use correct HasExtension function
+  * profiles layer: Fix linux tests env vars delimiter
+  * profiles layer: Add GetPhysDev2 extensions of not present
+
+  [ Mark Lobodzinski ]
+  * layer: Change extension/format types to Strings
+
+  [ ziga-lunarg ]
+  * profiles layer: Use KHR version of functions when vulkan version is 1.0
+
+  [ Mark Lobodzinski ]
+  * layer: Add profile layer settings struct definition
+  * layers: Prevent multiple inclusions of layer header file
+  * layer tests: Add makeInstance() overload taking a pNext
+  * layer: Update InitSettings for data passed in through pNext
+  * test: Avoid Env vars for layer settings in tests.cpp
+  * layer: Update simulate capabilities enum with an ALL variant
+  * layer tests: Avoid Envvars for layer settings in tests_capabilities.cpp
+  * layer tests: Avoid Envvars for layer settings in portability test
+  * layer tests: Avoid Envvars for layer settings in test_mechanism.cpp
+  * layer tests: Avoid Envvars for layer settings in test_promoted.cpp
+  * layer: Make layer settings default values match documentation
+  * layer tests: Add layer_utils directory to include path
+  * layer: Move some debug report defs/funcs to header file
+  * layer: Add all env vars to settings struct
+  * layer: Moved profile_layer_settings.h content into layer header
+  * layer: Deleted profile_layer_settings.h
+  * layer: Switch to new settings structure
+  * layer: Use settings constructor for init
+  * layer: Simpify copying of user-defined settings
+  * layer tests: Switch to new json file path for tests.cpp
+  * layer tests: Add new platform-independent json file path var
+  * layer tests: Switch to new json file path for tests_caps.cpp
+  * layer tests: Switch to new path for destop portability tests
+  * layer_tests: Move to new json file path for tests_mechanism.cpp
+  * layer_tests: Move to new json file path for tests_promoted.cpp
+  * layer_tests: Remove unused test source path definition
+  * layers tests: Remove env setting helper functions
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix duplicated ShaderDrawParametersFeatures warning
+  * profiles layer: Fix checking vk version
+  * profiles layer: Add missing line breaks to log messages
+
+  [ Christophe ]
+  * layer: fix CreateInstance extension list creation
+
+  [ ziga-lunarg ]
+  * profiles layer: Use correct version of GetPhysicalDeviceFormatProperties2
+
+  [ Daniel Rakos ]
+  * Use log print by default for library debug messages on Android
+
+  [ Christophe ]
+  * layer: implement  default value for profile_name
+  * layer: DrawParameter bugfixing
+  * layer: don't try to load value when the app use older vk version
+  * layer: warn on instance and profile API version mismatch
+
+  [ ziga-lunarg ]
+  * profiles layer: Transfer device values from extension structs to promoted structs
+  * profiles layer: Improve message logs for profile and device values
+  * profiles layer: Remove unused macro
+  * profiles layer: Fix typo
+
+  [ Bob Ellison ]
+  * tutorial: minor changes for grammar and clarity
+
+  [ ziga-lunarg ]
+  * profiles layer: Use correct compare function for bufferImageGranularity
+  * profiles layer: Improve log messages
+
+  [ Christophe ]
+  * docs: Bob review fixes
+  * layer: prevent loading invalid JSON file
+
+  [ ziga-lunarg ]
+  * profiles layer: Remove unused simulate format properties bit
+  * profiles layer: Ignore profiles when profile_file is unset
+
+  [ Mark Lobodzinski ]
+  * profile tests: Add android-specific test and APK build
+  * library tests: Remove Android resources directry and files
+
+  [ Bob Ellison ]
+  * docs: minor changes to the layer/TUTORIAL.md
+
+  [ Mark Lobodzinski ]
+  * docs: Update BUILD.md with Android build instructions
+
+  [ Christophe ]
+  * layer: clear displayed name for the flag
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix debug logging parsed structs
+  * profiles layer: Fix checking features and properties support
+  * profiles layer: Fix test profiles file
+  * profiles layer: Skip loading structs from excluded extensions
+
+  [ Christophe ]
+  * layer: override the requested API version, min vk version is 1.1
+
+  [ ziga-lunarg ]
+  * profiles layer: Update changing instance version
+  * profiles layer: Fix filling format properties pNext chain
+
+ -- John Zupin <john@odin>  Fri, 11 Feb 2022 15:01:18 -0700
+
 vulkan-profiles (1.3.204.0~rc1-1lunarg18.04-1) bionic; urgency=medium
 
   [ Christophe ]
