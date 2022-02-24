@@ -1,5 +1,6 @@
-
-add_subdirectory(tests)
+if(PROFILES_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DVK_USE_PLATFORM_WIN32_KHX -DWIN32_LEAN_AND_MEAN -DNOMINMAX)
@@ -46,7 +47,7 @@ if (APPLE)
         ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
-        ${jsoncpp_SOURCE_DIR}/include
+        ${jsoncpp_generated_include_dir}
         ${vulkan-headers_SOURCE_DIR}/include
         ${vulkan-validationlayers_SOURCE_DIR}/layers
         ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
@@ -57,7 +58,7 @@ else ()
         ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
-        ${jsoncpp_SOURCE_DIR}/include
+        ${jsoncpp_generated_include_dir}
         ${vulkan-headers_SOURCE_DIR}/include
         ${vulkan-validationlayers_SOURCE_DIR}/layers
         ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
@@ -68,11 +69,11 @@ if (WIN32)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
     set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
 else()
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith -Werror")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith -Werror")
 endif()
 
-add_vk_layer(${TARGET_NAME} profiles.cpp vk_layer_table.cpp ${jsoncpp_SOURCE_DIR}/dist/jsoncpp.cpp ${jsoncpp_SOURCE_DIR}/include/json/json.h)
+add_vk_layer(${TARGET_NAME} profiles.cpp vk_layer_table.cpp ${jsoncpp_generated_source} ${jsoncpp_generated_header})
 
 # json file creation
 

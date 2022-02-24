@@ -742,17 +742,23 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(VkInstance instance, VkPhy
 
         detail::PFN_vpStructChainerCb callback = [](VkBaseOutStructure* p, void* pUser) {
             UserData* pUserData = static_cast<UserData*>(pUser);
+            VkQueueFamilyProperties2KHR* pProps = static_cast<VkQueueFamilyProperties2KHR*>(static_cast<void*>(p));
             if (++pUserData->index < pUserData->count) {
-                pUserData->pDesc->chainers.pfnQueueFamily(++p, pUser, pUserData->pfnCb);
+                pUserData->pDesc->chainers.pfnQueueFamily(static_cast<VkBaseOutStructure*>(static_cast<void*>(++pProps)),
+                                                          pUser, pUserData->pfnCb);
             } else {
-                p -= pUserData->count - 1;
+                pProps -= pUserData->count - 1;
                 pUserData->gpdp2.pfnGetPhysicalDeviceQueueFamilyProperties2(pUserData->physicalDevice,
                                                                             &pUserData->count,
-                                                                            static_cast<VkQueueFamilyProperties2KHR*>(static_cast<void*>(p)));
+                                                                            pProps);
+                pUserData->supported = true;
+
+                // Check first that each queue family defined is supported by the device
                 for (uint32_t i = 0; i < pUserData->pDesc->queueFamilyCount; ++i) {
                     bool found = false;
                     for (uint32_t j = 0; j < pUserData->count; ++j) {
                         bool propsMatch = true;
+                        p = static_cast<VkBaseOutStructure*>(static_cast<void*>(&pProps[j]));
                         while (p != nullptr) {
                             if (!pUserData->pDesc->pQueueFamilies[i].pfnComparator(p)) {
                                 propsMatch = false;
@@ -768,14 +774,51 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(VkInstance instance, VkPhy
                     if (!found) {
                         VP_DEBUG_MSGF("Unsupported queue family defined at profile data index #%u", i);
                         pUserData->supported = false;
+                        return;
                     }
+                }
+
+                // Then check each permutation to ensure that while order of the queue families
+                // doesn't matter, each queue family property criteria is matched with a separate
+                // queue family of the actual device
+                std::vector<uint32_t> permutation(pUserData->count);
+                for (uint32_t i = 0; i < pUserData->count; ++i) {
+                    permutation[i] = i;
+                }
+                bool found = false;
+                do {
+                    bool propsMatch = true;
+                    for (uint32_t i = 0; i < pUserData->pDesc->queueFamilyCount && propsMatch; ++i) {
+                        p = static_cast<VkBaseOutStructure*>(static_cast<void*>(&pProps[permutation[i]]));
+                        while (p != nullptr) {
+                            if (!pUserData->pDesc->pQueueFamilies[i].pfnComparator(p)) {
+                                propsMatch = false;
+                                break;
+                            }
+                            p = p->pNext;
+                        }
+                    }
+                    if (propsMatch) {
+                        found = true;
+                        break;
+                    }
+                } while (std::next_permutation(permutation.begin(), permutation.end()));
+
+                if (!found) {
+                    VP_DEBUG_MSG("Unsupported combination of queue families");
+                    pUserData->supported = false;
                 }
             }
         };
         userData.pfnCb = callback;
 
-        pDesc->chainers.pfnQueueFamily(static_cast<VkBaseOutStructure*>(static_cast<void*>(props.data())), &userData, callback);
-        if (!userData.supported) {
+        if (userData.count >= userData.pDesc->queueFamilyCount) {
+            pDesc->chainers.pfnQueueFamily(static_cast<VkBaseOutStructure*>(static_cast<void*>(props.data())), &userData, callback);
+            if (!userData.supported) {
+                *pSupported = VK_FALSE;
+            }
+        } else {
+            VP_DEBUG_MSGF("Unsupported number of queue families: device has fewer (%u) than what the profile defines (%u)", userData.count, userData.pDesc->queueFamilyCount);
             *pSupported = VK_FALSE;
         }
     }
@@ -1327,6 +1370,7 @@ class VulkanRegistry():
         self.parseExternalTypes(xml)
         self.parseFeatures(xml)
         self.parseLimits(xml)
+        self.parseHeaderVersion(xml)
         self.applyWorkarounds()
 
 
@@ -1338,7 +1382,7 @@ class VulkanRegistry():
 
     def parseVersionInfo(self, xml):
         self.versions = dict()
-        for feature in xml.findall('./feature'):
+        for feature in xml.findall("./feature[@api='vulkan']"):
             if re.search(r"^[1-9][0-9]*\.[0-9]+$", feature.get('number')):
                 self.versions[feature.get('name')] = VulkanVersion(feature)
             else:
@@ -1347,22 +1391,20 @@ class VulkanRegistry():
 
     def parseExtensionInfo(self, xml):
         self.extensions = dict()
-        for ext in xml.findall("./extensions/extension"):
-            # Only care about enabled extensions
-            if ext.get('supported') == "vulkan":
-                name = ext.get('name')
+        for ext in xml.findall("./extensions/extension[@supported='vulkan']"):
+            name = ext.get('name')
 
-                # Find name enum (due to inconsistencies in lower case and upper case names this is non-trivial)
-                foundNameEnum = False
-                matches = ext.findall("./require/enum[@value='\"" + name + "\"']")
-                for match in matches:
-                    if match.get('name').endswith("_EXTENSION_NAME"):
-                        # Add extension definition
-                        self.extensions[name] = VulkanExtension(ext, match.get('name')[:-len("_EXTENSION_NAME")])
-                        foundNameEnum = True
-                        break
-                if not foundNameEnum:
-                    Log.f("Cannot find name enum for extension '{0}'".format(name))
+            # Find name enum (due to inconsistencies in lower case and upper case names this is non-trivial)
+            foundNameEnum = False
+            matches = ext.findall("./require/enum[@value='\"" + name + "\"']")
+            for match in matches:
+                if match.get('name').endswith("_EXTENSION_NAME"):
+                    # Add extension definition
+                    self.extensions[name] = VulkanExtension(ext, match.get('name')[:-len("_EXTENSION_NAME")])
+                    foundNameEnum = True
+                    break
+            if not foundNameEnum:
+                Log.f("Cannot find name enum for extension '{0}'".format(name))
 
 
     def parseStructInfo(self, xml):
@@ -1437,14 +1479,14 @@ class VulkanRegistry():
 
     def parsePrerequisites(self, xml):
         # Check features (i.e. API versions)
-        for feature in xml.findall('./feature'):
+        for feature in xml.findall("./feature[@api='vulkan']"):
             for requireType in feature.findall('./require/type'):
                 # Add feature as the source of the definition of a struct
                 if requireType.get('name') in self.structs:
                     self.structs[requireType.get('name')].definedByVersion = VulkanVersionNumber(feature.get('number'))
 
         # Check extensions
-        for extension in xml.findall('./extensions/extension'):
+        for extension in xml.findall("./extensions/extension[@supported='vulkan']"):
             for requireType in extension.findall('./require/type'):
                 # Add extension as the source of the definition of a struct
                 if requireType.get('name') in self.structs:
@@ -1466,7 +1508,10 @@ class VulkanRegistry():
                         enumDef.values.append(value.get('name'))
 
             # Then find extension values
-            for value in xml.findall(".//enum[@extends='" + enumDef.name + "']"):
+            for value in xml.findall(".//feature[@api='vulkan']/require/enum[@extends='" + enumDef.name + "']"):
+                if value.get('alias') is None:
+                    enumDef.values.append(value.get('name'))
+            for value in xml.findall(".//extension[@supported='vulkan']/require/enum[@extends='" + enumDef.name + "']"):
                 if value.get('alias') is None:
                     enumDef.values.append(value.get('name'))
 
@@ -1589,7 +1634,7 @@ class VulkanRegistry():
                     alias = aliasValue.get('alias')
                     enumDef.values.append(name)
                     enumDef.aliasValues[name] = alias
-        for aliasValue in xml.findall("./extensions/extension/require/enum[@alias]"):
+        for aliasValue in xml.findall("./extensions/extension[@supported='vulkan']/require/enum[@alias]"):
             if aliasValue.get('extends'):
                 enumDef = self.enums[aliasValue.get('extends')]
                 name = aliasValue.get('name')
@@ -1648,7 +1693,7 @@ class VulkanRegistry():
             else:
                 # For all other versions use the feature structures required by it
                 featureStructNames = []
-                xmlVersion = xml.find("./feature[@name='" + version.name + "']")
+                xmlVersion = xml.find("./feature[@api='vulkan'][@name='" + version.name + "']")
                 for type in xmlVersion.findall("./require/type"):
                     name = type.get('name')
                     if name in self.structs and 'VkPhysicalDeviceFeatures2' in self.structs[name].extends:
@@ -1661,16 +1706,17 @@ class VulkanRegistry():
                     featureStructNames.remove('VkPhysicalDeviceVulkan11Features')
                 # For each feature collect all feature structures containing them, and their aliases
                 for featureStructName in featureStructNames:
-                    structDef = self.structs[featureStructName]
-                    for memberName in structDef.members.keys():
-                        if not memberName in version.features:
-                            version.features[memberName] = VulkanFeature(memberName)
-                        version.features[memberName].structs.update(structDef.aliases)
+                    if (featureStructName in self.structs):
+                        structDef = self.structs[featureStructName]
+                        for memberName in structDef.members.keys():
+                            if not memberName in version.features:
+                                version.features[memberName] = VulkanFeature(memberName)
+                            version.features[memberName].structs.update(structDef.aliases)
 
         # Then parse features specific to extensions
         for extension in self.extensions.values():
             featureStructNames = []
-            xmlExtension = xml.find("./extensions/extension[@name='" + extension.name + "']")
+            xmlExtension = xml.find("./extensions/extension[@supported='vulkan'][@name='" + extension.name + "']")
             for type in xmlExtension.findall("./require/type"):
                 name = type.get('name')
                 if name in self.structs and 'VkPhysicalDeviceFeatures2' in self.structs[name].extends:
@@ -1703,7 +1749,7 @@ class VulkanRegistry():
             else:
                 # For all other versions use the property structures required by it
                 limitStructNames = []
-                xmlVersion = xml.find("./feature[@name='" + version.name + "']")
+                xmlVersion = xml.find("./feature[@api='vulkan'][@name='" + version.name + "']")
                 for type in xmlVersion.findall("./require/type"):
                     name = type.get('name')
                     if name in self.structs and 'VkPhysicalDeviceProperties2' in self.structs[name].extends:
@@ -1716,16 +1762,17 @@ class VulkanRegistry():
                     limitStructNames.remove('VkPhysicalDeviceVulkan11Properties')
             # For each limit collect all property/limit structures containing them, and their aliases
             for limitStructName in limitStructNames:
-                structDef = self.structs[limitStructName]
-                for memberName in structDef.members.keys():
-                    if not memberName in version.limits:
-                        version.limits[memberName] = VulkanLimit(memberName)
-                    version.limits[memberName].structs.update(structDef.aliases)
+                if (limitStructName in self.structs):
+                    structDef = self.structs[limitStructName]
+                    for memberName in structDef.members.keys():
+                        if not memberName in version.limits:
+                            version.limits[memberName] = VulkanLimit(memberName)
+                        version.limits[memberName].structs.update(structDef.aliases)
 
         # Then parse properties/limits specific to extensions
         for extension in self.extensions.values():
             limitStructNames = []
-            xmlExtension = xml.find("./extensions/extension[@name='" + extension.name + "']")
+            xmlExtension = xml.find("./extensions/extension[@supported='vulkan'][@name='" + extension.name + "']")
             for type in xmlExtension.findall("./require/type"):
                 name = type.get('name')
                 if name in self.structs and 'VkPhysicalDeviceProperties2' in self.structs[name].extends:
@@ -1742,6 +1789,18 @@ class VulkanRegistry():
                     for version in self.versions.values():
                         if memberName in version.limits and version.limits[memberName].structs >= extension.limits[memberName].structs:
                             extension.limits[memberName].structs = version.limits[memberName].structs
+
+
+    def parseHeaderVersion(self, xml):
+        # Find the largest version number
+        maxVersionNumber = self.versions[max(self.versions, key = lambda version: self.versions[version].number)].number
+        self.headerVersionNumber = VulkanVersionNumber(str(maxVersionNumber))
+        # Add patch from VK_HEADER_VERSION define
+        for define in xml.findall("./types/type[@category='define']"):
+            name = define.find('./name')
+            if name != None and name.text == 'VK_HEADER_VERSION':
+                self.headerVersionNumber.patch = int(name.tail.lstrip())
+                return
 
 
     def applyWorkarounds(self):
@@ -1762,8 +1821,10 @@ class VulkanRegistry():
         self.structs['VkPhysicalDeviceLimits'].members['maxColorAttachments'].limittype = 'max' # vk.xml declares this with 'bitmask' limittype for some reason
         self.structs['VkPhysicalDeviceLimits'].members['pointSizeGranularity'].limittype = 'min' # should be maxmul
         self.structs['VkPhysicalDeviceLimits'].members['lineWidthGranularity'].limittype = 'min' # should be maxmul
-        self.structs['VkPhysicalDeviceVulkan11Properties'].members['subgroupSize'].limittype = 'max'
-        self.structs['VkPhysicalDevicePortabilitySubsetPropertiesKHR'].members['minVertexInputBindingStrideAlignment'].limittype = 'min' # should be maxalign
+        if 'VkPhysicalDeviceVulkan11Properties' in self.structs:
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['subgroupSize'].limittype = 'max'
+        if 'VkPhysicalDevicePortabilitySubsetPropertiesKHR' in self.structs:
+            self.structs['VkPhysicalDevicePortabilitySubsetPropertiesKHR'].members['minVertexInputBindingStrideAlignment'].limittype = 'min' # should be maxalign
 
         # TODO: There are also some bugs in the vk.xml, like parameters having "bitmask" limittype but actually VkBool32 type
         # This is non-sense, so we patch them
@@ -1778,9 +1839,10 @@ class VulkanRegistry():
         self.structs['VkFormatProperties'].members['linearTilingFeatures'].limittype = 'bitmask'
         self.structs['VkFormatProperties'].members['optimalTilingFeatures'].limittype = 'bitmask'
         self.structs['VkFormatProperties'].members['bufferFeatures'].limittype = 'bitmask'
-        self.structs['VkFormatProperties3'].members['linearTilingFeatures'].limittype = 'bitmask'
-        self.structs['VkFormatProperties3'].members['optimalTilingFeatures'].limittype = 'bitmask'
-        self.structs['VkFormatProperties3'].members['bufferFeatures'].limittype = 'bitmask'
+        if 'VkFormatProperties3' in self.structs:
+            self.structs['VkFormatProperties3'].members['linearTilingFeatures'].limittype = 'bitmask'
+            self.structs['VkFormatProperties3'].members['optimalTilingFeatures'].limittype = 'bitmask'
+            self.structs['VkFormatProperties3'].members['bufferFeatures'].limittype = 'bitmask'
         self.structs['VkQueueFamilyProperties'].members['queueFlags'].limittype = 'bitmask'
         self.structs['VkQueueFamilyProperties'].members['queueCount'].limittype = 'max'
         self.structs['VkQueueFamilyProperties'].members['timestampValidBits'].limittype = 'max'
@@ -1967,7 +2029,8 @@ class VulkanProfileStructs():
             if name in [ 'VkFormatProperties', 'VkFormatProperties2KHR', 'VkFormatProperties3KHR' ]:
                 # Special case, add all as VkFormatProperties2KHR and VkFormatProperties3KHR
                 self.format.append(registry.structs['VkFormatProperties2KHR'])
-                self.format.append(registry.structs['VkFormatProperties3KHR'])
+                if 'VkFormatProperties3KHR' in registry.structs:
+                    self.format.append(registry.structs['VkFormatProperties3KHR'])
             else:
                 self.format.append(registry.getChainableStructDef(name, 'VkFormatProperties2'))
         self.eliminateAliases(self.format)
@@ -2641,11 +2704,12 @@ class VulkanProfilesSchemaGenerator():
         properties = self.gen_properties(definitions)
         formats = self.gen_formats(definitions)
         queueFamilies = self.gen_queueFamilies(definitions)
+        versionStr = str(self.registry.headerVersionNumber)
 
         return OrderedDict({
             "$schema": "http://json-schema.org/draft-07/schema#",
-            "$id": "https://schema.khronos.org/vulkan/profiles-1.3.203.json#",
-            "title": "Vulkan Profiles Schema for Vulkan 1.3.203",
+            "$id": "https://schema.khronos.org/vulkan/profiles-{0}.json#".format(versionStr),
+            "title": "Vulkan Profiles Schema for Vulkan {0}".format(versionStr),
             "additionalProperties": True,
             "required": [
                 "capabilities",
