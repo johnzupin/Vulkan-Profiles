@@ -30,7 +30,7 @@ The *Portability* layers configuration in *Vulkan Configurator* checks that a Vu
 
 The input to the *Profiles layer* is a profiles file that is using the flexible JSON syntax. The profiles file format is defined by a formal JSON schema, so any profiles file may be verified to be correct using freely available JSON validators. Examination of the schema file reveals the extent of parameters that are available for configuration.
 
-To use the Profiles Layer Vulkan version 1.0 and the `VK_KHR_get_physical_device_properties2` extension are required.
+To use the Profiles Layer Vulkan version 1.1 is required.
 
 Example of a *Profiles layer* JSON profiles file: [VP_LUNARG_test_structure_simple.json](https://github.com/KhronosGroup/Vulkan-Profiles/blob/master/profiles/test/data/VP_LUNARG_test_structure_simple.json)
 
@@ -74,7 +74,7 @@ If you find issues, please report to [Khronos' Vulkan-Profiles GitHub repository
 ### Profiles Layer operation and profiles file
 At application startup, during `vkEnumeratePhysicalDevices()`, the Profiles layer initializes its internal tables from the actual physical device in the system, then loads the profiles file, which specifies override values to apply to those internal tables.
 
-JSON file formats consumed by the Profiles layer are specified by the following JSON schema https://schema.khronos.org/vulkan/profiles-1.3.204.json#
+JSON file formats consumed by the Profiles layer are specified by the following JSON schema https://github.com/KhronosGroup/Vulkan-Profiles/blob/master/schema/profile_schema.json
 
 The schema permits additional top-level sections to be optionally included in profiles files;
 any additional top-level sections will be ignored by the Profiles layer.
@@ -117,7 +117,8 @@ Name of the profile to load from the profiles file.
 - Environment Variable: `VK_KHRONOS_PROFILES_PROFILE_VALIDATION`
 - `vk_layer_settings.txt` option: `khronos_profiles.profile_validation`
 - Android option: `debug.vulkan.khronos_profiles.profile_validation`
-- Default value: true
+- Options: `true`, `false`
+- Default value: `true`
 
 Validate the profiles file against the Vulkan SDK profile schema if the file is found. 
 
@@ -125,7 +126,8 @@ Validate the profiles file against the Vulkan SDK profile schema if the file is 
 - Environment Variable: `VK_KHRONOS_PROFILES_EMULATE_PORTABILITY`
 - `vk_layer_settings.txt` option: `khronos_profiles.emulate_portability`
 - Android option: `debug.vulkan.khronos_profiles.emulate_portability`
-- Default value: true
+- Options: `true`, `false`
+- Default value: `true`
 
 Enables emulation of the `VK_KHR_portability_subset` extension.
 
@@ -159,7 +161,8 @@ Sets the output location.
 - Environment Variable: `VK_KHRONOS_PROFILES_DEBUG_FILE_DISCARD`
 - `vk_layer_settings.txt` option: `khronos_profiles.debug_file_discard`
 - Android option: `debug.vulkan.khronos_profiles.debug_file_discard`
-- Default value: true
+- Options: `true`, `false`
+- Default value: `true`
 
 Discard the content of the log file between each layer run.
 
@@ -167,7 +170,8 @@ Discard the content of the log file between each layer run.
 - Environment Variable: `VK_KHRONOS_PROFILES_DEBUG_FAIL_ON_ERROR`
 - `vk_layer_settings.txt` option: `khronos_profiles.debug_fail_on_error`
 - Android option: `debug.vulkan.khronos_profiles.debug_fail_on_error`
-- Default value: Off
+- Options: `true`, `false`
+- Default value: `false`
 
 Enabled failing if an error occurs.
 
@@ -176,7 +180,7 @@ Enabled failing if an error occurs.
 - `vk_layer_settings.txt` option: `khronos_profiles.debug_reports`
 - Android option: `debug.vulkan.khronos_profiles.debug_reports`
 - Options: `DEBUG_REPORT_NOTIFICATION_BIT`, `DEBUG_REPORT_WARNING_BIT`, `DEBUG_REPORT_ERROR_BIT`, `DEBUG_REPORT_DEBUG_BIT`
-- Default value: Not set
+- Default value: 0
 
 Enabled reports level.
 
@@ -195,6 +199,8 @@ Prevents device extensions from being reported by the Vulkan physical device.
 - Default value: Not set
 
 Prevents image formats from being reported as supported by the Vulkan physical device.
+
+**Note:** If multiple values are set in any environment variable they are be separated by ';' on windows and with ':' on other platforms. In `layer_settings.txt` file multiple values are separated by ','.
 
 **Note:** In desktop environments, environment variables take precedence over `vk_layer_settings.txt` options.
 
