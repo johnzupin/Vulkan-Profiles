@@ -1,3 +1,89 @@
+vulkan-profiles (1.3.204.1~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix filling format properties pNext chain
+  * profiles layer: Make missing extension logs more clear
+  * profiles layer: Remove log left over from debugging
+  * profiles layer: Update docs api requirement
+  * profiles layer: Fix validation requested api version
+
+  [ Daniel Rakos ]
+  * Fix JSON schema profile name matching
+
+  [ ziga-lunarg ]
+  * profiles layer: Implement GetQueueFamilyProperties
+
+  [ Christophe ]
+  * profile: remove descriptorBindingUniformBufferUpdateAfterBind from roadmap 2022
+  * profile: improve API version dependences
+
+  [ Daniel Rakos ]
+  * Fix and improve queue family matching in library
+  * Auto-generate schema version from header version
+
+  [ Christophe ]
+  * Use tag v1.3.204
+  * layer: fix the license registry
+
+  [ Mark Lobodzinski ]
+  * layer: Fix clang logical operator precedence warnings
+  * layer: Replace deprecated json fcns to fix compiler warnings
+  * layer: JsonValidator was using a deprecated json function
+  * layer: Force warnings as errors for non-windows compilers
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix queue family test
+
+  [ Mark Lobodzinski ]
+  * layer tests: Fix json file path settings
+  * layer tests: Set fail-on-error for partial-qfp test
+
+  [ Bob Ellison ]
+  * build: Debug tests should use debug vulkan_profiles.cpp
+
+  [ Mark Lobodzinski ]
+  * library tests: Skip failing test on ShieldTV
+
+  [ ziga-lunarg ]
+  * profiles layer: Some updates for tutorial
+  * profiles layer: Set instance version from profile
+
+  [ Christophe ]
+  * layer: add profile_name not found error message
+  * API version override is protected by SIMULATE_API_VERSION_BIT
+  * layer: clean up dead code
+  * layer: expected behavior is not a warning, just a notification.
+  * layer: replaced deprecated version macros
+  * layer: fix unit test
+
+  [ David Pinedo ]
+  * Changes for auto-gen of layer documentation
+  * Documenation tweeks
+  * Update to layer manifest file
+
+  [ Bob Ellison ]
+  * build: even flatter SDK build
+
+  [ ziga-lunarg ]
+  * profiles layer: Add missing BufferAddressFeaturesEXT
+  * generator script: Update finding enums
+  * profiles layer: Fix CreateInstance
+
+  [ Christophe ]
+  * profile: allow generating schema for API 1.2.203
+  * profile: allow generating schema for API 1.2.194
+  * profile: allow generating schema for API 1.2.153
+  * profile: allow generating schema for API 1.1.130
+  * profiles: add schemas for 1.3.206 to 1.1.117
+  * test: fix warnings #151
+
+  [ John Zupin ]
+  * packaging: update to not build tests and do regen
+  * packaging: update to remove patches
+  * packaging: configure patch for system path
+
+ -- john <john@odin>  Thu, 24 Feb 2022 16:49:09 -0700
+
 vulkan-profiles (1.3.204.0~rc3-1lunarg20.04-1) focal; urgency=medium
 
   [ Daniel Rakos ]
