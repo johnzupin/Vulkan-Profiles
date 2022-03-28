@@ -1,5 +1,6 @@
-
-add_subdirectory(tests)
+if(PROFILES_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DVK_USE_PLATFORM_WIN32_KHX -DWIN32_LEAN_AND_MEAN -DNOMINMAX)
@@ -43,9 +44,10 @@ set(TARGET_NAME khronos_profiles)
 if (APPLE)
     include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
-        ${jsoncpp_SOURCE_DIR}/include
+        ${jsoncpp_generated_include_dir}
         ${vulkan-headers_SOURCE_DIR}/include
         ${vulkan-validationlayers_SOURCE_DIR}/layers
         ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
@@ -53,9 +55,10 @@ if (APPLE)
 else ()
     include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
-        ${jsoncpp_SOURCE_DIR}/include
+        ${jsoncpp_generated_include_dir}
         ${vulkan-headers_SOURCE_DIR}/include
         ${vulkan-validationlayers_SOURCE_DIR}/layers
         ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
@@ -66,11 +69,11 @@ if (WIN32)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
     set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
 else()
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith -Werror")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith -Werror")
 endif()
 
-add_vk_layer(${TARGET_NAME} profiles.cpp vk_layer_table.cpp ${jsoncpp_SOURCE_DIR}/dist/jsoncpp.cpp ${jsoncpp_SOURCE_DIR}/include/json/json.h)
+add_vk_layer(${TARGET_NAME} profiles.cpp vk_layer_table.cpp ${jsoncpp_generated_source} ${jsoncpp_generated_header})
 
 # json file creation
 
@@ -100,6 +103,7 @@ set(VulkanHeaders_VERSION_MAJOR "0")
 set(VulkanHeaders_VERSION_MINOR "0")
 set(VulkanHeaders_VERSION_PATCH "0")
 set(VulkanHeaders_main_header ${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_core.h)
+message(STATUS "Parsing ${VulkanHeaders_main_header} to get Vulkan Version")
 
 # Find all lines in the header file that contain any version we may be interested in
 #  NOTE: They start with #define and then have other keywords
@@ -158,6 +162,7 @@ set(CONFIG_DEFINES ${CONFIG_DEFINES}
 )
 
 add_custom_target(VkLayer_${TARGET_NAME}-json ALL COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake")
+set_target_properties(VkLayer_${TARGET_NAME}-json PROPERTIES FOLDER "Profiles layer")
 
 # Add target for JSON file install.
 if(NOT WIN32)
@@ -170,6 +175,7 @@ if(NOT WIN32)
         VERBATIM
         DEPENDS VkLayer_${TARGET_NAME}-json
         )
+    set_target_properties(VkLayer_${TARGET_NAME}-staging-json PROPERTIES FOLDER "Profiles layer")
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/staging-json/VkLayer_${TARGET_NAME}.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/vulkan/explicit_layer.d)
 endif()
 

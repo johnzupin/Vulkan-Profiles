@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2020-2021 Valve Corporation
- * Copyright (c) 2020-2021 LunarG, Inc.
+ * Copyright (c) 2020-2022 Valve Corporation
+ * Copyright (c) 2020-2022 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,9 +64,10 @@ static Json::Value ParseJsonFile(const char *filename) {
     file.open(filename);
     assert(file.is_open());
 
-    Json::Reader reader;
     Json::Value root = Json::nullValue;
-    bool success = reader.parse(file, root, false);
+    std::string errs;
+    Json::CharReaderBuilder builder;
+    bool success = Json::parseFromStream(builder, file, &root, &errs);
     assert(success);
 
     file.close();
@@ -81,7 +82,7 @@ struct JsonValidator {
         assert(!json_document.empty());
 
         if (!schema) {
-            const Json::Value schema_document = ParseJsonFile("profile_schema.json");
+            const Json::Value schema_document = ParseJsonFile("profiles-latest.json");
 
             schema.reset(new Schema);
 
@@ -165,6 +166,34 @@ TEST(test_validate, VP_LUNARG_test_api) {
     JsonValidator validator;
 
     const Json::Value document = ParseJsonFile("VP_LUNARG_test_api.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_api_alternate) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_api_alternate.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_promoted_api) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_promoted_api.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_duplicated) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_duplicated.json");
+    EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_LUNARG_test_formats) {
+    JsonValidator validator;
+
+    const Json::Value document = ParseJsonFile("VP_LUNARG_test_formats.json");
     EXPECT_TRUE(validator.Check(document));
 }
 

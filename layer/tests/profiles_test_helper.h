@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2020-2021 Valve Corporation
- * Copyright (c) 2020-2021 LunarG, Inc.
+ * Copyright (c) 2020-2022 Valve Corporation
+ * Copyright (c) 2020-2022 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <vulkan/vulkan.h>
+#include "../profiles.h"
 
 namespace profiles_test {
 
@@ -30,24 +31,7 @@ void unsetEnvironmentSetting(std::string setting);
 
 std::string getAbsolutePath(std::string filepath);
 
-enum SimulateCapabilityFlag {
-    SIMULATE_API_VERSION_BIT = 1 << 0,
-    SIMULATE_FEATURES_BIT = 1 << 1,
-    SIMULATE_PROPERTIES_BIT = 1 << 2,
-    SIMULATE_EXTENSIONS_BIT = 1 << 3,
-    SIMULATE_FORMATS_BIT = 1 << 4,
-    SIMULATE_FORMAT_PROPERTIES_BIT = 1 << 5
-};
-typedef int SimulateCapabilityFlags;
-
-void setProfilesFilename(const std::string& filepath);
-void setProfilesDebugEnable(bool enable);
-void setProfilesEmulatePortabilitySubsetExtension(bool enable);
 std::string GetSimulateCapabilitiesLog(SimulateCapabilityFlags flags);
-void setProfilesSimulateCapabilities(SimulateCapabilityFlags flags);
-void setProfilesSimulateAllCapabilities();
-void setProfilesProfileName(const std::string& profile);
-void setProfilesFailOnError(bool fail);
 
 VkApplicationInfo GetDefaultApplicationInfo();
 
@@ -57,6 +41,7 @@ class VulkanInstanceBuilder {
     void addLayer(const char* layer_name) { _layer_names.push_back(layer_name); }
     void addExtension(const char* extension_name) { _extension_names.push_back(extension_name); }
     VkResult makeInstance();
+    VkResult makeInstance(void* pnext);
     VkResult getPhysicalDevice(VkPhysicalDevice* phys_dev);
 
     void reset();
