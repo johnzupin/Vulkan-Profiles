@@ -6,13 +6,22 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X deployment ve
 set(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM FALSE) # Workaround to fix C.I. build on VS2015
 
 project(VULKAN_PROFILES)
-set(VULKAN_TAG v1.2.199)
+set(VULKAN_TAG v1.3.204)
 
 # Define GNU standard installation directories.
 include(GNUInstallDirs)
 
-# Using Python 3
-find_package(PythonInterp 3 REQUIRED)
+# Regenerating profiles requires Python 3.7.2 or better (for typing.OrderedDict).
+# Regeneration jsoncpp requires Python 3.
+# Otherwise Python is not required, as checked-in generated code and
+# headers will be used.
+option(REGENERATE_PROFILES "Regenerate profiles source and headers" ON)
+option(REGENERATE_JSONCPP "Regenerate jsoncpp source and headers" ON)
+if(REGENERATE_PROFILES)
+    find_package(PythonInterp 3.7.2 REQUIRED)
+elseif(REGENERATE_JSONCPP)
+    find_package(PythonInterp 3 REQUIRED)
+endif()
 
 # Third-party libraries
 include(FetchContent)
@@ -20,76 +29,99 @@ include(FetchContent)
 # Always need C++2011 throughout the project.
 set(CMAKE_CXX_STANDARD 11)
 
+# FetchContent_MakeAvailable(jsoncpp) will set these values (which
+# affect the whole build).  Make sure they're set even if we
+# don't regenerate jsoncpp.
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Archive output dir.")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Library output dir.")
+set(CMAKE_PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin" CACHE PATH "PDB (MSVC debug symbol)output dir.")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH "Executable/dll output dir.")
+
 # Declare all content before making available, to ensure that these
 # settings are used instead of any settings that may be encountered
 # inside these projects.
 #
-# Names should be lower-case, since FetchContent always sets 
-# <lowercaseName>_* variables.  Sometimes (only when using 
+# Names should be lower-case, since FetchContent always sets
+# <lowercaseName>_* variables.  Sometimes (only when using
 # FetchContent_MakeAvailable) it will also set <givenName>_*
 # variables, but this isn't consistent and isn't guaranteed
 # by the documentation.
-FetchContent_Declare(
-	googletest
-	GIT_REPOSITORY https://github.com/google/googletest
-	GIT_TAG release-1.11.0
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_Declare(
-	json
-	GIT_REPOSITORY https://github.com/nlohmann/json
-	GIT_TAG v3.10.0
-)
-FetchContent_Declare(
-	jsoncpp
-	GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp
-	GIT_TAG 1.9.4
-)
-set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
-set(JSONCPP_WITH_POST_BUILD_UNITTEST OFF CACHE BOOL "" FORCE)
-set(JSONCPP_WITH_WARNING_AS_ERROR OFF CACHE BOOL "" FORCE)
-set(JSONCPP_WITH_PKGCONFIG_SUPPORT OFF CACHE BOOL "" FORCE)
+
+# Allow the user to configure to not build tests if desired.
+option(PROFILES_BUILD_TESTS "Build the profiles tests" ON)
+if(PROFILES_BUILD_TESTS)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest
+        GIT_TAG release-1.11.0
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+endif()
+
+# Allow the user to not regenerate jsoncpp if desired, using checked-in
+# generated source instead.  This can make downstream projects easier
+# to build (as they don't require Python).
+if(REGENERATE_JSONCPP)
+    FetchContent_Declare(
+        jsoncpp
+        GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp
+        GIT_TAG 1.9.4
+    )
+endif()
+
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
 	vulkan-headers
-#	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
-#	GIT_TAG ${VULKAN_TAG}
-	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-Headers.git
-	GIT_TAG 13staging
+	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
+	GIT_TAG ${VULKAN_TAG}
 )
 FetchContent_Declare(
 	vulkan-validationlayers
-#	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
-#	GIT_TAG ${VULKAN_TAG}
-	GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-ValidationLayers.git
-	GIT_TAG tony-13staging-gitlab
+	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
+	GIT_TAG ${VULKAN_TAG}
 )
 # Desktop builds link against the loader vulkan library.  Android
 # builds just link against the system vulkan library.
 if (NOT ANDROID)
     FetchContent_Declare(
         vulkan-loader
-        GIT_REPOSITORY git@gitlab.khronos.org:vulkan/Vulkan-Loader.git
-        GIT_TAG staging13
+        GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Loader.git
+        GIT_TAG sdk-1.3.204
     )
 endif()
 
 # After all the content is declared, it can safely be made available.
-FetchContent_MakeAvailable(googletest)
-FetchContent_MakeAvailable(json)
-FetchContent_MakeAvailable(jsoncpp)
-execute_process(COMMAND python ${jsoncpp_SOURCE_DIR}/amalgamate.py WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
+# For SDK (flat) builds, we'll receive pointers to our dependency repository builds.
+# Otherwise, we'll fetch and build ourselves.  Other repositories also respect environment
+# variables, so we're doing it here too.
+if(PROFILES_BUILD_TESTS)
+    FetchContent_MakeAvailable(googletest)
+endif()
 
+set(jsoncpp_generated_dir ${CMAKE_SOURCE_DIR}/external/generated-jsoncpp)
+set(jsoncpp_generated_source ${jsoncpp_generated_dir}/jsoncpp.cpp)
+set(jsoncpp_generated_include_dir ${jsoncpp_generated_dir})
+set(jsoncpp_generated_header ${jsoncpp_generated_include_dir}/json/json.h)
+if(REGENERATE_JSONCPP)
+    message(STATUS "Fetching jsoncpp source and regenerating in ${jsoncpp_generated_dir}")
+    set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
+    set(JSONCPP_WITH_POST_BUILD_UNITTEST OFF CACHE BOOL "" FORCE)
+    set(JSONCPP_WITH_WARNING_AS_ERROR OFF CACHE BOOL "" FORCE)
+    set(JSONCPP_WITH_PKGCONFIG_SUPPORT OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(jsoncpp)
+    # This will create all three generated files.
+    execute_process(COMMAND ${PYTHON_EXECUTABLE} ${jsoncpp_SOURCE_DIR}/amalgamate.py
+        -s ${jsoncpp_generated_source}
+        WORKING_DIRECTORY ${jsoncpp_SOURCE_DIR})
+endif()
+
+# Vulkan-ValidationLayers settings
 set(UPDATE_DEPS ON)
 set(BUILD_TESTS OFF)
 set(_build_type ${CMAKE_BUILD_TYPE})
 set(VVL_CPP_STANDARD 11)
 set(_build_type ${CMAKE_BUILD_TYPE})
-
-# For SDK (flat) builds, we'll receive pointers to our dependency repository builds.
-# Otherwise, we'll fetch and build ourselves.  Other repositories also respect environment
-# variables, so we're doing it here too.
 
 # FetchContent() doesn't seem to actually do a Vulkan-Headers build at all.
 # Consequently, we're really only interested in the source.
@@ -154,24 +186,34 @@ if (NOT ANDROID)
     endif()
 endif()
 
+include_directories(external)
+
 set(API_NAME "Vulkan" CACHE STRING "API name to use when building")
 string(TOLOWER ${API_NAME} API_LOWERCASE)
 add_definitions(-DAPI_NAME="${API_NAME}")
 
+# The scripts directory regenerates the Profiles source and headers.
+if(REGENERATE_PROFILES)
+    add_subdirectory(scripts)
+endif()
+
 add_subdirectory(library)
 
-add_subdirectory(vku)
+add_subdirectory(layer-utils)
 
 # add_vk_layer macro is used by layer/.
 if (WIN32)
     macro(add_vk_layer target)
     FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_${target}.def DEF_FILE)
-    add_custom_target(copy-${target}-def-file ALL
+    add_custom_target(VkLayer_copy-${target}-def-file ALL
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DEF_FILE} VkLayer_${target}.def
         VERBATIM
     )
+    set_target_properties(VkLayer_copy-${target}-def-file PROPERTIES FOLDER "Profiles layer")
+
     add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
     target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY} vku)
+    set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
     endmacro()
 else()
     macro(add_vk_layer target)
@@ -184,11 +226,14 @@ else()
     if (NOT APPLE)
         set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
     endif ()
+    set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
     install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
     endmacro()
 endif()
 add_subdirectory(layer)
 
-include_directories(external)
+if(PROFILES_BUILD_TESTS)
+    add_subdirectory(profiles/test)
+endif()
 
-add_subdirectory(profiles/test)
+include_directories(external)

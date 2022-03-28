@@ -1,20 +1,491 @@
-vulkan-profiles (1.3.203.0~rc1-1lunarg20.04-1) focal; urgency=medium
+vulkan-profiles (1.3.204.1~rc2-1lunarg20.04-1) focal; urgency=medium
 
-  * add json parsing packages and build dep
-  * packaging: update vulkan repos as build dep
-  * packaging: update patches
-  * packaging: fix vulkan-loader build dep
-  * packaging: point to vulkan repository deps with packaging in mind
-  * packaging: update patches
-  * packaging: update to use the jsoncpp repo
-  * packaging: add jsoncpp source files
-  * packaging: configure where jsoncpp source is
-  * packaging: fix spelling error
-  * packaging: update path to files that need to be installed
-  * packaging: remove nlohmann-json-dev build dep
-  * packaging: remove stange /debian directory
+  [ Christophe ]
+  * profiles: Workaround due to a vk.xml issue that was resolved with 1.1.119
+  * profiles: add 1.1.106 to 1.1.108 schema
+  * profiles: add 1.3.204 schema
+  * profiles: add 1.1.96 to 1.1.116 schemas
+  * profiles: moved all versioned profiles schema
 
- -- John Zupin <john@odin>  Fri, 21 Jan 2022 10:18:43 -0700
+  [ ziga-lunarg ]
+  * profiles layer: Do not warn about excluded formats
+
+ -- john <john@odin>  Fri, 25 Feb 2022 14:38:32 -0700
+
+vulkan-profiles (1.3.204.1~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix filling format properties pNext chain
+  * profiles layer: Make missing extension logs more clear
+  * profiles layer: Remove log left over from debugging
+  * profiles layer: Update docs api requirement
+  * profiles layer: Fix validation requested api version
+
+  [ Daniel Rakos ]
+  * Fix JSON schema profile name matching
+
+  [ ziga-lunarg ]
+  * profiles layer: Implement GetQueueFamilyProperties
+
+  [ Christophe ]
+  * profile: remove descriptorBindingUniformBufferUpdateAfterBind from roadmap 2022
+  * profile: improve API version dependences
+
+  [ Daniel Rakos ]
+  * Fix and improve queue family matching in library
+  * Auto-generate schema version from header version
+
+  [ Christophe ]
+  * Use tag v1.3.204
+  * layer: fix the license registry
+
+  [ Mark Lobodzinski ]
+  * layer: Fix clang logical operator precedence warnings
+  * layer: Replace deprecated json fcns to fix compiler warnings
+  * layer: JsonValidator was using a deprecated json function
+  * layer: Force warnings as errors for non-windows compilers
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix queue family test
+
+  [ Mark Lobodzinski ]
+  * layer tests: Fix json file path settings
+  * layer tests: Set fail-on-error for partial-qfp test
+
+  [ Bob Ellison ]
+  * build: Debug tests should use debug vulkan_profiles.cpp
+
+  [ Mark Lobodzinski ]
+  * library tests: Skip failing test on ShieldTV
+
+  [ ziga-lunarg ]
+  * profiles layer: Some updates for tutorial
+  * profiles layer: Set instance version from profile
+
+  [ Christophe ]
+  * layer: add profile_name not found error message
+  * API version override is protected by SIMULATE_API_VERSION_BIT
+  * layer: clean up dead code
+  * layer: expected behavior is not a warning, just a notification.
+  * layer: replaced deprecated version macros
+  * layer: fix unit test
+
+  [ David Pinedo ]
+  * Changes for auto-gen of layer documentation
+  * Documenation tweeks
+  * Update to layer manifest file
+
+  [ Bob Ellison ]
+  * build: even flatter SDK build
+
+  [ ziga-lunarg ]
+  * profiles layer: Add missing BufferAddressFeaturesEXT
+  * generator script: Update finding enums
+  * profiles layer: Fix CreateInstance
+
+  [ Christophe ]
+  * profile: allow generating schema for API 1.2.203
+  * profile: allow generating schema for API 1.2.194
+  * profile: allow generating schema for API 1.2.153
+  * profile: allow generating schema for API 1.1.130
+  * profiles: add schemas for 1.3.206 to 1.1.117
+  * test: fix warnings #151
+
+  [ John Zupin ]
+  * packaging: update to not build tests and do regen
+  * packaging: update to remove patches
+  * packaging: configure patch for system path
+
+ -- john <john@odin>  Thu, 24 Feb 2022 16:49:09 -0700
+
+vulkan-profiles (1.3.204.0~rc3-1lunarg20.04-1) focal; urgency=medium
+
+  [ Daniel Rakos ]
+  * Fix JSON schema profile name matching
+
+  [ Christophe ]
+  * profile: remove descriptorBindingUniformBufferUpdateAfterBind from roadmap 2022
+
+ -- John Zupin <john@odin>  Mon, 14 Feb 2022 14:09:35 -0700
+
+vulkan-profiles (1.3.204.0~rc2-1lunarg20.04-1) focal; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles layer: Use correct HasExtension function
+  * profiles layer: Fix linux tests env vars delimiter
+  * profiles layer: Add GetPhysDev2 extensions of not present
+
+  [ Mark Lobodzinski ]
+  * layer: Change extension/format types to Strings
+
+  [ ziga-lunarg ]
+  * profiles layer: Use KHR version of functions when vulkan version is 1.0
+
+  [ Mark Lobodzinski ]
+  * layer: Add profile layer settings struct definition
+  * layers: Prevent multiple inclusions of layer header file
+  * layer tests: Add makeInstance() overload taking a pNext
+  * layer: Update InitSettings for data passed in through pNext
+  * test: Avoid Env vars for layer settings in tests.cpp
+  * layer: Update simulate capabilities enum with an ALL variant
+  * layer tests: Avoid Envvars for layer settings in tests_capabilities.cpp
+  * layer tests: Avoid Envvars for layer settings in portability test
+  * layer tests: Avoid Envvars for layer settings in test_mechanism.cpp
+  * layer tests: Avoid Envvars for layer settings in test_promoted.cpp
+  * layer: Make layer settings default values match documentation
+  * layer tests: Add layer_utils directory to include path
+  * layer: Move some debug report defs/funcs to header file
+  * layer: Add all env vars to settings struct
+  * layer: Moved profile_layer_settings.h content into layer header
+  * layer: Deleted profile_layer_settings.h
+  * layer: Switch to new settings structure
+  * layer: Use settings constructor for init
+  * layer: Simpify copying of user-defined settings
+  * layer tests: Switch to new json file path for tests.cpp
+  * layer tests: Add new platform-independent json file path var
+  * layer tests: Switch to new json file path for tests_caps.cpp
+  * layer tests: Switch to new path for destop portability tests
+  * layer_tests: Move to new json file path for tests_mechanism.cpp
+  * layer_tests: Move to new json file path for tests_promoted.cpp
+  * layer_tests: Remove unused test source path definition
+  * layers tests: Remove env setting helper functions
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix duplicated ShaderDrawParametersFeatures warning
+  * profiles layer: Fix checking vk version
+  * profiles layer: Add missing line breaks to log messages
+
+  [ Christophe ]
+  * layer: fix CreateInstance extension list creation
+
+  [ ziga-lunarg ]
+  * profiles layer: Use correct version of GetPhysicalDeviceFormatProperties2
+
+  [ Daniel Rakos ]
+  * Use log print by default for library debug messages on Android
+
+  [ Christophe ]
+  * layer: implement  default value for profile_name
+  * layer: DrawParameter bugfixing
+  * layer: don't try to load value when the app use older vk version
+  * layer: warn on instance and profile API version mismatch
+
+  [ ziga-lunarg ]
+  * profiles layer: Transfer device values from extension structs to promoted structs
+  * profiles layer: Improve message logs for profile and device values
+  * profiles layer: Remove unused macro
+  * profiles layer: Fix typo
+
+  [ Bob Ellison ]
+  * tutorial: minor changes for grammar and clarity
+
+  [ ziga-lunarg ]
+  * profiles layer: Use correct compare function for bufferImageGranularity
+  * profiles layer: Improve log messages
+
+  [ Christophe ]
+  * docs: Bob review fixes
+  * layer: prevent loading invalid JSON file
+
+  [ ziga-lunarg ]
+  * profiles layer: Remove unused simulate format properties bit
+  * profiles layer: Ignore profiles when profile_file is unset
+
+  [ Mark Lobodzinski ]
+  * profile tests: Add android-specific test and APK build
+  * library tests: Remove Android resources directry and files
+
+  [ Bob Ellison ]
+  * docs: minor changes to the layer/TUTORIAL.md
+
+  [ Mark Lobodzinski ]
+  * docs: Update BUILD.md with Android build instructions
+
+  [ Christophe ]
+  * layer: clear displayed name for the flag
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix debug logging parsed structs
+  * profiles layer: Fix checking features and properties support
+  * profiles layer: Fix test profiles file
+  * profiles layer: Skip loading structs from excluded extensions
+
+  [ Christophe ]
+  * layer: override the requested API version, min vk version is 1.1
+
+  [ ziga-lunarg ]
+  * profiles layer: Update changing instance version
+  * profiles layer: Fix filling format properties pNext chain
+
+ -- John Zupin <john@odin>  Fri, 11 Feb 2022 15:02:39 -0700
+
+vulkan-profiles (1.3.204.0~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * profiles: add M1 support for desktop portability
+
+  [ ziga-lunarg ]
+  * profiles layer: Add profiles authors
+
+  [ Christophe ]
+  * profile: fix unit tests on M1
+  * library: fix format unit tests
+  * library: add test dependences checks
+  * layer: remove SIMULATE_FORMAT_PROPERTIES_BIT
+  * docs: change name to reduce confusion, the file remains out dated
+
+  [ Daniel Rakos ]
+  * Cherry pick draft generated schema
+
+  [ Christophe ]
+  * profile: remove VK_KHR_shader_subgroup_extended_types required from desktop port for mac NVIDA support
+  * layer: factorize test initialization
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix parsing deviceType twice
+  * profiels layer: Remove unused functions
+  * profiles layer: Remove unused old devsim code
+
+  [ Christophe ]
+  * library: slight improvement of unit test execution time, reducing initiation cost
+  * library: facotrize unit tests
+  * library: clean up unit tests
+  * Clean up target names
+  * Clean up target names
+  * cmake: add folder for targets
+  * docs: reorganize files
+  * docs: show overview image
+
+  [ ziga-lunarg ]
+  * profiles layer: Update layer tutorial
+
+  [ Christophe ]
+  * docs: use LunarG profiles repository to reference the overview.png
+  * docs: use the images directory for images
+
+  [ ziga-lunarg ]
+  * profiles: Update copyrights
+  * profiles layer: Remove more unused old devsim code
+  * profiles layer: Fix parsing promoted extensions
+
+  [ Christophe ]
+  * layer: implement SIMULATE_API_VERSION_BIT #288
+  * layer: add schema validation
+  * layer: by default the validation doesn't show notifications
+
+  [ ziga-lunarg ]
+  * profiles layer: Warn if struct members are repeated
+
+  [ Bob Ellison ]
+  * build: log where the Vulkan Version is computed
+
+  [ Daniel Rakos ]
+  * Add library variant with debug message support
+  * Prettify variable names in debug messages
+  * Prettify and compact flag conditions
+  * Prettify debug messages even further
+  * Fixes and refactoring
+  * Rebase related changes
+
+  [ Christophe ]
+  * docs: update-url to new repo
+
+  [ ziga-lunarg ]
+  * profiles layer: Warn if greater api version is used
+  * profiles layer: Warn using same structures
+  * profiles layer: Improve missing format feature log
+  * profiles layer: Add missing debug bit log
+  * profiles layer: Improve GetValue functions
+  * profiles layer: Rename bool compare function to make it more clear
+  * profiles layer: Fix log typos
+
+  [ Christophe ]
+  * layer: implement SIMULATE_API_VERSION_BIT
+  * library: move test into solution folder
+  * Revert "library: move test into solution folder"
+  * Revert "layer: implement SIMULATE_API_VERSION_BIT"
+  * docs: BETA
+  * cmake: move test target into solution folder
+  * layer: implement SIMULATE_API_VERSION_BIT
+  * layer: notification to display the API -version
+  * layer: fix call to AddPromotedExtensions
+
+  [ Daniel Rakos ]
+  * Schema generator prototype
+  * Temporarily disable JSON validation
+  * Reenable JSON validation
+
+  [ Bob Ellison ]
+  * generation: fix python reference
+
+  [ Daniel Rakos ]
+  * WIP stuff that should fix test failures
+  * Deal with some more corner cases
+  * Draft features and properties/limits documentation
+  * Rebase related changes
+  * Collect enum value aliases
+  * Generate queue family data to the documentation
+  * Generate format properties to documentation
+  * Updating generated profiles documentation
+  * Refactoring and delete accidental commit of vk.xml
+  * Tweaks to documentation generation
+  * Add python requirements to BUILD.md
+
+  [ Christophe ]
+  * docs: clean up README
+
+  [ James Riordon ]
+  * Add REUSE complaince
+
+  [ Trevor David Black ]
+  * Replace ABP with final draft
+  * Update VP_ANDROID_baseline_2021.json
+
+  [ Christophe ]
+  * profile: update generated docs
+  * profiles: remove space changes
+  * library: fix unit test
+  * library: fix unit test
+  * library: uniformalize test target name
+  * docs: updated change log
+  * docs: fix style
+  * docs: fisrt draft of the overview document
+  * docs: refine overview
+  * docs: clean up schema
+  * docs: refined overview
+  * docs: add missing queue properties
+  * cmake: use public vk13 headers
+  * profile: updated schema for vk1.3.204 update
+  * cmake: use 1.3.204 loader
+
+  [ Daniel Rakos ]
+  * Add newline to default stderr library debug output
+  * Add workaround for missing queueFlags limittype
+
+  [ Christophe ]
+  * profile: fix m1 support
+  * cmake: fix missmatch
+  * cmake: use the loader we want to ship
+  * library: fix unit test to reflect desktop port changes
+  * cmake: try using v1.3.204 branch
+  * layer: improve unit test execution time
+  * layer: jump to BETA status
+
+  [ Mark Lobodzinski ]
+  * vku: Fix TrimPrefix early assert
+
+  [ Christophe ]
+  * library: use debug version to get log
+  * library: use debug version to get log
+  * library: removed useless test
+  * layer: improve unit test execution time
+
+  [ ziga-lunarg ]
+  * profiles layer: Remove append macro
+
+  [ Christophe ]
+  * profile: add desktop portability supports for mac GTX 750
+  * profile: fix reflection test on desktop portability
+  * layer: split unit tests to try to identify SEGFAULT on mac
+  * library: add Android test
+
+  [ Bob Ellison ]
+  * build: use Vulkan-Loader 1.3.204
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix getting SDK env variable
+  * profiles layer: Update documentation and set default values
+
+  [ Christophe ]
+  * docs: fix links
+  * layer: fix unit tests
+
+  [ Daniel Rakos ]
+  * Add legends to the generated documentation tables
+
+  [ Christophe ]
+  * docs: clarify Vulkan requirements
+  * layer: fix API version check
+  * cmake: using the public validation layer
+  * layer: kill DRM extension that is ill designed
+
+  [ Mark Lobodzinski ]
+  * layer: Change Json load/parse parameters to std::string
+  * layer: Ensure Parsefile filename has no trailing newline
+  * layer: Use correct versions of core APIs
+  * vku: Changed dir name to layer-utils
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix extensions in test profile
+  * profiles layer: Update tutorial
+  * profiles layer: Fix parsing VkPhysicalDeviceProperties
+  * profiles layer: Fix desktop portability tests
+  * profiles layer: Add vkGetPhysicalDeviceToolProperties
+  * profiles layer: Update tutorial
+
+  [ Christophe ]
+  * docs: global improvements after first draft
+  * docs: fix layer binary path
+
+  [ Daniel Rakos ]
+  * Profiles doc - add man page links and fix bugs
+  * Add debug message containing device/driver info
+  * Fix accidental double-parantheses
+
+  [ Christophe ]
+  * docs: add vkconfig details to the layer doc
+  * docs: fix typo
+
+  [ ziga-lunarg ]
+  * profiles layer: Add instance extensions to test profile
+
+  [ Christophe ]
+  * docs: clean up
+
+  [ Daniel Rakos ]
+  * Move generator script out of library subdirectory
+
+  [ Christophe ]
+  * docs: overview docs feedback
+
+  [ Mark Lobodzinski ]
+  * layer: Add header file for shared data definitions
+  * layer: Use new header file for shared layer/test data
+
+  [ ziga-lunarg ]
+  * profiles layer tutorial: Warn about using multiple versions of same structure
+
+  [ Christophe ]
+  * layer: fix missing macos preset entry
+  * layer: fix schema validation crash, turn it off by default as schema need to be found
+
+  [ John Zupin ]
+  * doc: update copyright symbol to (c) on overview.md
+
+  [ ziga-lunarg ]
+  * profiles layer: Add setting to disabled selected extensions
+  * profiles layer: Add test for disabling extensions
+  * profiles layer: Format code
+
+  [ Christophe ]
+  * layer: use a list setting type for extensions disabling
+  * layer: add exclude formats front-end
+  * layer: rename to device extension
+
+  [ ziga-lunarg ]
+  * profiles layer: Implement excluding formats
+  * profiles layer: Add test for excluding formats
+  * profiles layer: Fix json list
+  * profiles layer: Add valid values to settings lists
+  * profiles layer: Document exclude settings
+  * profiles layer: Print all warnings before failing
+
+  [ John Zupin ]
+  * packaging patches: rebased
+  * packaging: need jsonschema python module for build dep
+  * packaging patch: new patch to disable scripts/ call
+
+ -- John Zupin <john@odin>  Mon, 07 Feb 2022 16:42:17 -0700
 
 vulkan-profiles (1.3.000.0-1) unstable; urgency=medium
 

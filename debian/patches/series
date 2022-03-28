@@ -1,4 +1,1 @@
-0001-packaging-patch-disable-all-fetching-and-building-te.patch
-0002-packaging-patch-fix-path-to-vk.xml-file.patch
-0003-packaging-patch-update-where-VVL-layer-files-are-sea.patch
-0004-packaging-patch-dont-algamate-jsoncpp-repo.patch
+0001-patch-configure-for-system-package-path.patch
