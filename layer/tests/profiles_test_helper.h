@@ -16,6 +16,7 @@
  *
  * Authors:
  * - Jeremy Kniager <jeremyk@lunarg.com>
+ * - Mark Lobodzinski <mark@lunarg.com>
  */
 
 #include <string>
@@ -23,6 +24,8 @@
 
 #include <vulkan/vulkan.h>
 #include "../profiles.h"
+#include "gtest/gtest.h"
+#include "vktestframework.h"
 
 namespace profiles_test {
 
