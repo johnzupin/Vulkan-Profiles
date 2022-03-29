@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.14.0)
 
+set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/scripts")
+include(known_good)
+
 enable_testing()
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X deployment version")
@@ -17,9 +20,10 @@ include(GNUInstallDirs)
 # headers will be used.
 option(REGENERATE_PROFILES "Regenerate profiles source and headers" ON)
 option(REGENERATE_JSONCPP "Regenerate jsoncpp source and headers" ON)
+option(REGENERATE_LAYER "Regenerate profiles layer source" ON)
 if(REGENERATE_PROFILES)
     find_package(PythonInterp 3.7.2 REQUIRED)
-elseif(REGENERATE_JSONCPP)
+elseif(REGENERATE_JSONCPP OR REGENERATE_LAYER)
     find_package(PythonInterp 3 REQUIRED)
 endif()
 
@@ -73,21 +77,21 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
 	vulkan-headers
-	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers
-	GIT_TAG ${VULKAN_TAG}
+	GIT_REPOSITORY ${GIT_VULKAN_HEADER_REPOSITORY}
+	GIT_TAG ${GIT_VULKAN_HEADER_COMMIT}
 )
 FetchContent_Declare(
 	vulkan-validationlayers
-	GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-ValidationLayers
-	GIT_TAG ${VULKAN_TAG}
+	GIT_REPOSITORY ${GIT_VULKAN_VALIDATION_REPOSITORY}
+	GIT_TAG ${GIT_VULKAN_VALIDATION_COMMIT}
 )
 # Desktop builds link against the loader vulkan library.  Android
 # builds just link against the system vulkan library.
 if (NOT ANDROID)
     FetchContent_Declare(
         vulkan-loader
-        GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Loader.git
-        GIT_TAG sdk-1.3.204
+        GIT_REPOSITORY ${GIT_VULKAN_LOADER_REPOSITORY}
+        GIT_TAG ${GIT_VULKAN_LOADER_COMMIT}
     )
 endif()
 
@@ -122,6 +126,7 @@ set(BUILD_TESTS OFF)
 set(_build_type ${CMAKE_BUILD_TYPE})
 set(VVL_CPP_STANDARD 11)
 set(_build_type ${CMAKE_BUILD_TYPE})
+set(PROFILES_SCHEMA_FILENAME "profiles-0.8-latest.json")
 
 # FetchContent() doesn't seem to actually do a Vulkan-Headers build at all.
 # Consequently, we're really only interested in the source.
@@ -186,6 +191,37 @@ if (NOT ANDROID)
     endif()
 endif()
 
+# For our own code, turn on warnings-are-errors if set.
+option(FATAL_WARNINGS "Fail builds if there are warnings" ON)
+if(FATAL_WARNINGS)
+    if(MSVC)
+        add_compile_options(/W4 /WX)
+        add_link_options(/WX)
+        # Ignore some warnings that we know we'll generate.  In the future the
+        # code that generates these warnings should be fixed properly.
+        # vk_layer_logging.h provokes:
+        #    warning C4100: 'default_flag_is_spec': unreferenced formal parameter
+        # vk_loader_platform.h provokes:
+        #    warning C4505: unreferenced local function has been removed
+        # jsoncpp.cpp provokes:
+        #    warning C4702: unreachable code
+        # profiles.cpp provokes:
+        #    warning C4244: '=': conversion from 'Json::Value::UInt' to 'uint8_t', possible loss of data
+        #    warning C4458: declaration of 'validator' hides class member
+        #    warning C4189: 'pdd': local variable is initialized but not referenced
+        #    warning C4800: 'VkBool32': forcing value to bool 'true' or 'false' (performance warning)
+        #    warning C4706: assignment within conditional expression
+        # test_validate.cpp provokes:
+        #    warning C4459: declaration of 'validator' hides global declaration
+        # gtest.h provokes:
+        #    warning C4389: '==': signed/unsigned mismatch
+        #    warning C4018: '>=': signed/unsigned mismatch
+        add_compile_options(/wd4100 /wd4505 /wd4702 /wd4244 /wd4458 /wd4189 /wd4800 /wd4706 /wd4459 /wd4389 /wd4018)
+    else()
+        add_compile_options(-Werror)
+    endif()
+endif()
+
 include_directories(external)
 
 set(API_NAME "Vulkan" CACHE STRING "API name to use when building")
@@ -204,30 +240,30 @@ add_subdirectory(layer-utils)
 # add_vk_layer macro is used by layer/.
 if (WIN32)
     macro(add_vk_layer target)
-    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_${target}.def DEF_FILE)
-    add_custom_target(VkLayer_copy-${target}-def-file ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DEF_FILE} VkLayer_${target}.def
-        VERBATIM
-    )
-    set_target_properties(VkLayer_copy-${target}-def-file PROPERTIES FOLDER "Profiles layer")
+        FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_${target}.def DEF_FILE)
+        add_custom_target(VkLayer_copy-${target}-def-file ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DEF_FILE} VkLayer_${target}.def
+            VERBATIM
+        )
+        set_target_properties(VkLayer_copy-${target}-def-file PROPERTIES FOLDER "Profiles layer")
 
-    add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
-    target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY} vku)
-    set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
+        add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
+        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY} vku)
+        set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
     endmacro()
 else()
     macro(add_vk_layer target)
-    add_library(VkLayer_${target} SHARED ${ARGN})
-    target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY} vku)
-    if(ANDROID)
-        # Android needs -llog for __android_print_log()
-        target_link_Libraries(VkLayer_${target} log)
-    endif()
-    if (NOT APPLE)
-        set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
-    endif ()
-    set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
-    install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+        add_library(VkLayer_${target} SHARED ${ARGN})
+        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY} vku)
+        if(ANDROID)
+            # Android needs -llog for __android_print_log()
+            target_link_Libraries(VkLayer_${target} log)
+        endif()
+        if (NOT APPLE)
+            set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
+        endif ()
+        set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
+        install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
     endmacro()
 endif()
 add_subdirectory(layer)

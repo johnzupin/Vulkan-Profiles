@@ -1289,6 +1289,8 @@ class VulkanVersionNumber():
         # Construct version number pre-processor definition's name
         self.define = 'VK_VERSION_{0}_{1}'.format(self.major, self.minor)
 
+    def get_api_version_string(self):
+        return 'VK_API_VERSION_' + str(self.major) + '_' + str(self.minor)
 
     def __eq__(self, other):
         if isinstance(other, VulkanVersionNumber):
@@ -1364,6 +1366,7 @@ class VulkanRegistry():
         self.parseStructInfo(xml)
         self.parsePrerequisites(xml)
         self.parseEnums(xml)
+        self.parseFormats(xml)
         self.parseBitmasks(xml)
         self.parseConstants(xml)
         self.parseAliases(xml)
@@ -1519,6 +1522,12 @@ class VulkanRegistry():
             self.enums[enumDef.name] = enumDef
 
 
+    def parseFormats(self, xml):
+        self.formatCompression = dict()
+        for enum in xml.findall("./formats/format"):
+            if enum.get('compressed'):
+                self.formatCompression[enum.get('name')] = enum.get('compressed')
+
     def parseBitmasks(self, xml):
         self.bitmasks = dict()
         # Find bitmask definitions
@@ -1532,7 +1541,7 @@ class VulkanRegistry():
                 bitsName = bitmask.get('bitvalues')
                 if bitsName is None:
                     # Currently some definitions use "requires", not "bitvalues"
-                    bitsName = bitmask.get('requires') 
+                    bitsName = bitmask.get('requires')
 
                 if bitsName != None:
                     if bitsName in self.enums:
@@ -2223,7 +2232,7 @@ class VulkanProfile():
                         # If list is empty then ignore
                         continue
                     if structDef.members[member].isArray:
-                        if not isinstance(structDef.members[member].arraySize, int):
+                        if not isinstance(self.registry.evalArraySize(structDef.members[member].arraySize), int):
                             Log.f("Unsupported array member '{0}' in structure '{1}'".format(member, structDef.name) +
                                   "(currently only 1D non-dynamic arrays are supported in this context)")
                         # If it's an array we have to generate per-element assignment code
@@ -2293,7 +2302,7 @@ class VulkanProfile():
                         # If list is empty then ignore
                         continue
                     if structDef.members[member].isArray:
-                        if not isinstance(structDef.members[member].arraySize, int):
+                        if not isinstance(self.registry.evalArraySize(structDef.members[member].arraySize), int):
                             Log.f("Unsupported array member '{0}' in structure '{1}'".format(member, structDef.name) +
                                   "(currently only 1D non-dynamic arrays are supported in this context)")
                         # If it's an array we have to generate per-element comparison code
@@ -2712,7 +2721,7 @@ class VulkanProfilesSchemaGenerator():
 
         return OrderedDict({
             "$schema": "http://json-schema.org/draft-07/schema#",
-            "$id": "https://schema.khronos.org/vulkan/profiles-{0}.json#".format(versionStr),
+            "$id": "https://schema.khronos.org/vulkan/profiles-0.8-latest.json#",
             "title": "Vulkan Profiles Schema for Vulkan {0}".format(versionStr),
             "additionalProperties": True,
             "required": [
