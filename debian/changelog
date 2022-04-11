@@ -1,3 +1,19 @@
+vulkan-profiles (1.3.211.0~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * Update to 210 header
+  * Update to 210 header
+
+  [ ziga-lunarg ]
+  * profiles layer: Fix non extension features version check
+  * Update to 211 header
+
+  [ Lava Block ]
+  * script: fix unused variable warnings
+  * script: build library after fixes
+
+ -- john <john@odin>  Mon, 11 Apr 2022 14:27:19 -0600
+
 vulkan-profiles (1.3.209.0~rc2-1lunarg20.04-1) focal; urgency=medium
 
   [ Christophe ]
