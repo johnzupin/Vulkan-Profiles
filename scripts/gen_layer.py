@@ -3531,10 +3531,10 @@ class VulkanProfilesLayerGenerator():
                 gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ');\n'
             elif member.isArray:
                 gen += '        GET_ARRAY(' + member_name + ');\n'
-            elif member.limittype == 'bitmask':
-                gen += '        GET_VALUE_FLAG_WARN(member, ' + member_name + ');\n'
             elif member.type == 'VkBool32':
                 gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfNotEqualBool);\n'
+            elif member.limittype == 'bitmask':
+                gen += '        GET_VALUE_FLAG_WARN(member, ' + member_name + ');\n'
             elif member.type == 'size_t':
                 if member.limittype == 'min':
                     gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfLesserSizet);\n'
@@ -3857,16 +3857,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.registry is None:
-        print("ERROR: Generating the profiles layer requires specifying -registry argument")
-        parser.print_help()
-        exit()
+    registryPath  = 'C:/Projects/Vulkan-Profiles/build/_deps/vulkan-headers-src/registry/vk.xml'
+    if args.registry is not None:
+        registryPath = args.registry
 
     outputPath = "../layer/profiles.cpp"
     if args.outLayer is not None:
         outputPath = args.outLayer
 
-    registry = genvp.VulkanRegistry(args.registry)
+    registry = genvp.VulkanRegistry(registryPath)
 
     generator = VulkanProfilesLayerGenerator()
     generator.generate(outputPath, registry)

@@ -1595,6 +1595,7 @@ static VkPipelineStageFlags2 StringToVkPipelineStageFlags2(const std::string &in
         {"VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_NV", VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_NV},
         {"VK_PIPELINE_STAGE_2_SUBPASS_SHADING_BIT_HUAWEI", VK_PIPELINE_STAGE_2_SUBPASS_SHADING_BIT_HUAWEI},
         {"VK_PIPELINE_STAGE_2_INVOCATION_MASK_BIT_HUAWEI", VK_PIPELINE_STAGE_2_INVOCATION_MASK_BIT_HUAWEI},
+        {"VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR", VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR},
         {"VK_PIPELINE_STAGE_2_NONE_KHR", VK_PIPELINE_STAGE_2_NONE_KHR},
         {"VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR", VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR},
         {"VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT_KHR", VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT_KHR},
@@ -2287,6 +2288,9 @@ class PhysicalDeviceData {
     VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT physical_device_graphics_pipeline_library_properties_;
     VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT physical_device_graphics_pipeline_library_features_;
 
+    // VK_AMD_shader_early_and_late_fragment_tests structs
+    VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT physical_device_shader_early_and_late_fragment_tests_features_;
+
     // VK_KHR_shader_subgroup_uniform_control_flow structs
     VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR physical_device_shader_subgroup_uniform_control_flow_features_;
 
@@ -2312,6 +2316,9 @@ class PhysicalDeviceData {
 
     // VK_KHR_workgroup_memory_explicit_layout structs
     VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR physical_device_workgroup_memory_explicit_layout_features_;
+
+    // VK_EXT_image_compression_control structs
+    VkPhysicalDeviceImageCompressionControlFeaturesEXT physical_device_image_compression_control_features_;
 
     // VK_EXT_4444_formats structs
     VkPhysicalDevice4444FormatsFeaturesEXT physical_device_4444_formats_features_;
@@ -2344,6 +2351,9 @@ class PhysicalDeviceData {
     // VK_NV_external_memory_rdma structs
     VkPhysicalDeviceExternalMemoryRDMAFeaturesNV physical_device_external_memory_rdmafeatures_;
 
+    // VK_EXT_pipeline_properties structs
+    VkPhysicalDevicePipelinePropertiesFeaturesEXT physical_device_pipeline_properties_features_;
+
     // VK_EXT_extended_dynamic_state2 structs
     VkPhysicalDeviceExtendedDynamicState2FeaturesEXT physical_device_extended_dynamic_state_2_features_;
 
@@ -2352,6 +2362,9 @@ class PhysicalDeviceData {
 
     // VK_EXT_primitives_generated_query structs
     VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT physical_device_primitives_generated_query_features_;
+
+    // VK_KHR_ray_tracing_maintenance1 structs
+    VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR physical_device_ray_tracing_maintenance_1_features_;
 
     // VK_EXT_global_priority_query structs
     VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT physical_device_global_priority_query_features_;
@@ -2385,6 +2398,12 @@ class PhysicalDeviceData {
 
     // VK_NV_linear_color_attachment structs
     VkPhysicalDeviceLinearColorAttachmentFeaturesNV physical_device_linear_color_attachment_features_;
+
+    // VK_EXT_image_compression_control_swapchain structs
+    VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT physical_device_image_compression_control_swapchain_features_;
+
+    // VK_EXT_subpass_merge_feedback structs
+    VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT physical_device_subpass_merge_feedback_features_;
 
   private:
     PhysicalDeviceData() = delete;
@@ -2710,6 +2729,9 @@ class PhysicalDeviceData {
         physical_device_graphics_pipeline_library_properties_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT};
         physical_device_graphics_pipeline_library_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT};
 
+        // VK_AMD_shader_early_and_late_fragment_tests structs
+        physical_device_shader_early_and_late_fragment_tests_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_FEATURES_EXT};
+
         // VK_KHR_shader_subgroup_uniform_control_flow structs
         physical_device_shader_subgroup_uniform_control_flow_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR};
 
@@ -2735,6 +2757,9 @@ class PhysicalDeviceData {
 
         // VK_KHR_workgroup_memory_explicit_layout structs
         physical_device_workgroup_memory_explicit_layout_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR};
+
+        // VK_EXT_image_compression_control structs
+        physical_device_image_compression_control_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_COMPRESSION_CONTROL_FEATURES_EXT};
 
         // VK_EXT_4444_formats structs
         physical_device_4444_formats_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT};
@@ -2767,6 +2792,9 @@ class PhysicalDeviceData {
         // VK_NV_external_memory_rdma structs
         physical_device_external_memory_rdmafeatures_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_RDMA_FEATURES_NV};
 
+        // VK_EXT_pipeline_properties structs
+        physical_device_pipeline_properties_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_PROPERTIES_FEATURES_EXT};
+
         // VK_EXT_extended_dynamic_state2 structs
         physical_device_extended_dynamic_state_2_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT};
 
@@ -2775,6 +2803,9 @@ class PhysicalDeviceData {
 
         // VK_EXT_primitives_generated_query structs
         physical_device_primitives_generated_query_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIMITIVES_GENERATED_QUERY_FEATURES_EXT};
+
+        // VK_KHR_ray_tracing_maintenance1 structs
+        physical_device_ray_tracing_maintenance_1_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR};
 
         // VK_EXT_global_priority_query structs
         physical_device_global_priority_query_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_EXT};
@@ -2808,6 +2839,12 @@ class PhysicalDeviceData {
 
         // VK_NV_linear_color_attachment structs
         physical_device_linear_color_attachment_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINEAR_COLOR_ATTACHMENT_FEATURES_NV};
+
+        // VK_EXT_image_compression_control_swapchain structs
+        physical_device_image_compression_control_swapchain_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_FEATURES_EXT};
+
+        // VK_EXT_subpass_merge_feedback structs
+        physical_device_subpass_merge_feedback_features_ = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBPASS_MERGE_FEEDBACK_FEATURES_EXT};
     }
 
     const VkInstance instance_;
@@ -3040,6 +3077,7 @@ class JsonLoader {
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceSynchronization2FeaturesKHR *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT *dest);
+    bool GetValue(const Json::Value &parent, VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceFragmentShadingRateEnumsPropertiesNV *dest);
@@ -3050,6 +3088,7 @@ class JsonLoader {
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceFragmentDensityMap2FeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceImageRobustnessFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR *dest);
+    bool GetValue(const Json::Value &parent, VkPhysicalDeviceImageCompressionControlFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDevice4444FormatsFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT *dest);
@@ -3061,9 +3100,11 @@ class JsonLoader {
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceSubpassShadingFeaturesHUAWEI *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceInvocationMaskFeaturesHUAWEI *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceExternalMemoryRDMAFeaturesNV *dest);
+    bool GetValue(const Json::Value &parent, VkPhysicalDevicePipelinePropertiesFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceColorWriteEnableFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT *dest);
+    bool GetValue(const Json::Value &parent, VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceImageViewMinLodFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceMultiDrawPropertiesEXT *dest);
@@ -3077,6 +3118,8 @@ class JsonLoader {
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceFragmentDensityMapOffsetPropertiesQCOM *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceFragmentDensityMapOffsetFeaturesQCOM *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceLinearColorAttachmentFeaturesNV *dest);
+    bool GetValue(const Json::Value &parent, VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT *dest);
+    bool GetValue(const Json::Value &parent, VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceFeatures *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceProperties *dest);
     bool GetValue(const Json::Value &parent, VkPhysicalDeviceLimits *dest);
@@ -3837,6 +3880,10 @@ bool JsonLoader::GetFeature(const Json::Value &features, const std::string &name
         auto support = CheckExtensionSupport(VK_KHR_RAY_QUERY_EXTENSION_NAME, name);
         if (support != ExtensionSupport::SUPPORTED) return valid(support);
         return GetValue(feature, &pdd_->physical_device_ray_query_features_);
+    } else if (name == "VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR") {
+        auto support = CheckExtensionSupport(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME, name);
+        if (support != ExtensionSupport::SUPPORTED) return valid(support);
+        return GetValue(feature, &pdd_->physical_device_ray_tracing_maintenance_1_features_);
     } else if (name == "VkPhysicalDeviceFragmentDensityMapFeaturesEXT") {
         auto support = CheckExtensionSupport(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME, name);
         if (support != ExtensionSupport::SUPPORTED) return valid(support);
@@ -3980,11 +4027,11 @@ bool JsonLoader::GetFeature(const Json::Value &features, const std::string &name
     } else if (name == "VkPhysicalDevicePipelineCreationCacheControlFeatures") {
         if (!CheckVersionSupport(VK_API_VERSION_1_3, name)) return false;
         return GetValue(feature, &pdd_->physical_device_pipeline_creation_cache_control_features_);
-    } else if (name == "VkPhysicalDeviceVulkan11Features") {
+    } // Blocks nested too deeply, break
+    if (name == "VkPhysicalDeviceVulkan11Features") {
         if (!CheckVersionSupport(VK_API_VERSION_1_2, name)) return false;
         return GetValue(feature, &pdd_->physical_device_vulkan_11_features_);
-    } // Blocks nested too deeply, break
-    if (name == "VkPhysicalDeviceVulkan12Features") {
+    } else if (name == "VkPhysicalDeviceVulkan12Features") {
         if (!CheckVersionSupport(VK_API_VERSION_1_2, name)) return false;
         return GetValue(feature, &pdd_->physical_device_vulkan_12_features_);
     } else if (name == "VkPhysicalDeviceVulkan13Features") {
@@ -4158,6 +4205,26 @@ bool JsonLoader::GetFeature(const Json::Value &features, const std::string &name
         auto support = CheckExtensionSupport(VK_VALVE_DESCRIPTOR_SET_HOST_MAPPING_EXTENSION_NAME, name);
         if (support != ExtensionSupport::SUPPORTED) return valid(support);
         return GetValue(feature, &pdd_->physical_device_descriptor_set_host_mapping_features_);
+    } else if (name == "VkPhysicalDeviceImageCompressionControlFeaturesEXT") {
+        auto support = CheckExtensionSupport(VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME, name);
+        if (support != ExtensionSupport::SUPPORTED) return valid(support);
+        return GetValue(feature, &pdd_->physical_device_image_compression_control_features_);
+    } else if (name == "VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT") {
+        auto support = CheckExtensionSupport(VK_EXT_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_EXTENSION_NAME, name);
+        if (support != ExtensionSupport::SUPPORTED) return valid(support);
+        return GetValue(feature, &pdd_->physical_device_image_compression_control_swapchain_features_);
+    } else if (name == "VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT") {
+        auto support = CheckExtensionSupport(VK_EXT_SUBPASS_MERGE_FEEDBACK_EXTENSION_NAME, name);
+        if (support != ExtensionSupport::SUPPORTED) return valid(support);
+        return GetValue(feature, &pdd_->physical_device_subpass_merge_feedback_features_);
+    } else if (name == "VkPhysicalDevicePipelinePropertiesFeaturesEXT") {
+        auto support = CheckExtensionSupport(VK_EXT_PIPELINE_PROPERTIES_EXTENSION_NAME, name);
+        if (support != ExtensionSupport::SUPPORTED) return valid(support);
+        return GetValue(feature, &pdd_->physical_device_pipeline_properties_features_);
+    } else if (name == "VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT") {
+        auto support = CheckExtensionSupport(VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME, name);
+        if (support != ExtensionSupport::SUPPORTED) return valid(support);
+        return GetValue(feature, &pdd_->physical_device_shader_early_and_late_fragment_tests_features_);
     }
 
     return true;
@@ -6845,9 +6912,9 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceDeviceGener
         GET_VALUE_WARN(member, maxIndirectCommandsStreamCount, WarnIfGreater);
         GET_VALUE_WARN(member, maxIndirectCommandsTokenOffset, WarnIfGreater);
         GET_VALUE_WARN(member, maxIndirectCommandsStreamStride, WarnIfGreater);
-        GET_VALUE_WARN(member, minSequencesCountBufferOffsetAlignment, WarnIfGreater);
-        GET_VALUE_WARN(member, minSequencesIndexBufferOffsetAlignment, WarnIfGreater);
-        GET_VALUE_WARN(member, minIndirectCommandsBufferOffsetAlignment, WarnIfGreater);
+        GET_VALUE_WARN(member, minSequencesCountBufferOffsetAlignment, WarnIfLesser);
+        GET_VALUE_WARN(member, minSequencesIndexBufferOffsetAlignment, WarnIfLesser);
+        GET_VALUE_WARN(member, minIndirectCommandsBufferOffsetAlignment, WarnIfLesser);
     }
     return valid;
 }
@@ -7051,6 +7118,15 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceGraphicsPip
     return valid;
 }
 
+bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT)\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, shaderEarlyAndLateFragmentTests, WarnIfNotEqualBool);
+    }
+    return valid;
+}
+
 bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR *dest) {
     LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR)\n");
     bool valid = true;
@@ -7146,6 +7222,15 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceWorkgroupMe
         GET_VALUE_WARN(member, workgroupMemoryExplicitLayoutScalarBlockLayout, WarnIfNotEqualBool);
         GET_VALUE_WARN(member, workgroupMemoryExplicitLayout8BitAccess, WarnIfNotEqualBool);
         GET_VALUE_WARN(member, workgroupMemoryExplicitLayout16BitAccess, WarnIfNotEqualBool);
+    }
+    return valid;
+}
+
+bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceImageCompressionControlFeaturesEXT *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceImageCompressionControlFeaturesEXT)\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, imageCompressionControl, WarnIfNotEqualBool);
     }
     return valid;
 }
@@ -7253,6 +7338,15 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceExternalMem
     return valid;
 }
 
+bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDevicePipelinePropertiesFeaturesEXT *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDevicePipelinePropertiesFeaturesEXT)\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, pipelinePropertiesIdentifier, WarnIfNotEqualBool);
+    }
+    return valid;
+}
+
 bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *dest) {
     LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceExtendedDynamicState2FeaturesEXT)\n");
     bool valid = true;
@@ -7280,6 +7374,16 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDevicePrimitivesG
         GET_VALUE_WARN(member, primitivesGeneratedQuery, WarnIfNotEqualBool);
         GET_VALUE_WARN(member, primitivesGeneratedQueryWithRasterizerDiscard, WarnIfNotEqualBool);
         GET_VALUE_WARN(member, primitivesGeneratedQueryWithNonZeroStreams, WarnIfNotEqualBool);
+    }
+    return valid;
+}
+
+bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR)\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, rayTracingMaintenance1, WarnIfNotEqualBool);
+        GET_VALUE_WARN(member, rayTracingPipelineTraceRaysIndirect2, WarnIfNotEqualBool);
     }
     return valid;
 }
@@ -7399,6 +7503,24 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceLinearColor
     bool valid = true;
     for (const auto &member : parent.getMemberNames()) {
         GET_VALUE_WARN(member, linearColorAttachment, WarnIfNotEqualBool);
+    }
+    return valid;
+}
+
+bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT)\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, imageCompressionControlSwapchain, WarnIfNotEqualBool);
+    }
+    return valid;
+}
+
+bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, "\tJsonLoader::GetValue(VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT)\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, subpassMergeFeedback, WarnIfNotEqualBool);
     }
     return valid;
 }
@@ -7591,8 +7713,8 @@ bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceLimits *des
         GET_VALUE_WARN(member, lineWidthGranularity, WarnIfLesserFloat);
         GET_VALUE_WARN(member, strictLines, WarnIfNotEqualBool);
         GET_VALUE_WARN(member, standardSampleLocations, WarnIfNotEqualBool);
-        GET_VALUE_WARN(member, optimalBufferCopyOffsetAlignment, WarnIfGreater);
-        GET_VALUE_WARN(member, optimalBufferCopyRowPitchAlignment, WarnIfGreater);
+        GET_VALUE_WARN(member, optimalBufferCopyOffsetAlignment, WarnIfLesser);
+        GET_VALUE_WARN(member, optimalBufferCopyRowPitchAlignment, WarnIfLesser);
         GET_VALUE_WARN(member, nonCoherentAtomSize, WarnIfLesser);
     }
     return valid;
@@ -9034,6 +9156,14 @@ void FillPNextChain(PhysicalDeviceData *physicalDeviceData, void *place) {
                     data->pNext = pNext;
                 }
                 break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_FEATURES_EXT:
+                if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME)) {
+                    VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT *data = (VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesEXT *)place;
+                    void *pNext = data->pNext;
+                    *data = physicalDeviceData->physical_device_shader_early_and_late_fragment_tests_features_;
+                    data->pNext = pNext;
+                }
+                break;
             case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR:
                 if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME)) {
                     VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR *data = (VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR *)place;
@@ -9111,6 +9241,14 @@ void FillPNextChain(PhysicalDeviceData *physicalDeviceData, void *place) {
                     VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR *data = (VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR *)place;
                     void *pNext = data->pNext;
                     *data = physicalDeviceData->physical_device_workgroup_memory_explicit_layout_features_;
+                    data->pNext = pNext;
+                }
+                break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_COMPRESSION_CONTROL_FEATURES_EXT:
+                if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME)) {
+                    VkPhysicalDeviceImageCompressionControlFeaturesEXT *data = (VkPhysicalDeviceImageCompressionControlFeaturesEXT *)place;
+                    void *pNext = data->pNext;
+                    *data = physicalDeviceData->physical_device_image_compression_control_features_;
                     data->pNext = pNext;
                 }
                 break;
@@ -9194,6 +9332,14 @@ void FillPNextChain(PhysicalDeviceData *physicalDeviceData, void *place) {
                     data->pNext = pNext;
                 }
                 break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_PROPERTIES_FEATURES_EXT:
+                if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_EXT_PIPELINE_PROPERTIES_EXTENSION_NAME)) {
+                    VkPhysicalDevicePipelinePropertiesFeaturesEXT *data = (VkPhysicalDevicePipelinePropertiesFeaturesEXT *)place;
+                    void *pNext = data->pNext;
+                    *data = physicalDeviceData->physical_device_pipeline_properties_features_;
+                    data->pNext = pNext;
+                }
+                break;
             case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT:
                 if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)) {
                     VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *data = (VkPhysicalDeviceExtendedDynamicState2FeaturesEXT *)place;
@@ -9215,6 +9361,14 @@ void FillPNextChain(PhysicalDeviceData *physicalDeviceData, void *place) {
                     VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT *data = (VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT *)place;
                     void *pNext = data->pNext;
                     *data = physicalDeviceData->physical_device_primitives_generated_query_features_;
+                    data->pNext = pNext;
+                }
+                break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR:
+                if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME)) {
+                    VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR *data = (VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR *)place;
+                    void *pNext = data->pNext;
+                    *data = physicalDeviceData->physical_device_ray_tracing_maintenance_1_features_;
                     data->pNext = pNext;
                 }
                 break;
@@ -9319,6 +9473,22 @@ void FillPNextChain(PhysicalDeviceData *physicalDeviceData, void *place) {
                     VkPhysicalDeviceLinearColorAttachmentFeaturesNV *data = (VkPhysicalDeviceLinearColorAttachmentFeaturesNV *)place;
                     void *pNext = data->pNext;
                     *data = physicalDeviceData->physical_device_linear_color_attachment_features_;
+                    data->pNext = pNext;
+                }
+                break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_FEATURES_EXT:
+                if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_EXT_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_EXTENSION_NAME)) {
+                    VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT *data = (VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT *)place;
+                    void *pNext = data->pNext;
+                    *data = physicalDeviceData->physical_device_image_compression_control_swapchain_features_;
+                    data->pNext = pNext;
+                }
+                break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBPASS_MERGE_FEEDBACK_FEATURES_EXT:
+                if (PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, VK_EXT_SUBPASS_MERGE_FEEDBACK_EXTENSION_NAME)) {
+                    VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT *data = (VkPhysicalDeviceSubpassMergeFeedbackFeaturesEXT *)place;
+                    void *pNext = data->pNext;
+                    *data = physicalDeviceData->physical_device_subpass_merge_feedback_features_;
                     data->pNext = pNext;
                 }
                 break;
@@ -11079,6 +11249,12 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
                     feature_chain.pNext = &(pdd.physical_device_graphics_pipeline_library_features_);
                 }
 
+                if (PhysicalDeviceData::HasExtension(&pdd, VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME)) {
+                    pdd.physical_device_shader_early_and_late_fragment_tests_features_.pNext = feature_chain.pNext;
+
+                    feature_chain.pNext = &(pdd.physical_device_shader_early_and_late_fragment_tests_features_);
+                }
+
                 if (PhysicalDeviceData::HasExtension(&pdd, VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME)) {
                     pdd.physical_device_shader_subgroup_uniform_control_flow_features_.pNext = feature_chain.pNext;
 
@@ -11133,6 +11309,12 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
                     pdd.physical_device_workgroup_memory_explicit_layout_features_.pNext = feature_chain.pNext;
 
                     feature_chain.pNext = &(pdd.physical_device_workgroup_memory_explicit_layout_features_);
+                }
+
+                if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME)) {
+                    pdd.physical_device_image_compression_control_features_.pNext = feature_chain.pNext;
+
+                    feature_chain.pNext = &(pdd.physical_device_image_compression_control_features_);
                 }
 
                 if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_4444_FORMATS_EXTENSION_NAME)) {
@@ -11199,6 +11381,12 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
                     feature_chain.pNext = &(pdd.physical_device_external_memory_rdmafeatures_);
                 }
 
+                if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_PIPELINE_PROPERTIES_EXTENSION_NAME)) {
+                    pdd.physical_device_pipeline_properties_features_.pNext = feature_chain.pNext;
+
+                    feature_chain.pNext = &(pdd.physical_device_pipeline_properties_features_);
+                }
+
                 if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)) {
                     pdd.physical_device_extended_dynamic_state_2_features_.pNext = feature_chain.pNext;
 
@@ -11215,6 +11403,12 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
                     pdd.physical_device_primitives_generated_query_features_.pNext = feature_chain.pNext;
 
                     feature_chain.pNext = &(pdd.physical_device_primitives_generated_query_features_);
+                }
+
+                if (PhysicalDeviceData::HasExtension(&pdd, VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME)) {
+                    pdd.physical_device_ray_tracing_maintenance_1_features_.pNext = feature_chain.pNext;
+
+                    feature_chain.pNext = &(pdd.physical_device_ray_tracing_maintenance_1_features_);
                 }
 
                 if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_GLOBAL_PRIORITY_QUERY_EXTENSION_NAME)) {
@@ -11287,6 +11481,18 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
                     pdd.physical_device_linear_color_attachment_features_.pNext = feature_chain.pNext;
 
                     feature_chain.pNext = &(pdd.physical_device_linear_color_attachment_features_);
+                }
+
+                if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_EXTENSION_NAME)) {
+                    pdd.physical_device_image_compression_control_swapchain_features_.pNext = feature_chain.pNext;
+
+                    feature_chain.pNext = &(pdd.physical_device_image_compression_control_swapchain_features_);
+                }
+
+                if (PhysicalDeviceData::HasExtension(&pdd, VK_EXT_SUBPASS_MERGE_FEEDBACK_EXTENSION_NAME)) {
+                    pdd.physical_device_subpass_merge_feedback_features_.pNext = feature_chain.pNext;
+
+                    feature_chain.pNext = &(pdd.physical_device_subpass_merge_feedback_features_);
                 }
 
                 if (api_version_above_1_1) {
