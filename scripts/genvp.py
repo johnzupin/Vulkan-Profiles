@@ -1349,6 +1349,11 @@ class VulkanExtension(VulkanDefinitionScope):
         self.promotedTo = xml.get('promotedto')
         self.obsoletedBy = xml.get('obsoletedby')
         self.deprecatedBy = xml.get('deprecatedby')
+        self.spec_version = 1
+        for e in xml.findall("./require/enum"):
+            if (e.get('name').endswith("SPEC_VERSION")):
+                self.spec_version = e.get('value')
+                break
         self.parseAliases(xml)
 
 
@@ -1523,6 +1528,14 @@ class VulkanRegistry():
         for enum in xml.findall("./formats/format"):
             if enum.get('compressed'):
                 self.formatCompression[enum.get('name')] = enum.get('compressed')
+
+        self.aliasFormats = list()
+        for format in xml.findall("./extensions/extension[@supported='vulkan']/require/enum[@extends='VkFormat'][@alias]"):
+            self.aliasFormats.append(format.attrib["name"])
+
+        self.betaFormatFeatures = list()
+        for format_feature in xml.findall("./extensions/extension[@supported='vulkan']/require/enum[@protect='VK_ENABLE_BETA_EXTENSIONS']"):
+            self.betaFormatFeatures.append(format_feature.attrib["name"])
 
     def parseBitmasks(self, xml):
         self.bitmasks = dict()
@@ -1813,35 +1826,47 @@ class VulkanRegistry():
 
 
     def applyWorkarounds(self):
+        if self.headerVersionNumber.patch < 207: # vk.xml declares maxColorAttachments with 'bitmask' limittype before header 207
+            self.structs['VkPhysicalDeviceLimits'].members['maxColorAttachments'].limittype = 'max'
+
         # TODO: We currently have to apply workarounds due to "noauto" limittypes and other bugs related to limittypes in the vk.xml
         # These can only be solved permanently if we make modifications to the registry xml itself
-        self.structs['VkPhysicalDeviceLimits'].members['bufferImageGranularity'].limittype = 'min' # should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['subPixelPrecisionBits'].limittype = 'max'
-        self.structs['VkPhysicalDeviceLimits'].members['subTexelPrecisionBits'].limittype = 'max'
-        self.structs['VkPhysicalDeviceLimits'].members['mipmapPrecisionBits'].limittype = 'max'
-        self.structs['VkPhysicalDeviceLimits'].members['viewportSubPixelBits'].limittype = 'max'
-        self.structs['VkPhysicalDeviceLimits'].members['minMemoryMapAlignment'].limittype = 'min' # should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['minTexelBufferOffsetAlignment'].limittype = 'min' # should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['minUniformBufferOffsetAlignment'].limittype = 'min' # should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['minStorageBufferOffsetAlignment'].limittype = 'min' # should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['subPixelInterpolationOffsetBits'].limittype = 'max'
-        self.structs['VkPhysicalDeviceLimits'].members['timestampPeriod'].limittype = 'min' # min is the best guess but probably should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['nonCoherentAtomSize'].limittype = 'min' # should be maxalign
-        self.structs['VkPhysicalDeviceLimits'].members['maxColorAttachments'].limittype = 'max' # vk.xml declares this with 'bitmask' limittype for some reason
-        self.structs['VkPhysicalDeviceLimits'].members['pointSizeGranularity'].limittype = 'min' # should be maxmul
-        self.structs['VkPhysicalDeviceLimits'].members['lineWidthGranularity'].limittype = 'min' # should be maxmul
+        self.structs['VkPhysicalDeviceLimits'].members['subPixelPrecisionBits'].limittype = 'max' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['subTexelPrecisionBits'].limittype = 'max' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['mipmapPrecisionBits'].limittype = 'max' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['viewportSubPixelBits'].limittype = 'max' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['subPixelInterpolationOffsetBits'].limittype = 'max' # should be `bits`
+        self.structs['VkQueueFamilyProperties'].members['timestampValidBits'].limittype = 'max' # should be `bits`
+
+        self.structs['VkPhysicalDeviceLimits'].members['minMemoryMapAlignment'].limittype = 'min' # should be `minpot`
+        self.structs['VkPhysicalDeviceLimits'].members['minTexelBufferOffsetAlignment'].limittype = 'min' # should be `minpot`
+        self.structs['VkPhysicalDeviceLimits'].members['minUniformBufferOffsetAlignment'].limittype = 'min' # should be `minpot`
+        self.structs['VkPhysicalDeviceLimits'].members['minStorageBufferOffsetAlignment'].limittype = 'min' # should be `minpot`
+        self.structs['VkPhysicalDeviceLimits'].members['optimalBufferCopyOffsetAlignment'].limittype = 'min' # should be `minpot`
+        self.structs['VkPhysicalDeviceLimits'].members['optimalBufferCopyRowPitchAlignment'].limittype = 'min' # should be `minpot`
+        self.structs['VkPhysicalDeviceLimits'].members['nonCoherentAtomSize'].limittype = 'min' # should be `minpot`
+
+        if 'VkPhysicalDevicePortabilitySubsetPropertiesKHR' in self.structs:
+            self.structs['VkPhysicalDevicePortabilitySubsetPropertiesKHR'].members['minVertexInputBindingStrideAlignment'].limittype = 'min' # should be `minpot`
+
+        self.structs['VkPhysicalDeviceLimits'].members['timestampPeriod'].limittype = 'min' # should be `minmul` (for a float type!)
+        self.structs['VkPhysicalDeviceLimits'].members['bufferImageGranularity'].limittype = 'min' # should be `minmul`
+        self.structs['VkPhysicalDeviceLimits'].members['pointSizeGranularity'].limittype = 'min' # should be `minmul`
+        self.structs['VkPhysicalDeviceLimits'].members['lineWidthGranularity'].limittype = 'min' # should be `minmul`
+        self.structs['VkQueueFamilyProperties'].members['minImageTransferGranularity'].limittype = 'min' # should be `minmul`
+
+        # Some capabilities are missing limittypes
+        self.structs['VkQueueFamilyProperties'].members['queueCount'].limittype = 'max'
         if 'VkPhysicalDeviceVulkan11Properties' in self.structs:
             self.structs['VkPhysicalDeviceVulkan11Properties'].members['subgroupSize'].limittype = 'max'
-        if 'VkPhysicalDevicePortabilitySubsetPropertiesKHR' in self.structs:
-            self.structs['VkPhysicalDevicePortabilitySubsetPropertiesKHR'].members['minVertexInputBindingStrideAlignment'].limittype = 'min' # should be maxalign
 
         # TODO: There are also some bugs in the vk.xml, like parameters having "bitmask" limittype but actually VkBool32 type
         # This is non-sense, so we patch them
-        for structName in self.structs:
-            for memberName in self.structs[structName].members:
-                memberDef = self.structs[structName].members[memberName]
-                if memberDef.limittype == 'bitmask' and memberDef.type == 'VkBool32':
-                    self.structs[structName].members[memberName].limittype = 'noauto'
+        #for structName in self.structs:
+        #    for memberName in self.structs[structName].members:
+        #        memberDef = self.structs[structName].members[memberName]
+        #        if memberDef.limittype == 'bitmask' and memberDef.type == 'VkBool32':
+        #            self.structs[structName].members[memberName].limittype = 'noauto'
 
         # TODO: The registry xml is also missing limittype definitions for format and queue family properties
         # For now we just add the important ones, this needs a larger overhaul in the vk.xml
@@ -1853,9 +1878,6 @@ class VulkanRegistry():
             self.structs['VkFormatProperties3'].members['optimalTilingFeatures'].limittype = 'bitmask'
             self.structs['VkFormatProperties3'].members['bufferFeatures'].limittype = 'bitmask'
         self.structs['VkQueueFamilyProperties'].members['queueFlags'].limittype = 'bitmask'
-        self.structs['VkQueueFamilyProperties'].members['queueCount'].limittype = 'max'
-        self.structs['VkQueueFamilyProperties'].members['timestampValidBits'].limittype = 'max'
-        self.structs['VkQueueFamilyProperties'].members['minImageTransferGranularity'].limittype = 'min' # should be maxmul
 
         # TODO: The registry xml contains some return structures that contain count + pointers to arrays
         # While the script itself is prepared to drop those, as they are ill-formed, as return structures
@@ -2266,19 +2288,34 @@ class VulkanProfile():
                     # Use parent's limit type
                     limittype = parentLimittype
 
-                if limittype == 'bitmask':
+                if limittype == 'bitmask' and structDef.members[member].type == 'VkBool32':
+                    # Compare everything else with equality
+                    comparePredFmt = '{0} == {1}'
+                elif limittype == 'bitmask':
                     # Compare bitmask by checking if device value contains every bit of profile value
                     comparePredFmt = 'vpCheckFlags({0}, {1})'
                 elif limittype == 'max':
                     # Compare max limit by checking if device value is greater than or equal to profile value
                     comparePredFmt = '{0} >= {1}'
+                elif limittype == 'maxpot':
+                    # Compare max limit by checking if device value is greater than or equal to profile value
+                    comparePredFmt = [ '{0} >= {1}', '({0} & ({0} - 1)) == 0' ]
+                elif limittype == 'bits':
+                    # Behaves like max, but smaller values are allowed
+                    comparePredFmt = '{0} >= {1}'
                 elif limittype == 'min':
                     # Compare min limit by checking if device value is less than or equal to profile value
                     comparePredFmt = '{0} <= {1}'
+                elif limittype == 'minpot':
+                    # Compare min limit by checking if device value is less than or equal to profile value and if the value is a power of two
+                    comparePredFmt = [ '{0} <= {1}', '({0} & ({0} - 1)) == 0' ]
+                elif limittype == 'minmul':
+                    # Compare min limit by checking if device value is less than or equal to profile value and a multiple of profile value
+                    comparePredFmt = [ '{0} <= {1}', '{0} % {1} == 0' ]
                 elif limittype == 'range':
                     # Compare range limit by checking if device range is larger than or equal to profile range
                     comparePredFmt = [ '{0} <= {1}', '{0} >= {1}' ]
-                elif limittype is None or limittype == 'noauto' or limittype == 'struct':
+                elif limittype is None or limittype == 'noauto' or limittype == 'behavior' or limittype == 'struct':
                     # Compare everything else with equality
                     comparePredFmt = '{0} == {1}'
                 else:
@@ -2318,7 +2355,11 @@ class VulkanProfile():
 
                 else:
                     # Everything else
-                    gen += fmt.format(comparePredFmt.format('{0}{1}'.format(var, member), value))
+                    if type(comparePredFmt) == list:
+                        for i in range(len(comparePredFmt)):
+                            gen += fmt.format(comparePredFmt[i].format('{0}{1}'.format(var, member), value))
+                    elif comparePredFmt is not None:
+                        gen += fmt.format(comparePredFmt.format('{0}{1}'.format(var, member), value))
             else:
                 Log.f("No member '{0}' in structure '{1}'".format(member, structDef.name))
         return gen
@@ -3525,12 +3566,22 @@ class VulkanProfilesDocGenerator():
         memberDef = structDef.members[member]
         limittype = memberDef.limittype
 
-        if limittype in [ None, 'noauto' ]:
+        if limittype in [ None, 'noauto', 'bitmask' ]:
             return member
+        elif limittype == 'behavior':
+            return member + ' (behavior)'
         elif limittype == 'max':
             return member + ' (max)'
-        elif limittype in [ 'min', 'bitmask' ]:
+        elif limittype == 'maxpot':
+            return member + ' (maxpot)'
+        elif limittype in [ 'min' ]:
             return member + ' (min)'
+        elif limittype == 'minpot':
+            return member + ' (minpot)'
+        elif limittype == 'minmul':
+            return member + ' (minmul)'
+        elif limittype == 'bits':
+            return member + ' (bits)'
         elif limittype == 'range':
             return member + ' (min,max)'
         else:
