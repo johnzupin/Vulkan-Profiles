@@ -1,3 +1,44 @@
+vulkan-profiles (1.3.214.0~rc1-1lunarg18.04-1) bionic; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles: Update build md
+  * profiles: Fix warning about duplicated structs
+
+  [ Christophe ]
+  * profiles: fix schema URL
+
+  [ ziga-lunarg ]
+  * Update to 211 header
+
+  [ Christophe ]
+  * profile: Add missing dynamicRendering that is a Vulkan 1.3 requirement
+  * profiles: updated changelog for April SDK
+  * profiles: update changelog for next SDK
+  * profiles: Fix Roadmap 2022 JSON file definision
+  * profiles: regenerate the solution
+  * profiles: fix change log URL
+  * profile: maxColorAttachments limit type was fix with header 207
+  * profile: document capabilities that should be minpot and minmul
+  * profile: document capbilities that should be bits
+
+  [ ziga-lunarg ]
+  * profiles: Update generated profile
+  * profiles layer: Add script to generate a test profile using all extensions
+  * profiles: Generate test profile and tests
+  * profiles: Enable surface extension if available in tests
+  * profiles: Implement bits minmul and minpot limit types
+
+  [ Christophe ]
+  * Add new maxpot limit type
+  * Add new behavior limit type
+  * Differentiate enable bitmask bool
+
+  [ ziga-lunarg ]
+  * profiles: Update to 213 header
+  * profiles: Update to 214 header
+
+ -- john <john@odin>  Wed, 25 May 2022 15:49:30 -0600
+
 vulkan-profiles (1.3.211.0~rc3-1lunarg18.04-1) bionic; urgency=medium
 
   [ ziga-lunarg ]
