@@ -24,31 +24,16 @@
 #include <gtest/gtest.h>
 #include "profiles_test_helper.h"
 
-#ifdef _WIN32
-#ifdef _DEBUG
-static const char* CONFIG_PATH = "bin/Debug";
-#else
-static const char* CONFIG_PATH = "bin/Release";
-#endif
-#else 
-static const char* CONFIG_PATH = "lib";
-#endif
-
-
 class LayerTests : public VkTestFramework {
   public:
    LayerTests(){};
    ~LayerTests(){};
 
     static void SetUpTestSuite() {
-        const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-        profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
     }
 
     static void TearDownTestSuite(){};
 };
-
-
 
 TEST_F(LayerTests, TestSetCombinationMode) {
     VkResult err = VK_SUCCESS;
@@ -57,13 +42,12 @@ TEST_F(LayerTests, TestSetCombinationMode) {
 
     std::vector<VkExtensionProperties> device_extensions;
     {
-        err = inst_builder.makeInstance();
+        err = inst_builder.init();
         ASSERT_EQ(err, VK_SUCCESS);
 
-        VkInstance test_inst = inst_builder.getInstance();
 
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_NATIVE, &gpu);
 
         if (err != VK_SUCCESS) {
             printf("Profile not supported on device, skipping test.\n");
@@ -74,26 +58,21 @@ TEST_F(LayerTests, TestSetCombinationMode) {
             vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, device_extensions.data());
         }
 
-        vkDestroyInstance(test_inst, nullptr);
         inst_builder.reset();
     }
 
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
         settings.emulate_portability = true;
         settings.profile_name = "VP_LUNARG_test_api";
         settings.simulate_capabilities = 0;
 
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
-        VkInstance test_inst = inst_builder.getInstance();
-
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
         if (err != VK_SUCCESS) {
             printf("Profile not supported on device, skipping test.\n");
@@ -119,26 +98,21 @@ TEST_F(LayerTests, TestSetCombinationMode) {
             ASSERT_EQ(device_extensions.size() + portability_subset_add, extensions.size());
         }
 
-        vkDestroyInstance(test_inst, nullptr);
         inst_builder.reset();
     }
 
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
         settings.emulate_portability = true;
         settings.profile_name = "VP_LUNARG_test_api";
         settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
 
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
-        VkInstance test_inst = inst_builder.getInstance();
-
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
         if (err != VK_SUCCESS) {
             printf("Profile not supported on device, skipping test.\n");
@@ -157,26 +131,21 @@ TEST_F(LayerTests, TestSetCombinationMode) {
             ASSERT_EQ(268, extensions.size()); // Number of extensions in "VP_LUNARG_test_api.json"
         }
 
-        vkDestroyInstance(test_inst, nullptr);
         inst_builder.reset();
     }
 
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
         settings.emulate_portability = true;
         settings.profile_name = "VP_LUNARG_test_api";
         settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
 
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(&settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
-        VkInstance test_inst = inst_builder.getInstance();
-
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
         if (err != VK_SUCCESS) {
             printf("Profile not supported on device, skipping test.\n");
@@ -195,7 +164,6 @@ TEST_F(LayerTests, TestSetCombinationMode) {
             ASSERT_GE(extensions.size(), 234);
         }
 
-        vkDestroyInstance(test_inst, nullptr);
         inst_builder.reset();
     }
 
@@ -206,50 +174,35 @@ TEST_F(LayerTests, TestExtensionNotSupported) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
+    VkProfileLayerSettingsEXT settings;
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
+    settings.emulate_portability = true;
+    settings.profile_name = "VP_LUNARG_test_api";
+    settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
+    settings.debug_fail_on_error = true;
+
+    err = inst_builder.init(&settings);
+    ASSERT_EQ(err, VK_SUCCESS);
+
     std::vector<VkExtensionProperties> device_extensions;
     {
-        err = inst_builder.makeInstance();
-        ASSERT_EQ(err, VK_SUCCESS);
-
-        VkInstance test_inst = inst_builder.getInstance();
-
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_NATIVE, &gpu);
         ASSERT_EQ(err, VK_SUCCESS);
 
         uint32_t count;
         vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
         device_extensions.resize(count);
         vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, device_extensions.data());
-
-        vkDestroyInstance(test_inst, nullptr);
-        inst_builder.reset();
     }
 
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
-        VkProfileLayerSettingsEXT settings;
-        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
-        settings.emulate_portability = true;
-        settings.profile_name = "VP_LUNARG_test_api";
-        settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_EXTENSIONS_BIT;
-        settings.debug_fail_on_error = true;
-
-        err = inst_builder.makeInstance(&settings);
-        ASSERT_EQ(err, VK_SUCCESS);
-
-        VkInstance test_inst = inst_builder.getInstance();
-
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
         if (device_extensions.size() < 233) {
             ASSERT_EQ(err, VK_ERROR_INITIALIZATION_FAILED);
         }
-
-        vkDestroyInstance(test_inst, nullptr);
-        inst_builder.reset();
     }
 }
 
@@ -258,11 +211,9 @@ TEST_F(LayerTests, TestExcludingDeviceExtensions) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
     VkProfileLayerSettingsEXT settings;
-    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_portability_2021.json";
-    settings.profile_name = "VP_LUNARG_desktop_portability_2021";
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_baseline_2022.json";
+    settings.profile_name = "VP_LUNARG_desktop_baseline_2022";
     settings.emulate_portability = true;
     settings.debug_fail_on_error = false;
     settings.exclude_device_extensions = {
@@ -271,16 +222,13 @@ TEST_F(LayerTests, TestExcludingDeviceExtensions) {
         VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
         VK_KHR_MAINTENANCE_4_EXTENSION_NAME};
 
-    err = inst_builder.makeInstance(&settings);
+    err = inst_builder.init(&settings);
     ASSERT_EQ(err, VK_SUCCESS);
 
-    VkInstance test_inst = inst_builder.getInstance();
-
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
     if (err != VK_SUCCESS) {
         printf("Profile not supported on device, skipping test.\n");
-        vkDestroyInstance(test_inst, nullptr);
         return;
     }
 
@@ -320,24 +268,19 @@ TEST_F(LayerTests, TestExcludingFormats) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
     VkProfileLayerSettingsEXT settings;
-    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_portability_2021.json";
-    settings.profile_name = "VP_LUNARG_desktop_portability_2021";
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_baseline_2022.json";
     settings.emulate_portability = true;
     settings.debug_fail_on_error = false;
     settings.exclude_formats = {"VK_FORMAT_R8G8B8A8_UNORM"};
 
-    err = inst_builder.makeInstance(&settings);    ASSERT_EQ(err, VK_SUCCESS);
-
-    VkInstance test_inst = inst_builder.getInstance();
+    err = inst_builder.init(&settings);    
+    ASSERT_EQ(err, VK_SUCCESS);
 
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
     if (err != VK_SUCCESS) {
         printf("Profile not supported on device, skipping test.\n");
-        vkDestroyInstance(test_inst, nullptr);
         return;
     }
 
@@ -354,24 +297,22 @@ TEST_F(LayerTests, TestMissingPhysDevProps2) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-    inst_builder.setApiVersion(VK_API_VERSION_1_0);
-
     VkProfileLayerSettingsEXT settings;
-    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_portability_2021.json";
-    settings.profile_name = "VP_LUNARG_desktop_portability_2021";
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_baseline_2022.json";
+    settings.profile_name = "VP_LUNARG_desktop_baseline_2022";
     settings.emulate_portability = false;
     settings.debug_fail_on_error = false;
-    settings.simulate_capabilities = SIMULATE_ALL_CAPABILITIES;
+    settings.simulate_capabilities = SIMULATE_MAX_ENUM;
 
-    err = inst_builder.makeInstance(&settings);    ASSERT_EQ(err, VK_SUCCESS);
+    err = inst_builder.init(VK_API_VERSION_1_0, & settings);
+    ASSERT_EQ(err, VK_SUCCESS);
 
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
     uint32_t count = 0;
     vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
-    ASSERT_EQ(count, 19);
+    ASSERT_EQ(count, 43);
 }
 
 TEST_F(LayerTests, TestNotSettingProfileFile) {
@@ -379,49 +320,43 @@ TEST_F(LayerTests, TestNotSettingProfileFile) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    std::vector<VkExtensionProperties> device_extensions;
+    std::vector<VkExtensionProperties> extensions_default;
     {
-        err = inst_builder.makeInstance();
-        ASSERT_EQ(err, VK_SUCCESS);
-
-        VkInstance test_inst = inst_builder.getInstance();
-
-        VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
-
-        if (err != VK_SUCCESS) {
-            printf("Profile not supported on device, skipping test.\n");
-        } else {
-            uint32_t count;
-            vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
-            device_extensions.resize(count);
-            vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, device_extensions.data());
-        }
-
-        vkDestroyInstance(test_inst, nullptr);
-        inst_builder.reset();
-    }
-    {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        inst_builder.setApiVersion(VK_API_VERSION_1_0);
-
-        VkProfileLayerSettingsEXT settings;
-        settings.profile_file = {};
-        settings.profile_name = {};
-        settings.emulate_portability = false;
-        settings.debug_fail_on_error = false;
-        settings.simulate_capabilities = SIMULATE_ALL_CAPABILITIES;
-
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(VK_API_VERSION_1_0);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
+        ASSERT_EQ(err, VK_SUCCESS);
 
         uint32_t count = 0;
         vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
-        ASSERT_EQ(device_extensions.size(), count);
+        extensions_default.resize(count);
+        vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, extensions_default.data());
+
+        inst_builder.reset();
     }
+
+    std::vector<VkExtensionProperties> extensions_settings;
+    {
+        VkProfileLayerSettingsEXT settings = {};
+
+        err = inst_builder.init(VK_API_VERSION_1_0, &settings);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        VkPhysicalDevice gpu;
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        uint32_t count = 0;
+        vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
+        extensions_settings.resize(count);
+        vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, extensions_settings.data());
+
+        inst_builder.reset();
+    }
+
+    ASSERT_EQ(extensions_settings.size(), extensions_default.size());
 }
 
 TEST_F(LayerTests, TestExcludedExtensions) {
@@ -433,9 +368,6 @@ TEST_F(LayerTests, TestExcludedExtensions) {
     VkPhysicalDeviceTransformFeedbackPropertiesEXT device_properties{};
     device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        inst_builder.setApiVersion(VK_API_VERSION_1_3);
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
         settings.profile_name = "VP_LUNARG_test_api";
@@ -444,11 +376,11 @@ TEST_F(LayerTests, TestExcludedExtensions) {
         settings.simulate_capabilities = SIMULATE_API_VERSION_BIT;
         settings.debug_reports = 0;
 
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(VK_API_VERSION_1_3, & settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
         VkPhysicalDeviceProperties2 properties;
         properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -458,23 +390,20 @@ TEST_F(LayerTests, TestExcludedExtensions) {
     }
 
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-        inst_builder.setApiVersion(VK_API_VERSION_1_3);
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api.json";
         settings.profile_name = "VP_LUNARG_test_api";
         settings.emulate_portability = true;
         settings.debug_fail_on_error = false;
-        settings.simulate_capabilities = SIMULATE_ALL_CAPABILITIES;
+        settings.simulate_capabilities = SIMULATE_MAX_ENUM;
         settings.exclude_device_extensions.push_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
         settings.debug_reports = 0;
 
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(VK_API_VERSION_1_3, & settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
         VkPhysicalDeviceTransformFeedbackPropertiesEXT profile_properties{};
         profile_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
@@ -491,10 +420,8 @@ TEST_F(LayerTests, TestExcludedExtensions) {
         ASSERT_EQ(device_properties.maxTransformFeedbackBufferDataSize, profile_properties.maxTransformFeedbackBufferDataSize);
         ASSERT_EQ(device_properties.maxTransformFeedbackBufferDataStride, profile_properties.maxTransformFeedbackBufferDataStride);
         ASSERT_EQ(device_properties.transformFeedbackQueries, profile_properties.transformFeedbackQueries);
-        ASSERT_EQ(device_properties.transformFeedbackStreamsLinesTriangles,
-                  profile_properties.transformFeedbackStreamsLinesTriangles);
-        ASSERT_EQ(device_properties.transformFeedbackRasterizationStreamSelect,
-                  profile_properties.transformFeedbackRasterizationStreamSelect);
+        ASSERT_EQ(device_properties.transformFeedbackStreamsLinesTriangles, profile_properties.transformFeedbackStreamsLinesTriangles);
+        ASSERT_EQ(device_properties.transformFeedbackRasterizationStreamSelect, profile_properties.transformFeedbackRasterizationStreamSelect);
         ASSERT_EQ(device_properties.transformFeedbackDraw, profile_properties.transformFeedbackDraw);
     }
 #endif
@@ -505,7 +432,6 @@ TEST_F(LayerTests, TestQueueFamilyProperties) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
     VkProfileLayerSettingsEXT settings = {};
     settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_vkqueuefamilyproperties.json";
     settings.profile_name = "VP_LUNARG_test_vkqueuefamilyproperties";
@@ -514,13 +440,11 @@ TEST_F(LayerTests, TestQueueFamilyProperties) {
     settings.debug_reports = 0;
     settings.simulate_capabilities = SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT;
 
-    err = inst_builder.makeInstance(&settings);
+    err = inst_builder.init(&settings);
     ASSERT_EQ(err, VK_SUCCESS);
 
-    VkInstance test_inst = inst_builder.getInstance();
-
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
     uint32_t count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, nullptr);
@@ -528,8 +452,7 @@ TEST_F(LayerTests, TestQueueFamilyProperties) {
     vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, qf_props.data());
 
     ASSERT_EQ(qf_props.size(), 2);
-    ASSERT_EQ(qf_props[0].queueFlags,
-              VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT);
+    ASSERT_EQ(qf_props[0].queueFlags, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT);
     ASSERT_EQ(qf_props[0].queueCount, 1);
     ASSERT_EQ(qf_props[0].timestampValidBits, 36);
     ASSERT_EQ(qf_props[0].minImageTransferGranularity.width, 1);
@@ -549,7 +472,6 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesGlobalPriorityProperties) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
     VkProfileLayerSettingsEXT settings = {};
     settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_vkqueuefamilyproperties.json";
     settings.profile_name = "VP_LUNARG_test_vkqueuefamilyproperties";
@@ -558,13 +480,11 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesGlobalPriorityProperties) {
     settings.debug_reports = 0;
     settings.simulate_capabilities = SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT;
 
-    err = inst_builder.makeInstance(&settings);
+    err = inst_builder.init(&settings);
     ASSERT_EQ(err, VK_SUCCESS);
 
-    VkInstance test_inst = inst_builder.getInstance();
-
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
     uint32_t count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties2(gpu, &count, nullptr);
@@ -587,7 +507,6 @@ TEST_F(LayerTests, TestQueueFamilyCheckpointProperties) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
     VkProfileLayerSettingsEXT settings = {};
     settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_vkqueuefamilyproperties.json";
     settings.profile_name = "VP_LUNARG_test_vkqueuefamilyproperties";
@@ -596,13 +515,11 @@ TEST_F(LayerTests, TestQueueFamilyCheckpointProperties) {
     settings.debug_reports = 0;
     settings.simulate_capabilities = SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT;
 
-    err = inst_builder.makeInstance(&settings);
+    err = inst_builder.init(&settings);
     ASSERT_EQ(err, VK_SUCCESS);
 
-    VkInstance test_inst = inst_builder.getInstance();
-
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
     uint32_t count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties2(gpu, &count, nullptr);
@@ -621,7 +538,6 @@ TEST_F(LayerTests, TestQueueFamilyCheckpointProperties2) {
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
-    inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
     VkProfileLayerSettingsEXT settings = {};
     settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_vkqueuefamilyproperties.json";
     settings.profile_name = "VP_LUNARG_test_vkqueuefamilyproperties";
@@ -630,13 +546,11 @@ TEST_F(LayerTests, TestQueueFamilyCheckpointProperties2) {
     settings.debug_reports = 0;
     settings.simulate_capabilities = SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT;
 
-    err = inst_builder.makeInstance(&settings);
+    err = inst_builder.init(&settings);
     ASSERT_EQ(err, VK_SUCCESS);
 
-    VkInstance test_inst = inst_builder.getInstance();
-
     VkPhysicalDevice gpu;
-    err = inst_builder.getPhysicalDevice(&gpu);
+    err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
 
     uint32_t count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties2(gpu, &count, nullptr);
@@ -659,23 +573,25 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesPartial) {
 
     std::vector<VkQueueFamilyProperties> device_qf_props;
     {
-        err = inst_builder.makeInstance();
+        err = inst_builder.init();
         ASSERT_EQ(err, VK_SUCCESS);
 
-        VkInstance test_inst = inst_builder.getInstance();
-
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_NATIVE, &gpu);
+        ASSERT_EQ(err, VK_SUCCESS);
 
         uint32_t count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, nullptr);
-        device_qf_props.resize(count);
-        vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, device_qf_props.data());
+        ASSERT_GT(count, static_cast<uint32_t>(0));
+        if (count > 0) {
+            device_qf_props.resize(count);
+            vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, device_qf_props.data());
+        }
+
         inst_builder.reset();
     }
 
     {
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
         VkProfileLayerSettingsEXT settings = {};
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_vkqueuefamilyproperties.json";
         settings.profile_name = "VP_LUNARG_test_vkqueuefamilyproperties2";
@@ -683,13 +599,14 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesPartial) {
         settings.debug_fail_on_error = true;
         settings.simulate_capabilities = SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT;
 
-        err = inst_builder.makeInstance(&settings);
-        ASSERT_EQ(err, VK_SUCCESS);
-
-        VkInstance test_inst = inst_builder.getInstance();
+        err = inst_builder.init(&settings);
+        if (err != VK_SUCCESS) {
+            printf("Profile not supported on device, skipping test.\n");
+            return;
+        }
 
         VkPhysicalDevice gpu;
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu);
         if (err != VK_SUCCESS) {
             printf("Profile not supported on device, skipping test.\n");
             return;
@@ -697,27 +614,31 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesPartial) {
 
         uint32_t count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, nullptr);
-        std::vector<VkQueueFamilyProperties> qf_props(count);
-        vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, qf_props.data());
+        ASSERT_GT(count, static_cast<uint32_t>(0));
+        if (count > 0) {
+            std::vector<VkQueueFamilyProperties> qf_props(count);
+            vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, qf_props.data());
 
-        uint32_t device_queue_index = 0;
-        for (uint32_t i = 0; i < device_qf_props.size(); ++i) {
-            if ((device_qf_props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT &&
-                device_qf_props[i].minImageTransferGranularity.width <= 4 &&
-                device_qf_props[i].minImageTransferGranularity.height <= 4) {
-                device_queue_index = i;
-                break;
+            int32_t device_queue_index = -1;
+            for (uint32_t i = 0; i < device_qf_props.size(); ++i) {
+                if ((device_qf_props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT &&
+                    device_qf_props[i].minImageTransferGranularity.width <= 4 &&
+                    device_qf_props[i].minImageTransferGranularity.height <= 4) {
+                    device_queue_index = i;
+                    break;
+                }
+            }
+
+            ASSERT_EQ(count, 1u);
+            ASSERT_EQ(qf_props[0].queueFlags, VK_QUEUE_COMPUTE_BIT);
+            ASSERT_EQ(qf_props[0].queueCount, 1u);
+            ASSERT_EQ(qf_props[0].minImageTransferGranularity.width, 4u);
+            ASSERT_EQ(qf_props[0].minImageTransferGranularity.height, 4u);
+
+            if (device_queue_index != -1) {
+                ASSERT_EQ(qf_props[0].minImageTransferGranularity.depth, device_qf_props[device_queue_index].minImageTransferGranularity.depth);
+                ASSERT_EQ(qf_props[0].timestampValidBits, device_qf_props[device_queue_index].timestampValidBits);
             }
         }
-
-        ASSERT_EQ(count, 1u);
-        ASSERT_EQ(qf_props[0].queueFlags, VK_QUEUE_COMPUTE_BIT);
-        ASSERT_EQ(qf_props[0].queueCount, 1u);
-        ASSERT_EQ(qf_props[0].minImageTransferGranularity.width, 4u);
-        ASSERT_EQ(qf_props[0].minImageTransferGranularity.height, 4u);
-
-        ASSERT_EQ(qf_props[0].minImageTransferGranularity.depth,
-                  device_qf_props[device_queue_index].minImageTransferGranularity.depth);
-        ASSERT_EQ(qf_props[0].timestampValidBits, device_qf_props[device_queue_index].timestampValidBits);
     }
 }

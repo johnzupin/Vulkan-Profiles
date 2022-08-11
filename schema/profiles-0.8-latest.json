@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "https://schema.khronos.org/vulkan/profiles-0.8-latest.json#",
-    "title": "Vulkan Profiles Schema for Vulkan 1.3.216",
+    "title": "Vulkan Profiles Schema for Vulkan 1.3.224",
     "additionalProperties": true,
     "required": [
         "capabilities",
@@ -339,6 +339,24 @@
                     "type": "boolean"
                 },
                 "descriptorBindingAccelerationStructureUpdateAfterBind": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "VkPhysicalDeviceAmigoProfilingFeaturesSEC": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "amigoProfiling": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "VkPhysicalDeviceAttachmentFeedbackLoopLayoutFeaturesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "attachmentFeedbackLoopLayout": {
                     "type": "boolean"
                 }
             }
@@ -802,6 +820,21 @@
                 }
             }
         },
+        "VkPhysicalDeviceImageProcessingFeaturesQCOM": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "textureBlockMatch": {
+                    "type": "boolean"
+                },
+                "textureBoxFilter": {
+                    "type": "boolean"
+                },
+                "textureSampleWeighted": {
+                    "type": "boolean"
+                }
+            }
+        },
         "VkPhysicalDeviceImageRobustnessFeatures": {
             "type": "object",
             "additionalProperties": false,
@@ -940,6 +973,15 @@
                 }
             }
         },
+        "VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "multisampledRenderToSingleSampled": {
+                    "type": "boolean"
+                }
+            }
+        },
         "VkPhysicalDeviceMultiviewFeatures": {
             "type": "object",
             "additionalProperties": false,
@@ -960,6 +1002,15 @@
             "additionalProperties": false,
             "properties": {
                 "mutableDescriptorType": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "VkPhysicalDeviceNonSeamlessCubeMapFeaturesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "nonSeamlessCubeMap": {
                     "type": "boolean"
                 }
             }
@@ -1008,6 +1059,15 @@
             "additionalProperties": false,
             "properties": {
                 "pipelinePropertiesIdentifier": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "VkPhysicalDevicePipelineRobustnessFeaturesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "pipelineRobustness": {
                     "type": "boolean"
                 }
             }
@@ -1453,6 +1513,15 @@
                 }
             }
         },
+        "VkPhysicalDeviceShaderModuleIdentifierFeaturesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "shaderModuleIdentifier": {
+                    "type": "boolean"
+                }
+            }
+        },
         "VkPhysicalDeviceShaderSMBuiltinsFeaturesNV": {
             "type": "object",
             "additionalProperties": false,
@@ -1554,6 +1623,15 @@
             "additionalProperties": false,
             "properties": {
                 "textureCompressionASTC_HDR": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "VkPhysicalDeviceTilePropertiesFeaturesQCOM": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "tileProperties": {
                     "type": "boolean"
                 }
             }
@@ -2706,6 +2784,7 @@
                 "VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS",
                 "VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS_KHR",
                 "VK_DRIVER_ID_JUICE_PROPRIETARY",
+                "VK_DRIVER_ID_MESA_DOZEN",
                 "VK_DRIVER_ID_MESA_LLVMPIPE",
                 "VK_DRIVER_ID_MESA_PANVK",
                 "VK_DRIVER_ID_MESA_RADV",
@@ -3019,6 +3098,24 @@
                 }
             }
         },
+        "VkPhysicalDeviceImageProcessingPropertiesQCOM": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "maxBlockMatchRegion": {
+                    "$ref": "#/definitions/VkExtent2D"
+                },
+                "maxBoxFilterBlockSize": {
+                    "$ref": "#/definitions/VkExtent2D"
+                },
+                "maxWeightFilterDimension": {
+                    "$ref": "#/definitions/VkExtent2D"
+                },
+                "maxWeightFilterPhases": {
+                    "$ref": "#/definitions/uint32_t"
+                }
+            }
+        },
         "VkPhysicalDeviceInlineUniformBlockProperties": {
             "type": "object",
             "additionalProperties": false,
@@ -3179,6 +3276,40 @@
             "properties": {
                 "allowCommandBufferQueryCopies": {
                     "type": "boolean"
+                }
+            }
+        },
+        "VkPipelineRobustnessImageBehaviorEXT": {
+            "enum": [
+                "VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DEVICE_DEFAULT_EXT",
+                "VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DISABLED_EXT",
+                "VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_ROBUST_IMAGE_ACCESS_2_EXT",
+                "VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_ROBUST_IMAGE_ACCESS_EXT"
+            ]
+        },
+        "VkPipelineRobustnessBufferBehaviorEXT": {
+            "enum": [
+                "VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT_EXT",
+                "VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT",
+                "VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_2_EXT",
+                "VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_EXT"
+            ]
+        },
+        "VkPhysicalDevicePipelineRobustnessPropertiesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "defaultRobustnessImages": {
+                    "$ref": "#/definitions/VkPipelineRobustnessImageBehaviorEXT"
+                },
+                "defaultRobustnessStorageBuffers": {
+                    "$ref": "#/definitions/VkPipelineRobustnessBufferBehaviorEXT"
+                },
+                "defaultRobustnessUniformBuffers": {
+                    "$ref": "#/definitions/VkPipelineRobustnessBufferBehaviorEXT"
+                },
+                "defaultRobustnessVertexInputs": {
+                    "$ref": "#/definitions/VkPipelineRobustnessBufferBehaviorEXT"
                 }
             }
         },
@@ -3513,6 +3644,20 @@
                 },
                 "integerDotProductAccumulatingSaturating8BitUnsignedAccelerated": {
                     "type": "boolean"
+                }
+            }
+        },
+        "VkPhysicalDeviceShaderModuleIdentifierPropertiesEXT": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "shaderModuleIdentifierAlgorithmUUID": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/uint8_t"
+                    },
+                    "uniqueItems": false,
+                    "maxItems": 16
                 }
             }
         },
@@ -4135,6 +4280,8 @@
                 "VK_FORMAT_FEATURE_2_BLIT_DST_BIT_KHR",
                 "VK_FORMAT_FEATURE_2_BLIT_SRC_BIT",
                 "VK_FORMAT_FEATURE_2_BLIT_SRC_BIT_KHR",
+                "VK_FORMAT_FEATURE_2_BLOCK_MATCHING_BIT_QCOM",
+                "VK_FORMAT_FEATURE_2_BOX_FILTER_SAMPLED_BIT_QCOM",
                 "VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT",
                 "VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT_KHR",
                 "VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BLEND_BIT",
@@ -4191,7 +4338,9 @@
                 "VK_FORMAT_FEATURE_2_VIDEO_DECODE_DPB_BIT_KHR",
                 "VK_FORMAT_FEATURE_2_VIDEO_DECODE_OUTPUT_BIT_KHR",
                 "VK_FORMAT_FEATURE_2_VIDEO_ENCODE_DPB_BIT_KHR",
-                "VK_FORMAT_FEATURE_2_VIDEO_ENCODE_INPUT_BIT_KHR"
+                "VK_FORMAT_FEATURE_2_VIDEO_ENCODE_INPUT_BIT_KHR",
+                "VK_FORMAT_FEATURE_2_WEIGHT_IMAGE_BIT_QCOM",
+                "VK_FORMAT_FEATURE_2_WEIGHT_SAMPLED_IMAGE_BIT_QCOM"
             ]
         },
         "VkFormatFeatureFlags2": {
@@ -4216,99 +4365,12 @@
                 }
             }
         },
-        "VkVideoDecodeH264PictureLayoutFlagBitsEXT": {
-            "enum": [
-                "VK_VIDEO_DECODE_H264_PICTURE_LAYOUT_INTERLACED_INTERLEAVED_LINES_BIT_EXT",
-                "VK_VIDEO_DECODE_H264_PICTURE_LAYOUT_INTERLACED_SEPARATE_PLANES_BIT_EXT",
-                "VK_VIDEO_DECODE_H264_PICTURE_LAYOUT_PROGRESSIVE_EXT"
-            ]
-        },
-        "VkVideoDecodeH264PictureLayoutFlagsEXT": {
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/VkVideoDecodeH264PictureLayoutFlagBitsEXT"
-            },
-            "uniqueItems": true
-        },
-        "VkVideoDecodeH264ProfileEXT": {
+        "VkSubpassResolvePerformanceQueryEXT": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "pictureLayout": {
-                    "$ref": "#/definitions/VkVideoDecodeH264PictureLayoutFlagsEXT"
-                }
-            }
-        },
-        "VkVideoDecodeH265ProfileEXT": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
-        },
-        "VkVideoEncodeH264ProfileEXT": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
-        },
-        "VkVideoEncodeH265ProfileEXT": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
-        },
-        "VkVideoComponentBitDepthFlagBitsKHR": {
-            "enum": [
-                "VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR",
-                "VK_VIDEO_COMPONENT_BIT_DEPTH_12_BIT_KHR",
-                "VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR",
-                "VK_VIDEO_COMPONENT_BIT_DEPTH_INVALID_KHR"
-            ]
-        },
-        "VkVideoComponentBitDepthFlagsKHR": {
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/VkVideoComponentBitDepthFlagBitsKHR"
-            },
-            "uniqueItems": true
-        },
-        "VkVideoChromaSubsamplingFlagBitsKHR": {
-            "enum": [
-                "VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR",
-                "VK_VIDEO_CHROMA_SUBSAMPLING_422_BIT_KHR",
-                "VK_VIDEO_CHROMA_SUBSAMPLING_444_BIT_KHR",
-                "VK_VIDEO_CHROMA_SUBSAMPLING_INVALID_BIT_KHR",
-                "VK_VIDEO_CHROMA_SUBSAMPLING_MONOCHROME_BIT_KHR"
-            ]
-        },
-        "VkVideoChromaSubsamplingFlagsKHR": {
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/VkVideoChromaSubsamplingFlagBitsKHR"
-            },
-            "uniqueItems": true
-        },
-        "VkVideoCodecOperationFlagBitsKHR": {
-            "enum": [
-                "VK_VIDEO_CODEC_OPERATION_DECODE_H264_BIT_EXT",
-                "VK_VIDEO_CODEC_OPERATION_DECODE_H265_BIT_EXT",
-                "VK_VIDEO_CODEC_OPERATION_ENCODE_H264_BIT_EXT",
-                "VK_VIDEO_CODEC_OPERATION_ENCODE_H265_BIT_EXT",
-                "VK_VIDEO_CODEC_OPERATION_INVALID_BIT_KHR"
-            ]
-        },
-        "VkVideoProfileKHR": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "chromaBitDepth": {
-                    "$ref": "#/definitions/VkVideoComponentBitDepthFlagsKHR"
-                },
-                "chromaSubsampling": {
-                    "$ref": "#/definitions/VkVideoChromaSubsamplingFlagsKHR"
-                },
-                "lumaBitDepth": {
-                    "$ref": "#/definitions/VkVideoComponentBitDepthFlagsKHR"
-                },
-                "videoCodecOperation": {
-                    "$ref": "#/definitions/VkVideoCodecOperationFlagBitsKHR"
+                "optimal": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4331,20 +4393,8 @@
                 "VkFormatProperties3KHR": {
                     "$ref": "#/definitions/VkFormatProperties3"
                 },
-                "VkVideoDecodeH264ProfileEXT": {
-                    "$ref": "#/definitions/VkVideoDecodeH264ProfileEXT"
-                },
-                "VkVideoDecodeH265ProfileEXT": {
-                    "$ref": "#/definitions/VkVideoDecodeH265ProfileEXT"
-                },
-                "VkVideoEncodeH264ProfileEXT": {
-                    "$ref": "#/definitions/VkVideoEncodeH264ProfileEXT"
-                },
-                "VkVideoEncodeH265ProfileEXT": {
-                    "$ref": "#/definitions/VkVideoEncodeH265ProfileEXT"
-                },
-                "VkVideoProfileKHR": {
-                    "$ref": "#/definitions/VkVideoProfileKHR"
+                "VkSubpassResolvePerformanceQueryEXT": {
+                    "$ref": "#/definitions/VkSubpassResolvePerformanceQueryEXT"
                 }
             }
         },
@@ -4581,10 +4631,19 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "supported": {
+                "queryResultStatusSupport": {
                     "type": "boolean"
                 }
             }
+        },
+        "VkVideoCodecOperationFlagBitsKHR": {
+            "enum": [
+                "VK_VIDEO_CODEC_OPERATION_DECODE_H264_BIT_EXT",
+                "VK_VIDEO_CODEC_OPERATION_DECODE_H265_BIT_EXT",
+                "VK_VIDEO_CODEC_OPERATION_ENCODE_H264_BIT_EXT",
+                "VK_VIDEO_CODEC_OPERATION_ENCODE_H265_BIT_EXT",
+                "VK_VIDEO_CODEC_OPERATION_INVALID_BIT_KHR"
+            ]
         },
         "VkVideoCodecOperationFlagsKHR": {
             "type": "array",
@@ -4698,6 +4757,9 @@
                                 "type": "integer"
                             },
                             "VK_EXT_astc_decode_mode": {
+                                "type": "integer"
+                            },
+                            "VK_EXT_attachment_feedback_loop_layout": {
                                 "type": "integer"
                             },
                             "VK_EXT_blend_operation_advanced": {
@@ -4844,10 +4906,19 @@
                             "VK_EXT_memory_priority": {
                                 "type": "integer"
                             },
+                            "VK_EXT_metal_objects": {
+                                "type": "integer"
+                            },
                             "VK_EXT_metal_surface": {
                                 "type": "integer"
                             },
                             "VK_EXT_multi_draw": {
+                                "type": "integer"
+                            },
+                            "VK_EXT_multisampled_render_to_single_sampled": {
+                                "type": "integer"
+                            },
+                            "VK_EXT_non_seamless_cube_map": {
                                 "type": "integer"
                             },
                             "VK_EXT_pageable_device_local_memory": {
@@ -4866,6 +4937,9 @@
                                 "type": "integer"
                             },
                             "VK_EXT_pipeline_properties": {
+                                "type": "integer"
+                            },
+                            "VK_EXT_pipeline_robustness": {
                                 "type": "integer"
                             },
                             "VK_EXT_post_depth_coverage": {
@@ -4914,6 +4988,9 @@
                                 "type": "integer"
                             },
                             "VK_EXT_shader_image_atomic_int64": {
+                                "type": "integer"
+                            },
+                            "VK_EXT_shader_module_identifier": {
                                 "type": "integer"
                             },
                             "VK_EXT_shader_stencil_export": {
@@ -5447,6 +5524,9 @@
                             "VK_QCOM_fragment_density_map_offset": {
                                 "type": "integer"
                             },
+                            "VK_QCOM_image_processing": {
+                                "type": "integer"
+                            },
                             "VK_QCOM_render_pass_shader_resolve": {
                                 "type": "integer"
                             },
@@ -5459,7 +5539,13 @@
                             "VK_QCOM_rotated_copy_commands": {
                                 "type": "integer"
                             },
+                            "VK_QCOM_tile_properties": {
+                                "type": "integer"
+                            },
                             "VK_QNX_screen_surface": {
+                                "type": "integer"
+                            },
+                            "VK_SEC_amigo_profiling": {
                                 "type": "integer"
                             },
                             "VK_VALVE_descriptor_set_host_mapping": {
@@ -5504,6 +5590,12 @@
                             },
                             "VkPhysicalDeviceAccelerationStructureFeaturesKHR": {
                                 "$ref": "#/definitions/VkPhysicalDeviceAccelerationStructureFeaturesKHR"
+                            },
+                            "VkPhysicalDeviceAmigoProfilingFeaturesSEC": {
+                                "$ref": "#/definitions/VkPhysicalDeviceAmigoProfilingFeaturesSEC"
+                            },
+                            "VkPhysicalDeviceAttachmentFeedbackLoopLayoutFeaturesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDeviceAttachmentFeedbackLoopLayoutFeaturesEXT"
                             },
                             "VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT": {
                                 "$ref": "#/definitions/VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT"
@@ -5640,6 +5732,9 @@
                             "VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT": {
                                 "$ref": "#/definitions/VkPhysicalDeviceImageCompressionControlSwapchainFeaturesEXT"
                             },
+                            "VkPhysicalDeviceImageProcessingFeaturesQCOM": {
+                                "$ref": "#/definitions/VkPhysicalDeviceImageProcessingFeaturesQCOM"
+                            },
                             "VkPhysicalDeviceImageRobustnessFeatures": {
                                 "$ref": "#/definitions/VkPhysicalDeviceImageRobustnessFeatures"
                             },
@@ -5691,6 +5786,9 @@
                             "VkPhysicalDeviceMultiDrawFeaturesEXT": {
                                 "$ref": "#/definitions/VkPhysicalDeviceMultiDrawFeaturesEXT"
                             },
+                            "VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT"
+                            },
                             "VkPhysicalDeviceMultiviewFeatures": {
                                 "$ref": "#/definitions/VkPhysicalDeviceMultiviewFeatures"
                             },
@@ -5699,6 +5797,9 @@
                             },
                             "VkPhysicalDeviceMutableDescriptorTypeFeaturesVALVE": {
                                 "$ref": "#/definitions/VkPhysicalDeviceMutableDescriptorTypeFeaturesVALVE"
+                            },
+                            "VkPhysicalDeviceNonSeamlessCubeMapFeaturesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDeviceNonSeamlessCubeMapFeaturesEXT"
                             },
                             "VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT": {
                                 "$ref": "#/definitions/VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT"
@@ -5717,6 +5818,9 @@
                             },
                             "VkPhysicalDevicePipelinePropertiesFeaturesEXT": {
                                 "$ref": "#/definitions/VkPhysicalDevicePipelinePropertiesFeaturesEXT"
+                            },
+                            "VkPhysicalDevicePipelineRobustnessFeaturesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDevicePipelineRobustnessFeaturesEXT"
                             },
                             "VkPhysicalDevicePortabilitySubsetFeaturesKHR": {
                                 "$ref": "#/definitions/VkPhysicalDevicePortabilitySubsetFeaturesKHR"
@@ -5841,6 +5945,9 @@
                             "VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL": {
                                 "$ref": "#/definitions/VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL"
                             },
+                            "VkPhysicalDeviceShaderModuleIdentifierFeaturesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDeviceShaderModuleIdentifierFeaturesEXT"
+                            },
                             "VkPhysicalDeviceShaderSMBuiltinsFeaturesNV": {
                                 "$ref": "#/definitions/VkPhysicalDeviceShaderSMBuiltinsFeaturesNV"
                             },
@@ -5888,6 +5995,9 @@
                             },
                             "VkPhysicalDeviceTextureCompressionASTCHDRFeaturesEXT": {
                                 "$ref": "#/definitions/VkPhysicalDeviceTextureCompressionASTCHDRFeatures"
+                            },
+                            "VkPhysicalDeviceTilePropertiesFeaturesQCOM": {
+                                "$ref": "#/definitions/VkPhysicalDeviceTilePropertiesFeaturesQCOM"
                             },
                             "VkPhysicalDeviceTimelineSemaphoreFeatures": {
                                 "$ref": "#/definitions/VkPhysicalDeviceTimelineSemaphoreFeatures"
@@ -6046,6 +6156,9 @@
                             "VkPhysicalDeviceIDPropertiesKHR": {
                                 "$ref": "#/definitions/VkPhysicalDeviceIDProperties"
                             },
+                            "VkPhysicalDeviceImageProcessingPropertiesQCOM": {
+                                "$ref": "#/definitions/VkPhysicalDeviceImageProcessingPropertiesQCOM"
+                            },
                             "VkPhysicalDeviceInlineUniformBlockProperties": {
                                 "$ref": "#/definitions/VkPhysicalDeviceInlineUniformBlockProperties"
                             },
@@ -6087,6 +6200,9 @@
                             },
                             "VkPhysicalDevicePerformanceQueryPropertiesKHR": {
                                 "$ref": "#/definitions/VkPhysicalDevicePerformanceQueryPropertiesKHR"
+                            },
+                            "VkPhysicalDevicePipelineRobustnessPropertiesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDevicePipelineRobustnessPropertiesEXT"
                             },
                             "VkPhysicalDevicePointClippingProperties": {
                                 "$ref": "#/definitions/VkPhysicalDevicePointClippingProperties"
@@ -6135,6 +6251,9 @@
                             },
                             "VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR": {
                                 "$ref": "#/definitions/VkPhysicalDeviceShaderIntegerDotProductProperties"
+                            },
+                            "VkPhysicalDeviceShaderModuleIdentifierPropertiesEXT": {
+                                "$ref": "#/definitions/VkPhysicalDeviceShaderModuleIdentifierPropertiesEXT"
                             },
                             "VkPhysicalDeviceShaderSMBuiltinsPropertiesNV": {
                                 "$ref": "#/definitions/VkPhysicalDeviceShaderSMBuiltinsPropertiesNV"
