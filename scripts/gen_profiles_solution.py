@@ -105,9 +105,10 @@ H_FOOTER = '''
 '''
 
 CPP_HEADER = '''
-#include <stddef.h>
-#include <string.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstring>
+#include <cstdint>
+#include <cmath>
 #include <vector>
 #include <algorithm>
 '''
@@ -119,9 +120,10 @@ HPP_HEADER = '''
 #define VPAPI_ATTR inline
 
 #include <vulkan/vulkan.h>
-#include <stddef.h>
-#include <string.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstring>
+#include <cstdint>
+#include <cmath>
 #include <vector>
 #include <algorithm>
 '''
@@ -264,6 +266,19 @@ VPAPI_ATTR VkResult vpGetProfileFormatStructureTypes(const VpProfileProperties *
 '''
 
 PRIVATE_DEFS = '''
+VPAPI_ATTR bool isMultiple(double source, double multiple) {
+    double mod = std::fmod(source, multiple);
+    return std::abs(mod) < 0.0001; 
+}
+
+VPAPI_ATTR bool isPowerOfTwo(double source) {
+    double mod = std::fmod(source, 1.0);
+    if (std::abs(mod) >= 0.0001) return false;
+
+    std::uint64_t value = static_cast<std::uint64_t>(std::abs(source));
+    return !(value & (value - static_cast<std::uint64_t>(1)));
+}
+
 using PFN_vpStructFiller = void(*)(VkBaseOutStructure* p);
 using PFN_vpStructComparator = bool(*)(VkBaseOutStructure* p);
 using PFN_vpStructChainerCb =  void(*)(VkBaseOutStructure* p, void* pUser);
@@ -356,7 +371,7 @@ VPAPI_ATTR bool vpCheckVersion(uint32_t actual, uint32_t expected) {
 }
 
 VPAPI_ATTR bool vpCheckExtension(const VkExtensionProperties *supportedProperties, size_t supportedSize,
-                                 const char *requestedExtension, uint32_t expectedVersion = 0) {
+                                 const char *requestedExtension) {
     bool found = false;
     for (size_t i = 0, n = supportedSize; i < n; ++i) {
         if (strcmp(supportedProperties[i].extensionName, requestedExtension) == 0) {
@@ -492,8 +507,7 @@ VPAPI_ATTR VkResult vpGetInstanceProfileSupport(const char *pLayerName, const Vp
 
     for (uint32_t i = 0; i < pDesc->instanceExtensionCount; ++i) {
         if (!detail::vpCheckExtension(ext.data(), ext.size(),
-            pDesc->pInstanceExtensions[i].extensionName,
-            pDesc->pInstanceExtensions[i].specVersion)) {
+            pDesc->pInstanceExtensions[i].extensionName)) {
             *pSupported = VK_FALSE;
         }
     }
@@ -597,14 +611,19 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(VkInstance instance, VkPhy
     if (result != VK_SUCCESS) {
         return result;
     }
-    std::vector<VkExtensionProperties> ext(extCount);
+    std::vector<VkExtensionProperties> ext;
+    if (extCount > 0) {
+        ext.resize(extCount);
+    }
     result = vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extCount, ext.data());
     if (result != VK_SUCCESS) {
         return result;
     }
 
     // Workaround old loader bug where count could be smaller on the second call to vkEnumerateDeviceExtensionProperties
-    ext.resize(extCount);
+    if (extCount > 0) {
+        ext.resize(extCount);
+    }
 
     const detail::VpProfileDesc* pDesc = detail::vpGetProfileDesc(pProfile->profileName);
     if (pDesc == nullptr) return VK_ERROR_UNKNOWN;
@@ -674,8 +693,7 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(VkInstance instance, VkPhy
 
     for (uint32_t i = 0; i < pDesc->deviceExtensionCount; ++i) {
         if (!detail::vpCheckExtension(ext.data(), ext.size(),
-            pDesc->pDeviceExtensions[i].extensionName,
-            pDesc->pDeviceExtensions[i].specVersion)) {
+            pDesc->pDeviceExtensions[i].extensionName)) {
             *pSupported = VK_FALSE;
         }
     }
@@ -1843,42 +1861,208 @@ class VulkanRegistry():
 
         # TODO: We currently have to apply workarounds due to "noauto" limittypes and other bugs related to limittypes in the vk.xml
         # These can only be solved permanently if we make modifications to the registry xml itself
-        self.structs['VkPhysicalDeviceLimits'].members['subPixelPrecisionBits'].limittype = 'max' # should be `bits`
-        self.structs['VkPhysicalDeviceLimits'].members['subTexelPrecisionBits'].limittype = 'max' # should be `bits`
-        self.structs['VkPhysicalDeviceLimits'].members['mipmapPrecisionBits'].limittype = 'max' # should be `bits`
-        self.structs['VkPhysicalDeviceLimits'].members['viewportSubPixelBits'].limittype = 'max' # should be `bits`
-        self.structs['VkPhysicalDeviceLimits'].members['subPixelInterpolationOffsetBits'].limittype = 'max' # should be `bits`
-        self.structs['VkQueueFamilyProperties'].members['timestampValidBits'].limittype = 'max' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['subPixelPrecisionBits'].limittype = 'bits' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['subTexelPrecisionBits'].limittype = 'bits' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['mipmapPrecisionBits'].limittype = 'bits' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['viewportSubPixelBits'].limittype = 'bits' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['subPixelInterpolationOffsetBits'].limittype = 'bits' # should be `bits`
+        self.structs['VkPhysicalDeviceLimits'].members['minMemoryMapAlignment'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['minTexelBufferOffsetAlignment'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['minUniformBufferOffsetAlignment'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['minStorageBufferOffsetAlignment'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['optimalBufferCopyOffsetAlignment'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['optimalBufferCopyRowPitchAlignment'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['nonCoherentAtomSize'].limittype = 'min,pot' # should be `min,pot`
+        self.structs['VkPhysicalDeviceLimits'].members['timestampPeriod'].limittype = 'min,mul' # should be `min,mul` (for a float type!)
+        self.structs['VkPhysicalDeviceLimits'].members['bufferImageGranularity'].limittype = 'min,mul' # should be `min,mul`
+        self.structs['VkPhysicalDeviceLimits'].members['pointSizeGranularity'].limittype = 'min,mul' # should be `min,mul`
+        self.structs['VkPhysicalDeviceLimits'].members['lineWidthGranularity'].limittype = 'min,mul' # should be `min,mul`
+        self.structs['VkPhysicalDeviceLimits'].members['strictLines'].limittype = 'exact'
+        self.structs['VkPhysicalDeviceLimits'].members['standardSampleLocations'].limittype = 'exact'
+        self.structs['VkPhysicalDeviceLimits'].members['standardSampleLocations'].limittype = 'exact'
 
-        self.structs['VkPhysicalDeviceLimits'].members['minMemoryMapAlignment'].limittype = 'min' # should be `minpot`
-        self.structs['VkPhysicalDeviceLimits'].members['minTexelBufferOffsetAlignment'].limittype = 'min' # should be `minpot`
-        self.structs['VkPhysicalDeviceLimits'].members['minUniformBufferOffsetAlignment'].limittype = 'min' # should be `minpot`
-        self.structs['VkPhysicalDeviceLimits'].members['minStorageBufferOffsetAlignment'].limittype = 'min' # should be `minpot`
-        self.structs['VkPhysicalDeviceLimits'].members['optimalBufferCopyOffsetAlignment'].limittype = 'min' # should be `minpot`
-        self.structs['VkPhysicalDeviceLimits'].members['optimalBufferCopyRowPitchAlignment'].limittype = 'min' # should be `minpot`
-        self.structs['VkPhysicalDeviceLimits'].members['nonCoherentAtomSize'].limittype = 'min' # should be `minpot`
-
-        if 'VkPhysicalDevicePortabilitySubsetPropertiesKHR' in self.structs:
-            self.structs['VkPhysicalDevicePortabilitySubsetPropertiesKHR'].members['minVertexInputBindingStrideAlignment'].limittype = 'min' # should be `minpot`
-
-        self.structs['VkPhysicalDeviceLimits'].members['timestampPeriod'].limittype = 'min' # should be `minmul` (for a float type!)
-        self.structs['VkPhysicalDeviceLimits'].members['bufferImageGranularity'].limittype = 'min' # should be `minmul`
-        self.structs['VkPhysicalDeviceLimits'].members['pointSizeGranularity'].limittype = 'min' # should be `minmul`
-        self.structs['VkPhysicalDeviceLimits'].members['lineWidthGranularity'].limittype = 'min' # should be `minmul`
-        self.structs['VkQueueFamilyProperties'].members['minImageTransferGranularity'].limittype = 'min' # should be `minmul`
-
-        # Some capabilities are missing limittypes
-        self.structs['VkQueueFamilyProperties'].members['queueCount'].limittype = 'max'
         if 'VkPhysicalDeviceVulkan11Properties' in self.structs:
-            self.structs['VkPhysicalDeviceVulkan11Properties'].members['subgroupSize'].limittype = 'max'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['deviceUUID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['driverUUID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['deviceLUID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['deviceNodeMask'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['deviceLUIDValid'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['subgroupSize'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['pointClippingBehavior'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceVulkan11Properties'].members['protectedNoFault'].limittype = 'exact'
 
-        # TODO: There are also some bugs in the vk.xml, like parameters having "bitmask" limittype but actually VkBool32 type
-        # This is non-sense, so we patch them
-        #for structName in self.structs:
-        #    for memberName in self.structs[structName].members:
-        #        memberDef = self.structs[structName].members[memberName]
-        #        if memberDef.limittype == 'bitmask' and memberDef.type == 'VkBool32':
-        #            self.structs[structName].members[memberName].limittype = 'noauto'
+        if 'VkPhysicalDeviceVulkan12Properties' in self.structs:
+            self.structs['VkPhysicalDeviceVulkan12Properties'].members['driverID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan12Properties'].members['driverName'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan12Properties'].members['driverInfo'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan12Properties'].members['conformanceVersion'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceVulkan12Properties'].members['denormBehaviorIndependence'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceVulkan12Properties'].members['roundingModeIndependence'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceVulkan13Properties' in self.structs:
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['storageTexelBufferOffsetAlignmentBytes'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['storageTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['uniformTexelBufferOffsetAlignmentBytes'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['uniformTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['minSubgroupSize'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['maxSubgroupSize'].limittype = 'max,pot'
+
+        if 'VkPhysicalDeviceTexelBufferAlignmentProperties' in self.structs:
+            self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['storageTexelBufferOffsetAlignmentBytes'].limittype = 'min,pot' # should be `min,pot`
+            self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['storageTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['uniformTexelBufferOffsetAlignmentBytes'].limittype = 'min,pot' # should be `min,pot`
+            self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['uniformTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceProperties' in self.structs:
+            self.structs['VkPhysicalDeviceProperties'].members['apiVersion'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceProperties'].members['driverVersion'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceProperties'].members['vendorID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceProperties'].members['deviceID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceProperties'].members['deviceType'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceProperties'].members['deviceName'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceProperties'].members['pipelineCacheUUID'].limittype = 'noauto'
+
+        if 'VkPhysicalDeviceToolProperties' in self.structs:
+            self.structs['VkPhysicalDeviceToolProperties'].members['name'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceToolProperties'].members['version'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceToolProperties'].members['purposes'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceToolProperties'].members['description'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceToolProperties'].members['layer'].limittype = 'noauto'
+
+        if 'VkPhysicalDeviceSubgroupSizeControlProperties' in self.structs:
+            self.structs['VkPhysicalDeviceSubgroupSizeControlProperties'].members['minSubgroupSize'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceSubgroupSizeControlProperties'].members['maxSubgroupSize'].limittype = 'max,pot'
+
+        if 'VkPhysicalDeviceDriverProperties' in self.structs:
+            self.structs['VkPhysicalDeviceDriverProperties'].members['driverID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDriverProperties'].members['driverName'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDriverProperties'].members['driverInfo'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDriverProperties'].members['conformanceVersion'].limittype = 'noauto'
+
+        if 'VkPhysicalDeviceIDProperties' in self.structs:
+            self.structs['VkPhysicalDeviceIDProperties'].members['deviceUUID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceIDProperties'].members['driverUUID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceIDProperties'].members['deviceLUID'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceIDProperties'].members['deviceNodeMask'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceIDProperties'].members['deviceLUIDValid'].limittype = 'noauto'
+
+        if 'VkPhysicalDeviceSubgroupProperties' in self.structs:
+            self.structs['VkPhysicalDeviceSubgroupProperties'].members['subgroupSize'].limittype = 'min,pot'
+
+        if 'VkPhysicalDevicePointClippingProperties' in self.structs:
+            self.structs['VkPhysicalDevicePointClippingProperties'].members['pointClippingBehavior'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceProtectedMemoryProperties' in self.structs:
+            self.structs['VkPhysicalDeviceProtectedMemoryProperties'].members['protectedNoFault'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceFloatControlsProperties' in self.structs:
+            self.structs['VkPhysicalDeviceFloatControlsProperties'].members['denormBehaviorIndependence'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceFloatControlsProperties'].members['roundingModeIndependence'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceTexelBufferAlignmentProperties' in self.structs:
+            self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['storageTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['uniformTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
+
+        if 'VkPhysicalDevicePortabilitySubsetPropertiesKHR' in self.structs: # BETA extension
+            self.structs['VkPhysicalDevicePortabilitySubsetPropertiesKHR'].members['minVertexInputBindingStrideAlignment'].limittype = 'min,pot' # should be `min,pot`
+
+        if 'VkPhysicalDeviceFragmentShadingRatePropertiesKHR' in self.structs:
+            self.structs['VkPhysicalDeviceFragmentShadingRatePropertiesKHR'].members['maxFragmentShadingRateAttachmentTexelSizeAspectRatio'].limittype = 'max' # should be maxpot
+            self.structs['VkPhysicalDeviceFragmentShadingRatePropertiesKHR'].members['maxFragmentSizeAspectRatio'].limittype = 'max' # should be maxpot
+            self.structs['VkPhysicalDeviceFragmentShadingRatePropertiesKHR'].members['maxFragmentShadingRateCoverageSamples'].limittype = 'max'
+
+        if 'VkPhysicalDeviceRayTracingPipelinePropertiesKHR' in self.structs:
+            self.structs['VkPhysicalDeviceRayTracingPipelinePropertiesKHR'].members['shaderGroupHandleSize'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceRayTracingPipelinePropertiesKHR'].members['shaderGroupBaseAlignment'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceRayTracingPipelinePropertiesKHR'].members['shaderGroupHandleCaptureReplaySize'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceRayTracingPipelinePropertiesKHR'].members['shaderGroupHandleAlignment'].limittype = 'min,pot' # should be 'min,pot'
+
+        if self.headerVersionNumber.patch < 215: # vk.xml declares maxFragmentShadingRateRasterizationSamples with 'noauto' limittype before header 215
+            if 'VkPhysicalDeviceFragmentShadingRatePropertiesKHR' in self.structs:
+                self.structs['VkPhysicalDeviceFragmentShadingRatePropertiesKHR'].members['maxFragmentShadingRateRasterizationSamples'].limittype = 'max'
+
+        if 'VkPhysicalDeviceConservativeRasterizationPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceConservativeRasterizationPropertiesEXT'].members['primitiveOverestimationSize'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceConservativeRasterizationPropertiesEXT'].members['extraPrimitiveOverestimationSizeGranularity'].limittype = 'min,mul' # should be 'min,mul'
+            self.structs['VkPhysicalDeviceConservativeRasterizationPropertiesEXT'].members['conservativePointAndLineRasterization'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceConservativeRasterizationPropertiesEXT'].members['degenerateTrianglesRasterized'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceConservativeRasterizationPropertiesEXT'].members['degenerateLinesRasterized'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceLineRasterizationPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceLineRasterizationPropertiesEXT'].members['lineSubPixelPrecisionBits'].limittype = 'max' # should be 'bits'
+
+        if self.headerVersionNumber.patch < 213:
+            if 'VkPhysicalDeviceTransformFeedbackPropertiesEXT' in self.structs:
+                self.structs['VkPhysicalDeviceTransformFeedbackPropertiesEXT'].members['maxTransformFeedbackBufferDataStride'].limittype = 'max'
+
+        if 'VkPhysicalDeviceExternalMemoryHostPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceExternalMemoryHostPropertiesEXT'].members['minImportedHostPointerAlignment'].limittype = 'min,pot' # should be 'min,pot'
+
+        if 'VkPhysicalDevicePCIBusInfoPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDevicePCIBusInfoPropertiesEXT'].members['pciDomain'].limittype = 'noauto'
+            self.structs['VkPhysicalDevicePCIBusInfoPropertiesEXT'].members['pciBus'].limittype = 'noauto'
+            self.structs['VkPhysicalDevicePCIBusInfoPropertiesEXT'].members['pciDevice'].limittype = 'noauto'
+            self.structs['VkPhysicalDevicePCIBusInfoPropertiesEXT'].members['pciFunction'].limittype = 'noauto'
+
+        if 'VkPhysicalDeviceDrmPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceDrmPropertiesEXT'].members['hasPrimary'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDrmPropertiesEXT'].members['hasRender'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDrmPropertiesEXT'].members['primaryMajor'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDrmPropertiesEXT'].members['primaryMinor'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDrmPropertiesEXT'].members['renderMajor'].limittype = 'noauto'
+            self.structs['VkPhysicalDeviceDrmPropertiesEXT'].members['renderMinor'].limittype = 'noauto'
+
+        if 'VkPhysicalDeviceFragmentDensityMap2PropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceFragmentDensityMap2PropertiesEXT'].members['subsampledLoads'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceFragmentDensityMap2PropertiesEXT'].members['subsampledCoarseReconstructionEarlyAccess'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceSampleLocationsPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceSampleLocationsPropertiesEXT'].members['sampleLocationSubPixelBits'].limittype = 'bits' # should be 'bits'
+
+        if 'VkPhysicalDeviceRobustness2PropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceRobustness2PropertiesEXT'].members['robustStorageBufferAccessSizeAlignment'].limittype = 'min,pot' # should be 'min,pot'
+            self.structs['VkPhysicalDeviceRobustness2PropertiesEXT'].members['robustUniformBufferAccessSizeAlignment'].limittype = 'min,pot' # should be 'min,pot'
+
+        if 'VkPhysicalDeviceShaderCorePropertiesAMD' in self.structs:
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['shaderEngineCount'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['shaderArraysPerEngineCount'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['computeUnitsPerShaderArray'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['simdPerComputeUnit'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['wavefrontsPerSimd'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['wavefrontSize'].limittype = 'max'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['sgprsPerSimd'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['sgprAllocationGranularity'].limittype = 'min,mul' # should be 'min,mul'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['vgprsPerSimd'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceShaderCorePropertiesAMD'].members['vgprAllocationGranularity'].limittype = 'min,mul' # should be 'min,mul'
+
+        if 'VkPhysicalDeviceSubpassShadingPropertiesHUAWEI' in self.structs:
+            self.structs['VkPhysicalDeviceSubpassShadingPropertiesHUAWEI'].members['maxSubpassShadingWorkgroupSizeAspectRatio'].limittype = 'max,pot' # should be 'max,pot'
+
+        if 'VkPhysicalDeviceRayTracingPropertiesNV' in self.structs:
+            self.structs['VkPhysicalDeviceRayTracingPropertiesNV'].members['shaderGroupHandleSize'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceRayTracingPropertiesNV'].members['shaderGroupBaseAlignment'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceShadingRateImagePropertiesNV' in self.structs:
+            self.structs['VkPhysicalDeviceShadingRateImagePropertiesNV'].members['shadingRateTexelSize'].limittype = 'exact'
+
+        if 'VkPhysicalDeviceMeshShaderPropertiesNV' in self.structs:
+            self.structs['VkPhysicalDeviceMeshShaderPropertiesNV'].members['meshOutputPerVertexGranularity'].limittype = 'min,mul' # should be 'min,mul'
+            self.structs['VkPhysicalDeviceMeshShaderPropertiesNV'].members['meshOutputPerPrimitiveGranularity'].limittype = 'min,mul' # should be 'min,mul'
+
+        if 'VkPhysicalDevicePipelineRobustnessPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDevicePipelineRobustnessPropertiesEXT'].members['defaultRobustnessStorageBuffers'].limittype = 'exact'
+            self.structs['VkPhysicalDevicePipelineRobustnessPropertiesEXT'].members['defaultRobustnessUniformBuffers'].limittype = 'exact'
+            self.structs['VkPhysicalDevicePipelineRobustnessPropertiesEXT'].members['defaultRobustnessVertexInputs'].limittype = 'exact'
+            self.structs['VkPhysicalDevicePipelineRobustnessPropertiesEXT'].members['defaultRobustnessImages'].limittype = 'exact'
+
+        if self.headerVersionNumber.patch < 213:
+            if 'VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV' in self.structs:
+                self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV'].members['minSequencesCountBufferOffsetAlignment'].limittype = 'min'
+                self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV'].members['minSequencesIndexBufferOffsetAlignment'].limittype = 'min'
+                self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV'].members['minIndirectCommandsBufferOffsetAlignment'].limittype = 'min'
+
+        if 'VkPhysicalDeviceFragmentDensityMapOffsetPropertiesQCOM' in self.structs:
+            self.structs['VkPhysicalDeviceFragmentDensityMapOffsetPropertiesQCOM'].members['fragmentDensityOffsetGranularity'].limittype = 'min,mul' # should be 'min,mul'
 
         # TODO: The registry xml is also missing limittype definitions for format and queue family properties
         # For now we just add the important ones, this needs a larger overhaul in the vk.xml
@@ -1889,7 +2073,15 @@ class VulkanRegistry():
             self.structs['VkFormatProperties3'].members['linearTilingFeatures'].limittype = 'bitmask'
             self.structs['VkFormatProperties3'].members['optimalTilingFeatures'].limittype = 'bitmask'
             self.structs['VkFormatProperties3'].members['bufferFeatures'].limittype = 'bitmask'
+
         self.structs['VkQueueFamilyProperties'].members['queueFlags'].limittype = 'bitmask'
+        self.structs['VkQueueFamilyProperties'].members['queueCount'].limittype = 'max'
+        self.structs['VkQueueFamilyProperties'].members['timestampValidBits'].limittype = 'bits' # should be 'bits'
+        self.structs['VkQueueFamilyProperties'].members['minImageTransferGranularity'].limittype = 'min,mul' # should be 'min,mul'
+
+        self.structs['VkSparseImageFormatProperties'].members['aspectMask'].limittype = 'bitmask'
+        self.structs['VkSparseImageFormatProperties'].members['imageGranularity'].limittype = 'min,mul' # should be 'min,mul'
+        self.structs['VkSparseImageFormatProperties'].members['flags'].limittype = 'bitmask'
 
         # TODO: The registry xml contains some return structures that contain count + pointers to arrays
         # While the script itself is prepared to drop those, as they are ill-formed, as return structures
@@ -2278,7 +2470,8 @@ class VulkanProfile():
                             genAssign = '{0}{1} = '.format(var, member)
                         genAssign += '{0}'.format(self.gen_listValue(value, isEnum))
                         gen += fmt.format(genAssign)
-
+                elif type(value) == float:
+                    gen += fmt.format('{0}{1} = {2}f'.format(var, member, value))
                 elif type(value) == bool:
                     # Boolean
                     gen += fmt.format('{0}{1} = {2}'.format(var, member, 'VK_TRUE' if value else 'VK_FALSE'))
@@ -2296,39 +2489,54 @@ class VulkanProfile():
         for member, value in sorted(values.items()):
             if member in structDef.members:
                 limittype = structDef.members[member].limittype
+                membertype = structDef.members[member].type
                 if limittype == None:
                     # Use parent's limit type
                     limittype = parentLimittype
 
-                if limittype == 'bitmask' and structDef.members[member].type == 'VkBool32':
+                if limittype == 'bitmask' and type == 'VkBool32':
                     # Compare everything else with equality
                     comparePredFmt = '{0} == {1}'
                 elif limittype == 'bitmask':
                     # Compare bitmask by checking if device value contains every bit of profile value
                     comparePredFmt = 'vpCheckFlags({0}, {1})'
+                elif limittype == 'bits':
+                    # Compare max limit by checking if device value is greater than or equal to profile value
+                    comparePredFmt = '{0} >= {1}'
                 elif limittype == 'max':
                     # Compare max limit by checking if device value is greater than or equal to profile value
                     comparePredFmt = '{0} >= {1}'
-                elif limittype == 'maxpot':
+                elif limittype == 'max,pot' or limittype == 'pot,max':
                     # Compare max limit by checking if device value is greater than or equal to profile value
-                    comparePredFmt = [ '{0} >= {1}', '({0} & ({0} - 1)) == 0' ]
+                    if (membertype == 'float' or membertype == 'double'):
+                        comparePredFmt = [ '{0} >= {1}' ]
+                    else:
+                        comparePredFmt = [ '{0} >= {1}', '({0} & ({0} - 1)) == 0' ]
                 elif limittype == 'bits':
                     # Behaves like max, but smaller values are allowed
                     comparePredFmt = '{0} >= {1}'
                 elif limittype == 'min':
                     # Compare min limit by checking if device value is less than or equal to profile value
                     comparePredFmt = '{0} <= {1}'
-                elif limittype == 'minpot':
+                elif limittype == 'min,pot' or limittype == 'pot,min':
                     # Compare min limit by checking if device value is less than or equal to profile value and if the value is a power of two
-                    comparePredFmt = [ '{0} <= {1}', '({0} & ({0} - 1)) == 0' ]
-                elif limittype == 'minmul':
+                    if (membertype == 'float' or membertype == 'double'):
+                        comparePredFmt = [ '{0} <= {1}', 'isPowerOfTwo({0})' ]
+                    else:
+                        comparePredFmt = [ '{0} <= {1}', '({0} & ({0} - 1)) == 0' ]
+                elif limittype == 'min,mul' or limittype == 'mul,min':
                     # Compare min limit by checking if device value is less than or equal to profile value and a multiple of profile value
-                    comparePredFmt = [ '{0} <= {1}', '{0} % {1} == 0' ]
+                    if (membertype == 'float' or membertype == 'double'):
+                        comparePredFmt = [ '{0} <= {1}', 'isMultiple({1}, {0})' ]
+                    else:
+                        comparePredFmt = [ '{0} <= {1}', '({1} % {0}) == 0' ]
                 elif limittype == 'range':
                     # Compare range limit by checking if device range is larger than or equal to profile range
                     comparePredFmt = [ '{0} <= {1}', '{0} >= {1}' ]
-                elif limittype is None or limittype == 'noauto' or limittype == 'behavior' or limittype == 'struct':
+                elif limittype == 'exact' or limittype == 'struct':
                     # Compare everything else with equality
+                    comparePredFmt = '{0} == {1}'
+                elif limittype is None or limittype == 'noauto':
                     comparePredFmt = '{0} == {1}'
                 else:
                     Log.f("Unsupported limittype '{0}' in member '{1}' of structure '{2}'".format(limittype, member, structDef.name))
@@ -3580,22 +3788,22 @@ class VulkanProfilesDocGenerator():
 
         if limittype in [ None, 'noauto', 'bitmask' ]:
             return member
-        elif limittype == 'behavior':
-            return member + ' (behavior)'
+        elif limittype == 'exact':
+            return member + ' (exact)'
         elif limittype == 'max':
             return member + ' (max)'
-        elif limittype == 'maxpot':
-            return member + ' (maxpot)'
+        elif limittype == 'max,pot' or limittype == 'pot,max':
+            return member + ' (max,pot)'
         elif limittype in [ 'min' ]:
             return member + ' (min)'
-        elif limittype == 'minpot':
-            return member + ' (minpot)'
-        elif limittype == 'minmul':
-            return member + ' (minmul)'
+        elif limittype == 'min,pot' or limittype == 'pot,min':
+            return member + ' (min,pot)'
+        elif limittype == 'min,mul' or limittype == 'mul,min':
+            return member + ' (min,mul)'
         elif limittype == 'bits':
             return member + ' (bits)'
         elif limittype == 'range':
-            return member + ' (min,max)'
+            return member + ' (min-max)'
         else:
             Log.f("Unexpected limittype '{0}'".format(limittype))
 
@@ -3673,7 +3881,7 @@ class VulkanProfilesDocGenerator():
                 if wrapperStruct in profile.capabilities.properties:
                     propertyStructName = wrapperStruct
                     propertyStruct = profile.capabilities.properties[wrapperStruct]['properties']
-            if propertyStruct != None:
+            if propertyStruct != None and memberStruct != 'sparseProperties':
                 limitStruct = propertyStruct[memberStruct]
                 if member in limitStruct:
                     return self.formatProperty(limitStruct[member], propertyStructName, section)

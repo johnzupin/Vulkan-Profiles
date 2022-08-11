@@ -16,8 +16,8 @@
 #
 # Author: Ziga Markus <ziga@lunarg.com>
 
-import genvp
-import gen_layer
+import gen_profiles_solution
+import gen_profiles_layer
 import xml.etree.ElementTree as etree
 import math
 import argparse
@@ -83,20 +83,9 @@ TESTS_HEADER = '''/*
 #include <gtest/gtest.h>
 #include "profiles_test_helper.h"
 
-#ifdef _WIN32
-#ifdef _DEBUG
-static const char* CONFIG_PATH = "bin/Debug";
-#else
-static const char* CONFIG_PATH = "bin/Release";
-#endif
-#else
-static const char* CONFIG_PATH = "lib";
-#endif
-
-static VkInstance instance;
-static VkPhysicalDevice gpu;
+static VkPhysicalDevice gpu_profile;
+static VkPhysicalDevice gpu_native;
 static profiles_test::VulkanInstanceBuilder inst_builder;
-
 
 class TestsCapabilitiesGenerated : public VkTestFramework {
   public:
@@ -106,31 +95,43 @@ class TestsCapabilitiesGenerated : public VkTestFramework {
     static void SetUpTestSuite() {
         VkResult err = VK_SUCCESS;
 
-        const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-        profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api_generated.json";
         settings.emulate_portability = true;
         settings.profile_name = "VP_LUNARG_test_api";
-        settings.simulate_capabilities = SimulateCapabilityFlag::SIMULATE_ALL_CAPABILITIES;
+        settings.simulate_capabilities = SIMULATE_MAX_ENUM;
         settings.debug_reports = DEBUG_REPORT_ERROR_BIT;
-        err = inst_builder.makeInstance(&settings);
 
-        instance = inst_builder.getInstance();
-        err = inst_builder.getPhysicalDevice(&gpu);
+        err = inst_builder.init(&settings);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu_profile);
+        ASSERT_EQ(err, VK_SUCCESS);
+
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_NATIVE, &gpu_native);
+        ASSERT_EQ(err, VK_SUCCESS);
     };
 
     static void TearDownTestSuite() {
-        if (instance != VK_NULL_HANDLE) {
-            vkDestroyInstance(instance, nullptr);
-            instance = VK_NULL_HANDLE;
-        }
+        inst_builder.reset();
     };
 
 };
+
+bool IsSupported(VkPhysicalDevice device, const char* extension_name){
+    uint32_t count = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
+    std::vector<VkExtensionProperties> extensions(count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, extensions.data());
+
+    for (const auto& ext : extensions) {
+        if (strcmp(ext.extensionName, extension_name) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 '''
 
@@ -269,15 +270,6 @@ class ProfileGenerator():
         self.test_values = dict()
         for name, value  in registry.structs.items():
             if ('VkPhysicalDeviceProperties2' in value.extends and value.definedByExtensions):
-                skip = False
-                for skipped in gen_layer.VulkanProfilesLayerGenerator.non_modifiable_structs:
-                    if (name.startswith(skipped)):
-                        skip = True
-                        break
-                if skip:
-                    continue
-                if gen_layer.VulkanProfilesLayerGenerator.from_skipped_extension(gen_layer.VulkanProfilesLayerGenerator(), name, registry):
-                    continue
                 self.test_values[name] = dict()
                 if first:
                     first = False
@@ -290,6 +282,7 @@ class ProfileGenerator():
                 for property in value.members:
                     member = value.members[property]
                     property_type = member.type
+                    property_limittype = member.limittype
                     property_name = member.name
                     property_size = 1
                     if (member.arraySize):
@@ -312,6 +305,8 @@ class ProfileGenerator():
                     gen += '                    \"'
                     gen += property_name
                     gen += '\": '
+                    #if member.limittype == "":
+                    #    self.test_values[name][property] = 
                     if property_type == "VkBool32":
                         gen += "true"
                         self.test_values[name][property] = 'VK_TRUE'
@@ -365,6 +360,11 @@ class ProfileGenerator():
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
+                    elif property_type == "VkToolPurposeFlags":
+                        enum = self.get_enum('VkToolPurposeFlagBits', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
                     elif property_type == "VkShaderFloatControlsIndependence":
                         enum = self.get_enum(property_type, False)
                         gen += enum[0]
@@ -413,11 +413,22 @@ class ProfileGenerator():
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
+                    elif property_type == "VkPipelineRobustnessBufferBehaviorEXT":
+                        enum = self.get_enum('VkPipelineRobustnessBufferBehaviorEXT', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkPipelineRobustnessImageBehaviorEXT":
+                        enum = self.get_enum('VkPipelineRobustnessImageBehaviorEXT', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
                     elif property_type == "char":
                         gen += "\""
                         gen += property_name
                         gen += "\""
                         self.test_values[name][property] = '\"' + property_name + '\"'
+                        self.i += 1
                     else:
                         gen += property_type
                 gen += '\n'
@@ -523,10 +534,6 @@ class ProfileGenerator():
 
         for name, value  in registry.structs.items():
             if ('VkPhysicalDeviceProperties2' in value.extends):
-                if name in gen_layer.VulkanProfilesLayerGenerator.non_modifiable_structs:
-                    continue
-                if gen_layer.VulkanProfilesLayerGenerator.from_skipped_extension(gen_layer.VulkanProfilesLayerGenerator(), name, registry):
-                    continue
                 gen += self.gen_properties_test(registry, name, value)
             if ('VkPhysicalDeviceFeatures2' in value.extends):
                 if name in self.skipped_features:
@@ -549,36 +556,81 @@ class ProfileGenerator():
         for ext in value.definedByExtensions:
             gen += '#ifdef ' + registry.extensions[ext].name + '\n'
 
-        var_name = self.create_var_name(name)
-        gen += '    ' + name + ' ' + var_name + '{};\n'
-        gen += '    ' + var_name + '.sType = ' + value.sType + ';\n\n'
+        gen += '    bool supported = false;\n'
+        for ext in value.definedByExtensions:
+            gen += '    supported = supported && IsSupported(gpu_profile, "' + registry.extensions[ext].name + '");\n\n'
 
-        gen += '    VkPhysicalDeviceProperties2 gpu_props{};\n'
-        gen += '    gpu_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;\n'
-        gen += '    gpu_props.pNext = &' + var_name + ';\n'
-        gen += '    vkGetPhysicalDeviceProperties2(gpu, &gpu_props);\n\n'
+        var_name = self.create_var_name(name)
+        gen += '    ' + name + ' ' + var_name + '_native' + '{};\n'
+        gen += '    ' + var_name + '_native' + '.sType = ' + value.sType + ';\n\n'
+
+        gen += '    VkPhysicalDeviceProperties2 gpu_props_native{};\n'
+        gen += '    gpu_props_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;\n'
+        gen += '    gpu_props_native.pNext = &' + var_name + '_native' + ';\n'
+        gen += '    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props_native);\n\n'
+
+        gen += '    ' + name + ' ' + var_name + '_profile' + '{};\n'
+        gen += '    ' + var_name + '_profile' + '.sType = ' + value.sType + ';\n\n'
+
+        gen += '    VkPhysicalDeviceProperties2 gpu_props_profile{};\n'
+        gen += '    gpu_props_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;\n'
+        gen += '    gpu_props_profile.pNext = &' + var_name + '_profile' + ';\n'
+        gen += '    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);\n\n'
 
         for member in value.members:
             if member in self.test_values[name]:
                 property_value = self.test_values[name][member]
                 if (property_value):
-                    if type(property_value) is list:
-                        if (len(property_value) > 1):
-                            for i in range(len(property_value)):
-                                gen += '    EXPECT_EQ(' + var_name + '.' + member + '[' + str(i) + '], ' + str(property_value[i]) + ');\n'
-                        else:
-                            gen += '    EXPECT_EQ(' + var_name + '.' + member + ', ' + str(property_value[0]) + ');\n'
-                    elif type(property_value) is tuple:
+                    if (registry.structs[name].members[member].limittype == 'exact' or registry.structs[name].members[member].limittype == 'noauto'):
                         member_type = registry.structs[name].members[member].type
-                        if (member_type == 'VkExtent2D'):
-                            gen += '    EXPECT_EQ(' + var_name + '.' + member + '.width, ' + str(property_value[0]) + ');\n'
-                            gen += '    EXPECT_EQ(' + var_name + '.' + member + '.height, ' + str(property_value[1]) + ');\n'
-                        elif (member_type == 'VkExtent3D'):
-                            gen += '    EXPECT_EQ(' + var_name + '.' + member + '.width, ' + str(property_value[0]) + ');\n'
-                            gen += '    EXPECT_EQ(' + var_name + '.' + member + '.height, ' + str(property_value[1]) + ');\n'
-                            gen += '    EXPECT_EQ(' + var_name + '.' + member + '.depth, ' + str(property_value[2]) + ');\n'
+                        # VkConformanceVersion is noauto and unmodified
+                        if 'VkConformanceVersion' in member_type:
+                            continue
+                        
+                        gen += '    if (supported) {\n'
+                        if type(property_value) is list:
+                            if (len(property_value) > 1):
+                                for i in range(len(property_value)):
+                                    gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '[' + str(i) + '], ' + var_name + '_native' + '.' + member + '[' + str(i) + ']);\n'
+                            else:
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + ', ' + var_name + '_native' + '.' + member + ');\n'
+                        elif type(property_value) is tuple:
+                            if (member_type == 'VkExtent2D'):
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.width, ' + var_name + '_native' + '.' + member + '.width);\n'
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.height, ' + var_name + '_native' + '.' + member + '.height);\n'
+                            elif (member_type == 'VkExtent3D'):
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.width, ' + var_name + '_native' + '.' + member + '.width);\n'
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.height, ' + var_name + '_native' + '.' + member + '.height);\n'
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.depth, ' + var_name + '_native' + '.' + member + '.depth);\n'
+                            else:
+                                print('ERROR: unknown tuple type from ' + name + '.' + member)
+                        elif registry.structs[name].members[member].type == 'char':
+                            gen += '    EXPECT_EQ(0, strncmp(' + var_name + '_profile' + '.' + member + ', ' + var_name + '_native' + '.' + member + ', ' + str(len(property_value)) + '));\n'
+                        else:
+                            gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + ', ' + var_name + '_native' + '.' + member + ');\n'
+                        gen += '    }\n\n'
                     else:
-                        gen += '    EXPECT_EQ(' + var_name + '.' + member + ', ' + property_value + ');\n'
+                        if type(property_value) is list:
+                            if (len(property_value) > 1):
+                                for i in range(len(property_value)):
+                                    gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '[' + str(i) + '], ' + str(property_value[i]) + ');\n'
+                            else:
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + ', ' + str(property_value[0]) + ');\n'
+                        elif type(property_value) is tuple:
+                            member_type = registry.structs[name].members[member].type
+                            if (member_type == 'VkExtent2D'):
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.width, ' + str(property_value[0]) + ');\n'
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.height, ' + str(property_value[1]) + ');\n'
+                            elif (member_type == 'VkExtent3D'):
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.width, ' + str(property_value[0]) + ');\n'
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.height, ' + str(property_value[1]) + ');\n'
+                                gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + '.depth, ' + str(property_value[2]) + ');\n'
+                            else:
+                                print('ERROR: unknown tuple type from ' + name + '.' + member)
+                        elif registry.structs[name].members[member].type == 'char':
+                            gen += '    EXPECT_EQ(0, strncmp(' + var_name + '_profile' + '.' + member + ', ' + property_value + ', ' + str(len(property_value)) + '));\n'
+                        else:
+                            gen += '    EXPECT_EQ(' + var_name + '_profile' + '.' + member + ', ' + property_value + ');\n'
 
         for ext in value.definedByExtensions:
             gen += '#endif\n'
@@ -600,7 +652,7 @@ class ProfileGenerator():
         gen += '    VkPhysicalDeviceFeatures2 features;\n'
         gen += '    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;\n'
         gen += '    features.pNext = &' + var_name + ';\n'
-        gen += '    vkGetPhysicalDeviceFeatures2(gpu, &features);\n\n'
+        gen += '    vkGetPhysicalDeviceFeatures2(gpu_profile, &features);\n\n'
         
         for member in value.members:
             gen += '    EXPECT_EQ(' + var_name + '.' + member + ', VK_TRUE);\n'
@@ -614,7 +666,7 @@ class ProfileGenerator():
         gen = 'TEST_F(TestsCapabilitiesGenerated, Test' + name[2:] + ') {\n'
         gen += '    VkFormat format = ' + name + ';\n'
         gen += '    VkFormatProperties format_properties;\n'
-        gen += '    vkGetPhysicalDeviceFormatProperties(gpu, format, &format_properties);\n\n'
+        gen += '    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);\n\n'
 
         gen += '    VkFormatFeatureFlags linear_tiling_features = '
         first = True
@@ -696,7 +748,7 @@ if __name__ == '__main__':
         parser.print_help()
         exit()
 
-    registry = genvp.VulkanRegistry(args.registry)
+    registry = gen_profiles_solution.VulkanRegistry(args.registry)
     generator = ProfileGenerator()
     generator.generate_profile(args.outProfile, registry)
     generator.generate_tests(args.outTests, registry)

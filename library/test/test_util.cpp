@@ -26,6 +26,28 @@
 #include <vulkan/vulkan_profiles.h>
 #endif
 
+TEST(test_library_util, isMultiple) { 
+    EXPECT_TRUE((4 % 2) == 0);
+    EXPECT_TRUE((4 % 1) == 0);
+
+    EXPECT_TRUE(detail::isMultiple(4.0, 2.0));
+    EXPECT_TRUE(detail::isMultiple(4.0, 0.5));
+    EXPECT_TRUE(detail::isMultiple(4.0, 1.0));
+    
+    EXPECT_FALSE(detail::isMultiple(4.0, 3.0));
+}
+
+TEST(test_library_util, isPowerOfTwo) {
+    EXPECT_TRUE(detail::isPowerOfTwo(4.0));
+    EXPECT_TRUE(detail::isPowerOfTwo(1.0));
+    EXPECT_TRUE(detail::isPowerOfTwo(0.0));
+
+    EXPECT_FALSE(detail::isPowerOfTwo(3.0));
+    EXPECT_FALSE(detail::isPowerOfTwo(1.5));
+    EXPECT_FALSE(detail::isPowerOfTwo(0.5));
+}
+
+
 #define ARRAY_SIZE(arr) static_cast<uint32_t>(sizeof(arr) / sizeof(arr[0]))
 
 struct FormatFeatureFlagBits {
@@ -189,10 +211,10 @@ TEST(test_library_util, CheckExtension) {
 
 TEST(test_library_util, GetDeviceExtensions) {
     static const char *EXTENSIONS[] = {
-        VK_KHR_MAINTENANCE_3_EXTENSION_NAME,                    // Not in VP_LUNARG_1_1_DESKTOP_PORTABILITY_2022_NAME
-        VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME,  // Not in VP_LUNARG_1_1_DESKTOP_PORTABILITY_2022_NAME
-        VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,              // In VP_LUNARG_1_1_DESKTOP_PORTABILITY_2022_NAME
-        VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME                 // In VP_LUNARG_1_1_DESKTOP_PORTABILITY_2022_NAME
+        VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME,  // Not in VP_LUNARG_DESKTOP_BASELINE_2022_NAME
+        VK_KHR_MAINTENANCE_3_EXTENSION_NAME,                    // In VP_LUNARG_DESKTOP_BASELINE_2022_NAME
+        VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,              // In VP_LUNARG_DESKTOP_BASELINE_2022_NAME
+        VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME                 // In VP_LUNARG_DESKTOP_BASELINE_2022_NAME
     };
 
     VkDeviceCreateInfo info = {};
@@ -200,7 +222,7 @@ TEST(test_library_util, GetDeviceExtensions) {
     info.pNext = nullptr;
     info.pEnabledFeatures = nullptr;
 
-    const VpProfileProperties profile = {VP_LUNARG_DESKTOP_PORTABILITY_2021_NAME, VP_LUNARG_DESKTOP_PORTABILITY_2021_SPEC_VERSION};
+    const VpProfileProperties profile = {VP_LUNARG_DESKTOP_BASELINE_2022_NAME, VP_LUNARG_DESKTOP_BASELINE_2022_SPEC_VERSION};
 
     VpDeviceCreateInfo profileInfo = {};
     profileInfo.pCreateInfo = &info;
@@ -214,12 +236,12 @@ TEST(test_library_util, GetDeviceExtensions) {
         std::vector<const char *> extensions;
         detail::vpGetExtensions(profileInfo.pCreateInfo->enabledExtensionCount,
                                 profileInfo.pCreateInfo->ppEnabledExtensionNames,
-                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions),
-                                &detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions[0],
+                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions),
+                                &detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions[0],
                                 extensions,
                                 (profileInfo.flags & VP_DEVICE_CREATE_MERGE_EXTENSIONS_BIT) != 0,
                                 (profileInfo.flags & VP_DEVICE_CREATE_OVERRIDE_EXTENSIONS_BIT) != 0);
-        EXPECT_EQ(ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions), extensions.size());
+        EXPECT_EQ(ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions), extensions.size());
     }
 
     {
@@ -230,12 +252,12 @@ TEST(test_library_util, GetDeviceExtensions) {
         std::vector<const char *> extensions;
         detail::vpGetExtensions(profileInfo.pCreateInfo->enabledExtensionCount,
                                 profileInfo.pCreateInfo->ppEnabledExtensionNames,
-                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions),
-                                &detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions[0],
+                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions),
+                                &detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions[0],
                                 extensions,
                                 (profileInfo.flags & VP_DEVICE_CREATE_MERGE_EXTENSIONS_BIT) != 0,
                                 (profileInfo.flags & VP_DEVICE_CREATE_OVERRIDE_EXTENSIONS_BIT) != 0);
-        EXPECT_EQ(ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions) + 2, extensions.size());
+        EXPECT_EQ(ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions) + 1, extensions.size());
     }
 
     {
@@ -246,8 +268,8 @@ TEST(test_library_util, GetDeviceExtensions) {
         std::vector<const char *> extensions;
         detail::vpGetExtensions(profileInfo.pCreateInfo->enabledExtensionCount,
                                 profileInfo.pCreateInfo->ppEnabledExtensionNames,
-                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions),
-                                &detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions[0],
+                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions),
+                                &detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions[0],
                                 extensions,
                                 (profileInfo.flags & VP_DEVICE_CREATE_MERGE_EXTENSIONS_BIT) != 0,
                                 (profileInfo.flags & VP_DEVICE_CREATE_OVERRIDE_EXTENSIONS_BIT) != 0);
@@ -262,8 +284,8 @@ TEST(test_library_util, GetDeviceExtensions) {
         std::vector<const char *> extensions;
         detail::vpGetExtensions(profileInfo.pCreateInfo->enabledExtensionCount,
                                 profileInfo.pCreateInfo->ppEnabledExtensionNames,
-                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions),
-                                &detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions[0],
+                                ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions),
+                                &detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions[0],
                                 extensions,
                                 (profileInfo.flags & VP_DEVICE_CREATE_MERGE_EXTENSIONS_BIT) != 0,
                                 (profileInfo.flags & VP_DEVICE_CREATE_OVERRIDE_EXTENSIONS_BIT) != 0);
@@ -272,7 +294,7 @@ TEST(test_library_util, GetDeviceExtensions) {
 }
 
 TEST(test_library_util, check_extension_not_found) {
-    static const char *EXTENSIONS[] = {VK_KHR_MAINTENANCE_3_EXTENSION_NAME, VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME};
+    static const char *EXTENSIONS[] = {VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME};
 
     VkDeviceCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -282,8 +304,8 @@ TEST(test_library_util, check_extension_not_found) {
     info.ppEnabledExtensionNames = EXTENSIONS;
 
     for (std::size_t i = 0, n = info.enabledExtensionCount; i < n; ++i) {
-        EXPECT_FALSE(detail::vpCheckExtension(&detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions[0],
-                                              ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions),
+        EXPECT_FALSE(detail::vpCheckExtension(&detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions[0],
+                                              ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions),
                                               info.ppEnabledExtensionNames[i]));
     }
 }
@@ -299,8 +321,8 @@ TEST(test_library_util, check_extension_found) {
     info.ppEnabledExtensionNames = EXTENSIONS;
 
     for (std::size_t i = 0, n = info.enabledExtensionCount; i < n; ++i) {
-        EXPECT_TRUE(detail::vpCheckExtension(&detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions[0],
-                                             ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_PORTABILITY_2021::deviceExtensions),
+        EXPECT_TRUE(detail::vpCheckExtension(&detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions[0],
+                                             ARRAY_SIZE(detail::VP_LUNARG_DESKTOP_BASELINE_2022::deviceExtensions),
                                              info.ppEnabledExtensionNames[i]));
     }
 }

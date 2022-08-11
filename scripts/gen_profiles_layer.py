@@ -16,7 +16,7 @@
 #
 # Author: Ziga Markus <ziga@lunarg.com>
 
-import genvp
+import gen_profiles_solution
 import argparse
 
 COPYRIGHT_HEADER = '''
@@ -158,6 +158,7 @@ bool device_has_astc_hdr = false;
 bool device_has_astc = false;
 bool device_has_etc2 = false;
 bool device_has_bc = false;
+bool device_has_pvrtc = false;
 
 FILE *profiles_log_file = nullptr;
 
@@ -449,6 +450,7 @@ class PhysicalDeviceData {
     VkPhysicalDeviceProperties physical_device_properties_;
     VkPhysicalDeviceFeatures physical_device_features_;
     VkPhysicalDeviceMemoryProperties physical_device_memory_properties_;
+    VkPhysicalDeviceToolProperties physical_device_tool_properties_;
     VkSurfaceCapabilitiesKHR surface_capabilities_;
     ArrayOfVkFormatProperties arrayof_format_properties_;
     ArrayOfVkFormatProperties3 arrayof_format_properties_3_;
@@ -851,7 +853,7 @@ GET_VALUE_FUNCTIONS = '''
 
     template <typename T>  // for Vulkan enum types
     bool GetValueEnum(const Json::Value &parent, const std::string &member, const char *name, T *dest,
-                      std::function<bool(const char *, T, T)> warn_func = nullptr) {
+                      std::function<bool(const char *, std::uint32_t, std::uint32_t)> warn_func = nullptr) {
         if (member != name) {
             return true;
         }
@@ -861,8 +863,14 @@ GET_VALUE_FUNCTIONS = '''
         if (value.isString()) {
             new_value = static_cast<T>(VkStringToUint(value.asString()));
         }
-        if (WarnIfNotEqualEnum(name, new_value, *dest)) {
-            valid = false;
+        if (warn_func) {
+            if (warn_func(name, new_value, *dest)) {
+                valid = false;
+            }
+        } else {
+            if (WarnIfNotEqualEnum(name, new_value, *dest)) {
+                valid = false;
+            }
         }
         *dest = static_cast<T>(new_value);
         return valid;
@@ -927,7 +935,7 @@ GET_ARRAY_FUNCTIONS = '''
         }
         const int count = static_cast<int>(value.size());
         for (int i = 0; i < count; ++i) {
-            dest[i] = value[i].asUInt();
+            dest[i] = static_cast<uint8_t>(value[i].asUInt());
         }
         return count;
     }
@@ -939,7 +947,7 @@ GET_ARRAY_FUNCTIONS = '''
         }
         const int count = static_cast<int>(value.size());
         for (int i = 0; i < count; ++i) {
-            dest[i] = value[i].asUInt();
+            dest[i] = static_cast<uint32_t>(value[i].asUInt());
         }
         return count;
     }
@@ -1049,6 +1057,10 @@ bool JsonLoader::GetFormat(const Json::Value &formats, const std::string &format
     }
     if (IsBCFormat(format) && !device_has_bc) {
         // We already notified that BC is not supported, no spamming
+        return false;
+    }
+    if (IsPVRTCFormat(format) &&!device_has_pvrtc) {
+        // We already notified that PVRTC is not supported, no spamming
         return false;
     }
 
@@ -1225,7 +1237,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
                 dest->checkpoint_properties_.checkpointExecutionStageMask |= StringToVkPipelineStageFlags(feature.asString());
             }
         } else if (name == "VkQueueFamilyQueryResultStatusProperties2KHR") {
-            dest->query_result_status_properties_2_.supported = props["supported"].asBool();
+            dest->query_result_status_properties_2_.queryResultStatusSupport = props["queryResultStatusSupport"].asBool() ? VK_TRUE : VK_FALSE;
         }
     }
 
@@ -1253,7 +1265,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
             dest->checkpoint_properties_2_.checkpointExecutionStageMask) {
             continue;
         }
-        if (device_qfp.query_result_status_properties_2_.supported != dest->query_result_status_properties_2_.supported) {
+        if (device_qfp.query_result_status_properties_2_.queryResultStatusSupport != dest->query_result_status_properties_2_.queryResultStatusSupport) {
             continue;
         }
         supported = true;
@@ -1293,8 +1305,8 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
             message += format(", VkQueueFamilyCheckpointProperties2NV [checkpointExecutionStageMask: %s]",
                               string_VkPipelineStageFlags2KHR(dest->checkpoint_properties_2_.checkpointExecutionStageMask).c_str());
         }
-        if (dest->query_result_status_properties_2_.supported) {
-            message += format(", VkQueueFamilyQueryResultStatusProperties2KHR [supported: VK_TRUE]");
+        if (dest->query_result_status_properties_2_.queryResultStatusSupport) {
+            message += format(", VkQueueFamilyQueryResultStatusProperties2KHR [queryResultStatusSupport: VK_TRUE]");
         }
         message += ".\\n";
         LogMessage(DEBUG_REPORT_WARNING_BIT, message);
@@ -1327,7 +1339,7 @@ bool QueueFamilyAndExtensionsMatch(const QueueFamilyProperties &device, const Qu
         profile.checkpoint_properties_2_.checkpointExecutionStageMask) {
         return false;
     }
-    if (device.query_result_status_properties_2_.supported != profile.query_result_status_properties_2_.supported) {
+    if (device.query_result_status_properties_2_.queryResultStatusSupport != profile.query_result_status_properties_2_.queryResultStatusSupport) {
         return false;
     }
     return true;
@@ -1435,11 +1447,11 @@ struct JsonValidator {
 
     bool Init() {
 #ifdef __APPLE__
-        const std::string schema_path = "/usr/local/share/vulkan/registry/profile_schema.json";
+        const std::string schema_path = "/usr/local/share/vulkan/registry/profiles-0.8-latest.json";
 #else
         const char *sdk_path = std::getenv("VULKAN_SDK");
         if (sdk_path == nullptr) return false;
-        const std::string schema_path = std::string(sdk_path) + "/share/vulkan/registry/profile_schema.json";
+        const std::string schema_path = std::string(sdk_path) + "/share/vulkan/registry/profiles-0.8-latest.json";
 #endif
 
         if (!schema) {
@@ -1498,7 +1510,6 @@ struct JsonValidator {
 
     std::string message;
     std::unique_ptr<Schema> schema;
-    std::unique_ptr<Validator> validator;
 };
 '''
 
@@ -1506,21 +1517,28 @@ READ_PROFILE = '''
 VkResult JsonLoader::ReadProfile(const Json::Value root, const std::vector<std::string> &capabilities) {
     bool failed = false;
 
-    std::uint32_t properties_api_version = 0;
+    uint32_t properties_api_version = 0;
+    uint32_t simulated_version = 0;
 
     const auto &caps = root["capabilities"];
     for (const auto &capability : capabilities) {
         const auto &c = caps[capability];
 
         const auto &properties = c["properties"];
-        if (properties.isMember("VkPhysicalDeviceProperties")) {
-            if (properties["VkPhysicalDeviceProperties"].isMember("apiVersion")) {
-                properties_api_version = properties["VkPhysicalDeviceProperties"]["apiVersion"].asInt();
-                AddPromotedExtensions(properties_api_version);
-            }
+        if (properties.isMember("VkPhysicalDeviceProperties") && properties["VkPhysicalDeviceProperties"].isMember("apiVersion")) {
+            properties_api_version = properties["VkPhysicalDeviceProperties"]["apiVersion"].asInt();
+            simulated_version = properties_api_version;
         } else if (layer_settings->simulate_capabilities & SIMULATE_API_VERSION_BIT) {
-            AddPromotedExtensions(this->profile_api_version_);
+            simulated_version = profile_api_version_;
         }
+    }
+    if (simulated_version != 0) {
+        AddPromotedExtensions(simulated_version);
+    }
+
+    for (const auto &capability : capabilities) {
+        const auto &c = caps[capability];
+        const auto &properties = c["properties"];
 
         if (VK_API_VERSION_PATCH(this->profile_api_version_) > VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion)) {
             LogMessage(DEBUG_REPORT_ERROR_BIT,
@@ -1561,10 +1579,8 @@ VkResult JsonLoader::ReadProfile(const Json::Value root, const std::vector<std::
                         failed = true;
                     }
                     pdd_->arrayof_extension_properties_.push_back(extension);
-                    if (layer_settings->simulate_capabilities & SIMULATE_EXTENSIONS_BIT) {
-                        if (!PhysicalDeviceData::HasSimulatedExtension(pdd_, extension.extensionName)) {
-                            pdd_->simulation_extensions_.push_back(extension);
-                        }
+                    if (!PhysicalDeviceData::HasSimulatedExtension(pdd_, extension.extensionName)) {
+                        pdd_->simulation_extensions_.push_back(extension);
                     }
                 }
             }
@@ -1872,8 +1888,8 @@ GET_DEFINES = '''
     if (!GetValueFlag(parent, member, #name, &dest->name)) { \\
         valid = false;                                       \\
     }
-#define GET_VALUE_ENUM_WARN(member, name)                    \\
-    if (!GetValueEnum(parent, member, #name, &dest->name)) { \\
+#define GET_VALUE_ENUM_WARN(member, name, warn_func)                    \\
+    if (!GetValueEnum(parent, member, #name, &dest->name, warn_func)) { \\
         valid = false;                                       \\
     }
 '''
@@ -1884,6 +1900,64 @@ GET_UNDEFINE = '''
 '''
 
 SETTINGS_FUNCTIONS = '''
+static DebugActionFlags GetDebugActionFlags(const vku::Strings &values) {
+    DebugActionFlags result = 0;
+
+    for (std::size_t i = 0, n = values.size(); i < n; ++i) {
+        if (values[i] == "DEBUG_ACTION_FILE_BIT") {
+            result |= DEBUG_ACTION_FILE_BIT;
+        } else if (values[i] == "DEBUG_ACTION_STDOUT_BIT") {
+            result |= DEBUG_ACTION_STDOUT_BIT;
+        } else if (values[i] == "DEBUG_ACTION_OUTPUT_BIT") {
+            result |= DEBUG_ACTION_OUTPUT_BIT;
+        } else if (values[i] == "DEBUG_ACTION_BREAKPOINT_BIT") {
+            result |= DEBUG_ACTION_BREAKPOINT_BIT;
+        }
+    }
+
+    return result;
+}
+
+static std::string GetDebugActionsLog(DebugActionFlags flags) {
+    std::string result = {};
+
+    if (flags & DEBUG_ACTION_FILE_BIT) {
+        result += "DEBUG_ACTION_FILE_BIT";
+    }
+    if (flags & DEBUG_ACTION_STDOUT_BIT) {
+        if (!result.empty()) result += ", ";
+        result += "DEBUG_ACTION_STDOUT_BIT";
+    }
+    if (flags & DEBUG_ACTION_OUTPUT_BIT) {
+        if (!result.empty()) result += ", ";
+        result += "DEBUG_ACTION_OUTPUT_BIT";
+    }
+    if (flags & DEBUG_ACTION_BREAKPOINT_BIT) {
+        if (!result.empty()) result += ", ";
+        result += "DEBUG_ACTION_BREAKPOINT_BIT";
+    }
+
+    return result;
+}
+
+static DebugReportFlags GetDebugReportFlags(const vku::Strings &values) {
+    DebugReportFlags result = 0;
+
+    for (std::size_t i = 0, n = values.size(); i < n; ++i) {
+        if (values[i] == "DEBUG_REPORT_NOTIFICATION_BIT") {
+            result |= DEBUG_REPORT_NOTIFICATION_BIT;
+        } else if (values[i] == "DEBUG_REPORT_WARNING_BIT") {
+            result |= DEBUG_REPORT_WARNING_BIT;
+        } else if (values[i] == "DEBUG_REPORT_ERROR_BIT") {
+            result |= DEBUG_REPORT_ERROR_BIT;
+        } else if (values[i] == "DEBUG_REPORT_DEBUG_BIT") {
+            result |= DEBUG_REPORT_DEBUG_BIT;
+        }
+    }
+
+    return result;
+}
+
 std::string GetString(const vku::List &list) {
     std::string result;
     for (std::size_t i = 0, n = list.size(); i < n; ++i) {
@@ -1917,9 +1991,9 @@ const VkProfileLayerSettingsEXT *FindSettingsInChain(const void *next) {
 }
 
 static void InitSettings(const void *pnext) {
-    const VkProfileLayerSettingsEXT *user_settings = nullptr;
+    const VkProfileLayerSettingsEXT *user_settings = FindSettingsInChain(pnext);
     // Programmatically-specified settings override ENV vars or layer settings file settings
-    if ((pnext) && (user_settings = FindSettingsInChain(pnext))) {
+    if (pnext && user_settings) {
         *layer_settings = *user_settings;
     } else {
         if (vku::IsLayerSetting(kOurLayerName, kLayerSettingsProfileFile)) {
@@ -2045,7 +2119,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     if (layer_settings) {
         delete layer_settings;
     }
-    layer_settings = new VkProfileLayerSettingsEXT;
+    layer_settings = new VkProfileLayerSettingsEXT{};
 
     LogMessage(DEBUG_REPORT_DEBUG_BIT, "CreateInstance\\n");
     LogMessage(DEBUG_REPORT_DEBUG_BIT, ::format("JsonCpp version %s\\n", JSONCPP_VERSION_STRING));
@@ -2366,17 +2440,19 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevi
     uint32_t pCount_copy = *pCount;
 
     PhysicalDeviceData *pdd = PhysicalDeviceData::Find(physicalDevice);
-    const uint32_t src_count = (pdd) ? static_cast<uint32_t>(pdd->simulation_extensions_.size()) : 0;
+    const uint32_t src_count = pdd ? static_cast<uint32_t>(pdd->simulation_extensions_.size()) : 0;
     if (pLayerName) {
         if (strcmp(pLayerName, kOurLayerName) == 0)
             result = EnumerateProperties(kDeviceExtensionPropertiesCount, kDeviceExtensionProperties.data(), pCount, pProperties);
         else
             result = dt->EnumerateDeviceExtensionProperties(physicalDevice, pLayerName, pCount, pProperties);
-    } else if (src_count == 0 || (!(layer_settings->simulate_capabilities & SIMULATE_EXTENSIONS_BIT) &&
+    //} else if (src_count == 0 || (!(layer_settings->simulate_capabilities & SIMULATE_EXTENSIONS_BIT) &&
+    //                              layer_settings->exclude_device_extensions.empty())) {
+    } else if (pdd == nullptr || (!(layer_settings->simulate_capabilities & SIMULATE_EXTENSIONS_BIT) &&
                                   layer_settings->exclude_device_extensions.empty())) {
         result = dt->EnumerateDeviceExtensionProperties(physicalDevice, pLayerName, pCount, pProperties);
     } else {
-        result = EnumerateProperties(src_count, pdd->simulation_extensions_.data(), pCount, pProperties);
+        result = EnumerateProperties(static_cast<uint32_t>(pdd->simulation_extensions_.size()), pdd->simulation_extensions_.data(), pCount, pProperties);
     }
 
     if (result == VK_SUCCESS && !pLayerName && layer_settings->emulate_portability &&
@@ -2543,7 +2619,6 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceImageFormatProperties(VkPhysical
     const auto dt = instance_dispatch_table(physicalDevice);
 
     // Are there JSON overrides, or should we call down to return the original values?
-    PhysicalDeviceData *pdd = PhysicalDeviceData::Find(physicalDevice);
     if (!(layer_settings->simulate_capabilities & SIMULATE_FORMATS_BIT)) {
         return dt->GetPhysicalDeviceImageFormatProperties(physicalDevice, format, type, tiling, usage, flags,
                                                           pImageFormatProperties);
@@ -2628,16 +2703,26 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceToolProperties(VkPhysicalDevice 
 }
 '''
 
+TRANSFER_DEFINES_ARRAY = '''
+#define TRANSFER_VALUE_ARRAY(name)    \\
+    if (promoted_written) {     \\
+        std::memmove(src->name, dest->name, sizeof(src->name)); \\
+    } else {                    \\
+        std::memmove(dest->name, src->name, sizeof(dest->name)); \\
+    }
+'''
+
 TRANSFER_DEFINES = '''
 #define TRANSFER_VALUE(name)    \\
     if (promoted_written) {     \\
-        src->name = dest->name; \\
+        std::memmove(&src->name, &dest->name, sizeof(src->name)); \\
     } else {                    \\
-        dest->name = src->name; \\
+        std::memmove(&dest->name, &src->name, sizeof(dest->name)); \\
     }
 '''
 
 TRANSFER_UNDEFINE = '''
+#undef TRANSFER_VALUE_ARRAY
 #undef TRANSFER_VALUE
 '''
 
@@ -2728,6 +2813,7 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
             bool api_version_above_1_3 = effective_api_version >= VK_API_VERSION_1_3;
 
             ::device_has_astc_hdr = ::PhysicalDeviceData::HasExtension(&pdd, VK_EXT_TEXTURE_COMPRESSION_ASTC_HDR_EXTENSION_NAME);
+            ::device_has_pvrtc = ::PhysicalDeviceData::HasExtension(&pdd, VK_IMG_FORMAT_PVRTC_EXTENSION_NAME);
 
             // Initialize PDD members to the actual Vulkan implementation's defaults.
             {
@@ -2937,7 +3023,7 @@ GET_VALUE_PHYSICAL_DEVICE_PROPERTIES = '''bool JsonLoader::GetValue(const Json::
         GET_VALUE(prop, driverVersion);
         GET_VALUE(prop, vendorID);
         GET_VALUE(prop, deviceID);
-        GET_VALUE_ENUM_WARN(prop, deviceType);
+        GET_VALUE_ENUM_WARN(prop, deviceType, WarnIfNotEqualEnum);
         GET_ARRAY(deviceName);         // size < VK_MAX_PHYSICAL_DEVICE_NAME_SIZE
         GET_ARRAY(pipelineCacheUUID);  // size == VK_UUID_SIZE*/
     }
@@ -2947,10 +3033,7 @@ GET_VALUE_PHYSICAL_DEVICE_PROPERTIES = '''bool JsonLoader::GetValue(const Json::
 '''
 
 class VulkanProfilesLayerGenerator():
-    skipped_extensions = ['VK_KHR_external_memory_capabilities']
-    skipped_exts = ['NVX']
     emulated_extensions = ['VK_KHR_portability_subset']
-    non_modifiable_structs = ['VkPhysicalDevicePointClippingProperties', 'VkPhysicalDevicePointClippingPropertiesKHR', 'VkPhysicalDeviceDriverProperties', 'VkPhysicalDeviceDriverPropertiesKHR', 'VkPhysicalDeviceIDProperties', 'VkPhysicalDeviceIDPropertiesKHR', 'VkPhysicalDeviceMemoryBudgetPropertiesEXT', 'VkPhysicalDevicePCIBusInfoPropertiesEXT', 'VkPhysicalDeviceDrmPropertiesEXT', 'VkPhysicalDeviceToolProperties', 'VkPhysicalDeviceToolPropertiesEXT', 'VkPhysicalDeviceGroupProperties']
     additional_features = ['VkPhysicalDeviceFeatures']
     additional_properties = ['VkPhysicalDeviceProperties', 'VkPhysicalDeviceLimits', 'VkPhysicalDeviceSparseProperties', 'VkPhysicalDeviceToolProperties']
 
@@ -2996,6 +3079,7 @@ class VulkanProfilesLayerGenerator():
             f.write(PHYSICAL_DEVICE_FORMAT_FUNCTIONS)
             f.write(TOOL_PROPERTIES_FUNCTIONS)
             f.write(TRANSFER_DEFINES)
+            f.write(TRANSFER_DEFINES_ARRAY)
             f.write(self.generate_transfer_values())
             f.write(TRANSFER_UNDEFINE)
             f.write(self.generate_load_device_formats())
@@ -3136,8 +3220,6 @@ class VulkanProfilesLayerGenerator():
         count = 0
         for name, value  in registry.structs.items():
             if (extends in value.extends and value.isAlias == False) or (name in additional):
-                if self.from_skipped_extension(name, registry):
-                    continue
                 aliases = value.aliases.copy()
                 count += 1
                 if count == 75:
@@ -3156,35 +3238,30 @@ class VulkanProfilesLayerGenerator():
                     for alias in copy_aliases:
                         same_version = registry.structs[current].definedByVersion and registry.structs[alias].definedByVersion
                         same_extension = registry.structs[current].definedByExtensions and registry.structs[current].definedByExtensions == registry.structs[alias].definedByExtensions
-                        non_modifiable = current in self.non_modifiable_structs
-                        if same_version or same_extension or non_modifiable:
+                        if same_version or same_extension:
                             gen += ' || name == \"' + alias + '\"'
                             aliases.remove(alias)
-                        if non_modifiable and registry.structs[alias].isAlias == False:
-                            current = alias
                             
                     gen += ') {\n'
 
-                    if current in self.non_modifiable_structs:
-                        gen += '        return GetValue' + current[2:] + '(property);\n'
+                    version = registry.structs[current].definedByVersion
+                    if version:
+                        if version and (version.major != 1 or version.minor != 0):
+                            gen += '        if (!CheckVersionSupport(' + registry.structs[current].definedByVersion.get_api_version_string() + ', name)) return false;\n'
                     else:
-                        version = registry.structs[current].definedByVersion
-                        if version:
-                            if version and (version.major != 1 or version.minor != 0):
-                                gen += '        if (!CheckVersionSupport(' + registry.structs[current].definedByVersion.get_api_version_string() + ', name)) return false;\n'
-                        else:
-                            ext = registry.extensions[registry.structs[current].definedByExtensions[0]]
-                            if not ext.name in self.emulated_extensions:
-                                ext_name = ext.upperCaseName + '_EXTENSION_NAME'
-                                gen += '        auto support = CheckExtensionSupport(' + ext_name + ', name);\n'
-                                gen += '        if (support != ExtensionSupport::SUPPORTED) return valid(support);\n'
-                        # Workarounds
-                        if current == 'VkPhysicalDeviceLimits':
-                            gen += '        return GetValue(' + struct + ', &pdd_->physical_device_properties_.limits);\n'
-                        elif current == 'VkPhysicalDeviceSparseProperties':
-                            gen += '        return GetValue(' + struct + ', &pdd_->physical_device_properties_.sparseProperties);\n'
-                        else:
-                            gen += '        return GetValue(' + struct + ', &pdd_->' + self.create_var_name(current) + ');\n'
+                        ext = registry.extensions[registry.structs[current].definedByExtensions[0]]
+                        if not ext.name in self.emulated_extensions:
+                            ext_name = ext.upperCaseName + '_EXTENSION_NAME'
+                            gen += '        auto support = CheckExtensionSupport(' + ext_name + ', name);\n'
+                            gen += '        if (support != ExtensionSupport::SUPPORTED) return valid(support);\n'
+                    # Workarounds
+                    if current == 'VkPhysicalDeviceLimits':
+                        gen += '        return GetValue(' + struct + ', &pdd_->physical_device_properties_.limits);\n'
+                    elif current == 'VkPhysicalDeviceSparseProperties':
+                        gen += '        return GetValue(' + struct + ', &pdd_->physical_device_properties_.sparseProperties);\n'
+                    else:
+                        gen += '        return GetValue(' + struct + ', &pdd_->' + self.create_var_name(current) + ');\n'
+
                     gen += '    }'
         return gen
 
@@ -3235,6 +3312,11 @@ class VulkanProfilesLayerGenerator():
 
     def generate_add_promoted_extensions(self):
         gen = '\nvoid JsonLoader::AddPromotedExtensions(uint32_t api_version) {\n'
+        gen += '\tconst uint32_t minor = VK_API_VERSION_MINOR(api_version);\n'
+        gen += '\tconst uint32_t major = VK_API_VERSION_MAJOR(api_version);\n'
+        gen += '\tLogMessage(DEBUG_REPORT_NOTIFICATION_BIT,\n'
+        gen += '\t\tformat("Adding promoted extensions to core in Vulkan (%" PRIu32 ".%" PRIu32 ")",major, minor));\n\n'
+
         for i in range(registry.headerVersionNumber.major):
             major = str(i + 1)
             for j in range(registry.headerVersionNumber.minor):
@@ -3247,12 +3329,13 @@ class VulkanProfilesLayerGenerator():
                 gen += '    };\n'
                 gen += '    if (api_version >= VK_API_VERSION_' + major + '_' + minor + ') {\n'
                 gen += '        for (const auto& ext : promoted_' + major + '_' + minor + ') {\n'
+                gen += '            VkExtensionProperties extension;\n'
+                gen += '            strcpy(extension.extensionName, ext);\n'
+                gen += '            extension.specVersion = 1;\n'
                 gen += '            if (!PhysicalDeviceData::HasSimulatedExtension(pdd_, ext)) {\n'
-                gen += '                VkExtensionProperties extension;\n'
-                gen += '                strcpy(extension.extensionName, ext);\n'
-                gen += '                extension.specVersion = 1;\n'
                 gen += '                pdd_->simulation_extensions_.push_back(extension);\n'
                 gen += '            }\n'
+                gen += '            pdd_->arrayof_extension_properties_.push_back(extension);\n'
                 gen += '        }\n'
                 gen += '    }\n'
         gen += '}\n'
@@ -3277,12 +3360,8 @@ class VulkanProfilesLayerGenerator():
         for struct in self.additional_properties:
             if struct == 'VkPhysicalDeviceProperties':
                 gen += GET_VALUE_PHYSICAL_DEVICE_PROPERTIES
-            elif not struct in self.non_modifiable_structs:
+            else:
                 gen += self.generate_get_value_function(struct)
-
-        for struct in self.non_modifiable_structs:
-            if registry.structs[struct].isAlias == False:
-                gen += self.generate_get_value_non_modifiable(struct)
 
         return gen
     
@@ -3365,7 +3444,7 @@ class VulkanProfilesLayerGenerator():
                 gen += '\n\n// VK_VULKAN_' + major + '_' + minor + '\n'
 
                 for ext, property_name, feature_name in self.extension_structs:
-                    if property_name and not property_name in self.non_modifiable_structs:
+                    if property_name:
                         property = registry.structs[property_name]
                         version = None
                         if property.definedByVersion:
@@ -3379,7 +3458,7 @@ class VulkanProfilesLayerGenerator():
                         if version and version.major == int(major) and version.minor == int(minor):
                             gen += self.generate_transfer_function(major, minor, 'Properties', property_name)
 
-                    if feature_name and not feature_name in self.non_modifiable_structs:
+                    if feature_name:
                         feature = registry.structs[feature_name]
                         version = None
                         if feature.definedByVersion:
@@ -3499,8 +3578,13 @@ class VulkanProfilesLayerGenerator():
 
     def generate_transfer_function(self, major, minor, type, name):
         gen = '\nvoid TransferValue(VkPhysicalDeviceVulkan' + major + minor + type + ' *dest, ' + name + ' *src, bool promoted_written) {\n'
-        for member in registry.structs[name].members:
-            gen += '    TRANSFER_VALUE(' + member + ');\n'
+        for member_name in registry.structs[name].members:
+            member = registry.structs[name].members[member_name]
+            # The arrays need a enum member to specify the size of the array
+            if hasattr(member, 'enum'):
+                gen += '    TRANSFER_VALUE_ARRAY(' + member_name + ');\n'
+            else:
+                gen += '    TRANSFER_VALUE(' + member_name + ');\n'
         gen += '}\n'
         return gen
     
@@ -3533,47 +3617,45 @@ class VulkanProfilesLayerGenerator():
 
     def generate_get_value_function(self, structure):
         gen = 'bool JsonLoader::GetValue(const Json::Value &parent, ' + structure + ' *dest) {\n'
+        gen += '    (void)dest;\n'
         gen += '    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetValue(' + structure + ')\\n\");\n'
         gen += '    bool valid = true;\n'
         gen += '    for (const auto &member : parent.getMemberNames()) {\n'
         for member_name in registry.structs[structure].members:
-            if 'VkPhysicalDeviceVulkan' in structure and self.is_non_modifiable_member(member_name):
-                gen += '        WarnNotModifiable(\"' + structure + '\", member, \"' + member_name + '\");\n'
-                continue
             member = registry.structs[structure].members[member_name]
-            if member.type in registry.enums:
-                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ');\n'
+            if member.limittype == 'exact' or member.limittype == 'noauto':
+                gen += '        WarnNotModifiable(\"' + structure + '\", member, \"' + member_name + '\");\n'
+            elif member.type in registry.enums and member.limittype == 'bitmask':
+                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', WarnIfNotEqualEnum);\n'
             elif member.isArray:
                 gen += '        GET_ARRAY(' + member_name + ');\n'
             elif member.type == 'VkBool32':
                 gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfNotEqualBool);\n'
             elif member.limittype == 'bitmask':
                 gen += '        GET_VALUE_FLAG_WARN(member, ' + member_name + ');\n'
-            elif member.type == 'size_t':
-                if member.limittype == 'min':
-                    gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfLesserSizet);\n'
-                else:
-                    gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfGreaterSizet);\n'
-            elif member.type == 'float':
-                if member.limittype == 'min':
-                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfLesserFloat);\n'
-                else:
-                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfGreaterFloat);\n'
-            elif member.limittype == 'min':
+            elif member.type == 'size_t' and 'min' in member.limittype:
+                gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfLesserSizet);\n'
+            elif member.type == 'size_t' and ('max' in member.limittype or 'bits' in member.limittype):
+                gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfGreaterSizet);\n'
+            elif member.type == 'float' and 'min' in member.limittype:
+                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfLesserFloat);\n'
+            elif member.type == 'float' and 'max' in member.limittype:
+                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfGreaterFloat);\n'
+            elif (member.type == 'VkExtent2D' or member.type == 'VkDeviceSize' or member.type == 'int32_t' or member.type == 'uint32_t' or member.type == 'uint64_t') and 'min' in member.limittype: # integer types
                 gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfLesser);\n'
-            else:
+            elif (member.type == 'VkExtent2D' or member.type == 'VkDeviceSize' or member.type == 'int32_t' or member.type == 'uint32_t' or member.type == 'uint64_t') and ('max' in member.limittype or 'bits' in member.limittype): # integer types
                 gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfGreater);\n'
+            elif member.limittype == 'min': # enum values
+                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', WarnIfLesser);\n'
+            elif member.limittype == 'max' or member.limittype == 'bits': # enum values
+                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', WarnIfGreater);\n'
+            else:
+                print("ERROR: Unsupported limittype '{0}' in member '{1}' of structure '{2}'".format(member.limittype, member_name, structure))
+                
         gen += '    }\n'
         gen += '    return valid;\n'
         gen += '}\n\n'
         return gen
-
-    def is_non_modifiable_member(self, member_name):
-        for struct in self.non_modifiable_structs:
-            for member in registry.structs[struct].members:
-                if member == member_name:
-                    return True
-        return False
 
     def generate_get_value_non_modifiable(self, structure):
         gen = 'bool JsonLoader::GetValue' + structure[2:] + '(const Json::Value &parent) {\n'
@@ -3592,13 +3674,6 @@ class VulkanProfilesLayerGenerator():
         elif type == 'int32_t':
             return 'asInt()'
         return 'asInt()'
-
-    def from_skipped_extension(self, name, registry):
-        if registry.structs[name].definedByExtensions:
-            for extension in registry.structs[name].definedByExtensions:
-                if self.get_ext(extension) in self.skipped_exts:
-                    return True
-        return False
 
     def find_promoted_struct(self, value):
         if value.name.startswith('VkPhysicalDeviceVulkan'):
@@ -3626,16 +3701,10 @@ class VulkanProfilesLayerGenerator():
             if feature:
                 gen += '    bool GetValue(const Json::Value &parent, ' + feature + ' *dest);\n'
         for struct in self.additional_features:
-            if struct not in self.non_modifiable_structs:
-                gen += '    bool GetValue(const Json::Value &parent, ' + struct + ' *dest);\n'
+            gen += '    bool GetValue(const Json::Value &parent, ' + struct + ' *dest);\n'
         for struct in self.additional_properties:
-            if struct not in self.non_modifiable_structs:
-                gen += '    bool GetValue(const Json::Value &parent, ' + struct + ' *dest);\n'
+            gen += '    bool GetValue(const Json::Value &parent, ' + struct + ' *dest);\n'
 
-        gen += '\n    // Non-modifiable\n'
-        for struct in self.non_modifiable_structs:
-            if registry.structs[struct].isAlias == False:
-                gen += '    bool GetValue' + struct[2:] + '(const Json::Value &parent);\n'
         gen += WARN_FUNCTIONS
         gen += GET_VALUE_FUNCTIONS
         gen += GET_ARRAY_FUNCTIONS
@@ -3675,38 +3744,28 @@ class VulkanProfilesLayerGenerator():
 
         self.non_extension_properties = []
         for property_name, ext in properties:
-            if not ext and property_name not in self.non_modifiable_structs:
+            if not ext:
                 self.non_extension_properties.append(property_name)
 
         self.non_extension_features = []
         for feature_name, ext in features:
-            if not ext and feature_name not in self.non_modifiable_structs:
+            if not ext:
                 self.non_extension_features.append(feature_name)
 
         self.extension_structs = []
-        self.skipped_structs = []
         for extension in registry.extensions:
-            if self.get_ext(extension) in self.skipped_exts:
-                continue
             feature_name = None
             property_name = None
             for property in properties:
                 if property[1] and property[1][0] == extension:
                     property_name = property[0]
-                    if property_name in self.non_modifiable_structs:
-                        property_name = None
                     break
             for feature in features:
                 if feature[1] and feature[1][0] == extension:
                     feature_name = feature[0]
-                    if feature_name in self.non_modifiable_structs:
-                        feature_name = None
                     break
             if feature_name or property_name:
-                if extension in self.skipped_extensions:
-                    self.skipped_structs.append((extension, property_name, feature_name))
-                else:
-                    self.extension_structs.append((extension, property_name, feature_name))
+                self.extension_structs.append((extension, property_name, feature_name))
 
     def get_ext(self, extension):
         i = 3
@@ -3871,15 +3930,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    registryPath  = 'C:/Projects/Vulkan-Profiles/build/_deps/vulkan-headers-src/registry/vk.xml'
+    registryPath  = './build/_deps/vulkan-headers-src/registry/vk.xml'
     if args.registry is not None:
         registryPath = args.registry
 
-    outputPath = "../layer/profiles.cpp"
+    outputPath = "./layer/profiles.cpp"
     if args.outLayer is not None:
         outputPath = args.outLayer
 
-    registry = genvp.VulkanRegistry(registryPath)
+    registry = gen_profiles_solution.VulkanRegistry(registryPath)
 
     generator = VulkanProfilesLayerGenerator()
     generator.generate(outputPath, registry)

@@ -22,10 +22,11 @@ set(CMAKE_CXX_STANDARD 11)
 set(LAYER_TEST_FILES
     tests
     tests_promoted
-    tests_capabilities
     tests_mechanism
-    tests_desktop_portability
-	tests_generated
+    #tests_generated
+    #tests_desktop_2022
+    tests_combine_union
+    tests_combine_intersection
     # Add new test files above this line
 )
 
@@ -67,6 +68,10 @@ function(LayerTest NAME)
     set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles layer")
 endfunction(LayerTest)
 
+#add_dependencies(VkLayer_tests_merged_intersection VpMergeIntersect)
+#add_dependencies(VkLayer_tests_merged_union VpMergeUnion)
+#add_dependencies(VkLayer_tests_combine_intersection VpTestIntersect)
+#add_dependencies(VkLayer_tests_combine_union VpTestUnion)
 
 function(LayerTestAndroid NAME)
     set(ANDROID_APK_NAME ${NAME})

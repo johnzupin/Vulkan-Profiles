@@ -24,29 +24,19 @@
 #include <gtest/gtest.h>
 #include "profiles_test_helper.h"
 
-#ifdef _WIN32
-#ifdef _DEBUG
-static const char* CONFIG_PATH = "bin/Debug";
-#else
-static const char* CONFIG_PATH = "bin/Release";
-#endif
-#else 
-static const char* CONFIG_PATH = "lib";
-#endif
-
-static VkInstance instance;
-static VkPhysicalDevice gpu;
+static VkPhysicalDevice gpu_profile;
+static VkPhysicalDevice gpu_native;
 static profiles_test::VulkanInstanceBuilder inst_builder;
 
 class TestsPromoted : public VkTestFramework {
-  public:
+   public:
     TestsPromoted(){};
     ~TestsPromoted(){};
 
     bool IsVersionSupported(uint32_t api_version) {
         VkPhysicalDeviceProperties2 gpu_props{};
         gpu_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
+        vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props);
         if (gpu_props.properties.apiVersion < api_version) {
             printf("Profile not supported on device, skipping test.\n");
             return false;
@@ -57,11 +47,6 @@ class TestsPromoted : public VkTestFramework {
     static void SetUpTestSuite() {
         VkResult err = VK_SUCCESS;
 
-        const std::string layer_path = std::string(TEST_BINARY_PATH) + CONFIG_PATH;
-        profiles_test::setEnvironmentSetting("VK_LAYER_PATH", layer_path.c_str());
-
-        inst_builder.addLayer("VK_LAYER_KHRONOS_profiles");
-
         VkProfileLayerSettingsEXT settings;
         settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_promoted_api.json";
         settings.profile_name = "VP_LUNARG_test_api";
@@ -69,20 +54,20 @@ class TestsPromoted : public VkTestFramework {
                                          SimulateCapabilityFlag::SIMULATE_FEATURES_BIT |
                                          SimulateCapabilityFlag::SIMULATE_PROPERTIES_BIT;
 
-        err = inst_builder.makeInstance(&settings);
+        err = inst_builder.init(&settings);
+        EXPECT_EQ(VK_SUCCESS, err);
 
-        instance = inst_builder.getInstance();
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu_profile);
+        EXPECT_EQ(VK_SUCCESS, err);
+        EXPECT_TRUE(gpu_profile);
 
-        err = inst_builder.getPhysicalDevice(&gpu);
-        EXPECT_TRUE(gpu);
+        err = inst_builder.getPhysicalDevice(profiles_test::MODE_NATIVE, &gpu_native);
+        EXPECT_EQ(VK_SUCCESS, err);
+        EXPECT_TRUE(gpu_native);
     };
 
-    static void TearDownTestSuite() {
-        if (instance != VK_NULL_HANDLE) {
-            vkDestroyInstance(instance, nullptr);
-            instance = VK_NULL_HANDLE;
-        }
-
+    static void TearDownTestSuite() { 
+        inst_builder.reset(); 
     };
 };
 
@@ -93,24 +78,28 @@ TEST_F(TestsPromoted, TestVulkan11Properties) {
         return;
     }
 
-    VkPhysicalDeviceVulkan11Properties vulkan_11_properties{};
-    vulkan_11_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES;
-
     VkPhysicalDeviceProperties2 gpu_props{};
     gpu_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    gpu_props.pNext = &vulkan_11_properties;
-    vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
-    EXPECT_EQ(vulkan_11_properties.subgroupSize, 211);
-    EXPECT_EQ(vulkan_11_properties.subgroupSupportedStages & VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_VERTEX_BIT);
-    EXPECT_EQ(vulkan_11_properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT, VK_SUBGROUP_FEATURE_BASIC_BIT);
-    EXPECT_EQ(vulkan_11_properties.subgroupQuadOperationsInAllStages, VK_TRUE);
-    EXPECT_EQ(vulkan_11_properties.maxMultiviewViewCount, 212);
-    EXPECT_EQ(vulkan_11_properties.maxMultiviewInstanceIndex, 213);
-    EXPECT_EQ(vulkan_11_properties.protectedNoFault, VK_TRUE);
-    EXPECT_EQ(vulkan_11_properties.maxPerSetDescriptors, 214);
-    EXPECT_EQ(vulkan_11_properties.maxMemoryAllocationSize, 215);
+    VkPhysicalDeviceVulkan11Properties properties_profile{};
+    properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES;
+    gpu_props.pNext = &properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props);
 
+    VkPhysicalDeviceVulkan11Properties properties_native{}; // For capabilities that can't be modified
+    properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES;
+    gpu_props.pNext = &properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props);
+
+    EXPECT_EQ(properties_profile.subgroupSize, 64);
+    EXPECT_EQ(properties_profile.subgroupSupportedStages & VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_VERTEX_BIT);
+    EXPECT_EQ(properties_profile.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT, VK_SUBGROUP_FEATURE_BASIC_BIT);
+    EXPECT_EQ(properties_profile.subgroupQuadOperationsInAllStages, VK_TRUE);
+    EXPECT_EQ(properties_profile.maxMultiviewViewCount, 212);
+    EXPECT_EQ(properties_profile.maxMultiviewInstanceIndex, 213);
+    EXPECT_EQ(properties_profile.protectedNoFault, properties_native.protectedNoFault);
+    EXPECT_EQ(properties_profile.maxPerSetDescriptors, 214);
+    EXPECT_EQ(properties_profile.maxMemoryAllocationSize, 215);
 #endif
 }
 
@@ -121,26 +110,27 @@ TEST_F(TestsPromoted, TestVulkan11Features) {
         return;
     }
 
-    VkPhysicalDeviceVulkan11Features vulkan_11_features{};
-    vulkan_11_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    VkPhysicalDeviceFeatures2 gpu_features;
+    gpu_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 
-    VkPhysicalDeviceFeatures2 features;
-    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features.pNext = &vulkan_11_features;
-    vkGetPhysicalDeviceFeatures2(gpu, &features);
+    VkPhysicalDeviceVulkan11Features profile_features{};
+    profile_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
 
-    EXPECT_EQ(vulkan_11_features.storageBuffer16BitAccess, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.uniformAndStorageBuffer16BitAccess, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.storagePushConstant16, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.storageInputOutput16, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.multiview, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.multiviewGeometryShader, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.multiviewTessellationShader, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.variablePointersStorageBuffer, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.variablePointers, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.protectedMemory, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.samplerYcbcrConversion, VK_TRUE);
-    EXPECT_EQ(vulkan_11_features.shaderDrawParameters, VK_TRUE);
+    gpu_features.pNext = &profile_features;
+    vkGetPhysicalDeviceFeatures2(gpu_profile, &gpu_features);
+
+    EXPECT_EQ(profile_features.storageBuffer16BitAccess, VK_TRUE);
+    EXPECT_EQ(profile_features.uniformAndStorageBuffer16BitAccess, VK_TRUE);
+    EXPECT_EQ(profile_features.storagePushConstant16, VK_TRUE);
+    EXPECT_EQ(profile_features.storageInputOutput16, VK_TRUE);
+    EXPECT_EQ(profile_features.multiview, VK_TRUE);
+    EXPECT_EQ(profile_features.multiviewGeometryShader, VK_TRUE);
+    EXPECT_EQ(profile_features.multiviewTessellationShader, VK_TRUE);
+    EXPECT_EQ(profile_features.variablePointersStorageBuffer, VK_TRUE);
+    EXPECT_EQ(profile_features.variablePointers, VK_TRUE);
+    EXPECT_EQ(profile_features.protectedMemory, VK_TRUE);
+    EXPECT_EQ(profile_features.samplerYcbcrConversion, VK_TRUE);
+    EXPECT_EQ(profile_features.shaderDrawParameters, VK_TRUE);
 #endif
 }
 
@@ -151,62 +141,67 @@ TEST_F(TestsPromoted, TestVulkan12Properties) {
         return;
     }
 
-    VkPhysicalDeviceVulkan12Properties vulkan_12_properties{};
-    vulkan_12_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES;
-
     VkPhysicalDeviceProperties2 gpu_props{};
     gpu_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    gpu_props.pNext = &vulkan_12_properties;
-    vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
 
-    EXPECT_EQ(vulkan_12_properties.denormBehaviorIndependence, VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL);
-    EXPECT_EQ(vulkan_12_properties.roundingModeIndependence, VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL);
-    EXPECT_EQ(vulkan_12_properties.shaderSignedZeroInfNanPreserveFloat16, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderSignedZeroInfNanPreserveFloat32, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderSignedZeroInfNanPreserveFloat64, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderDenormPreserveFloat16, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderDenormPreserveFloat32, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderDenormPreserveFloat64, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderDenormFlushToZeroFloat16, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderDenormFlushToZeroFloat32, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderDenormFlushToZeroFloat64, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderRoundingModeRTEFloat16, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderRoundingModeRTEFloat32, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderRoundingModeRTEFloat64, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderRoundingModeRTZFloat16, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderRoundingModeRTZFloat32, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderRoundingModeRTZFloat64, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.maxUpdateAfterBindDescriptorsInAllPools, 216);
-    EXPECT_EQ(vulkan_12_properties.shaderUniformBufferArrayNonUniformIndexingNative, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderSampledImageArrayNonUniformIndexingNative, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderStorageBufferArrayNonUniformIndexingNative, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderStorageImageArrayNonUniformIndexingNative, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.shaderInputAttachmentArrayNonUniformIndexingNative, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.robustBufferAccessUpdateAfterBind, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.quadDivergentImplicitLod, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageDescriptorUpdateAfterBindSamplers, 217);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageDescriptorUpdateAfterBindUniformBuffers, 218);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageDescriptorUpdateAfterBindStorageBuffers, 219);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageDescriptorUpdateAfterBindSampledImages, 220);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageDescriptorUpdateAfterBindStorageImages, 221);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageDescriptorUpdateAfterBindInputAttachments, 222);
-    EXPECT_EQ(vulkan_12_properties.maxPerStageUpdateAfterBindResources, 223);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindSamplers, 224);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindUniformBuffers, 225);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic, 226);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindStorageBuffers, 227);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic, 228);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindSampledImages, 229);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindStorageImages, 230);
-    EXPECT_EQ(vulkan_12_properties.maxDescriptorSetUpdateAfterBindInputAttachments, 231);
-    EXPECT_EQ(vulkan_12_properties.supportedDepthResolveModes & VK_RESOLVE_MODE_AVERAGE_BIT, VK_RESOLVE_MODE_AVERAGE_BIT);
-    EXPECT_EQ(vulkan_12_properties.supportedStencilResolveModes & VK_RESOLVE_MODE_AVERAGE_BIT, VK_RESOLVE_MODE_AVERAGE_BIT);
-    EXPECT_EQ(vulkan_12_properties.independentResolveNone, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.independentResolve, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.filterMinmaxSingleComponentFormats, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.filterMinmaxImageComponentMapping, VK_TRUE);
-    EXPECT_EQ(vulkan_12_properties.maxTimelineSemaphoreValueDifference, 232);
-    EXPECT_EQ(vulkan_12_properties.framebufferIntegerColorSampleCounts & VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_1_BIT);
+    VkPhysicalDeviceVulkan12Properties properties_profile{};
+    properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES;
+    gpu_props.pNext = &properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props);
+
+    VkPhysicalDeviceVulkan12Properties properties_native{};  // For capabilities that can't be modified
+    properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES;
+    gpu_props.pNext = &properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props);
+
+    EXPECT_EQ(properties_profile.denormBehaviorIndependence, properties_native.denormBehaviorIndependence);
+    EXPECT_EQ(properties_profile.roundingModeIndependence, properties_native.roundingModeIndependence);
+    EXPECT_EQ(properties_profile.shaderSignedZeroInfNanPreserveFloat16, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderSignedZeroInfNanPreserveFloat32, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderSignedZeroInfNanPreserveFloat64, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderDenormPreserveFloat16, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderDenormPreserveFloat32, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderDenormPreserveFloat64, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderDenormFlushToZeroFloat16, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderDenormFlushToZeroFloat32, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderDenormFlushToZeroFloat64, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderRoundingModeRTEFloat16, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderRoundingModeRTEFloat32, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderRoundingModeRTEFloat64, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderRoundingModeRTZFloat16, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderRoundingModeRTZFloat32, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderRoundingModeRTZFloat64, VK_TRUE);
+    EXPECT_EQ(properties_profile.maxUpdateAfterBindDescriptorsInAllPools, 216);
+    EXPECT_EQ(properties_profile.shaderUniformBufferArrayNonUniformIndexingNative, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderSampledImageArrayNonUniformIndexingNative, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderStorageBufferArrayNonUniformIndexingNative, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderStorageImageArrayNonUniformIndexingNative, VK_TRUE);
+    EXPECT_EQ(properties_profile.shaderInputAttachmentArrayNonUniformIndexingNative, VK_TRUE);
+    EXPECT_EQ(properties_profile.robustBufferAccessUpdateAfterBind, VK_TRUE);
+    EXPECT_EQ(properties_profile.quadDivergentImplicitLod, VK_TRUE);
+    EXPECT_EQ(properties_profile.maxPerStageDescriptorUpdateAfterBindSamplers, 217);
+    EXPECT_EQ(properties_profile.maxPerStageDescriptorUpdateAfterBindUniformBuffers, 218);
+    EXPECT_EQ(properties_profile.maxPerStageDescriptorUpdateAfterBindStorageBuffers, 219);
+    EXPECT_EQ(properties_profile.maxPerStageDescriptorUpdateAfterBindSampledImages, 220);
+    EXPECT_EQ(properties_profile.maxPerStageDescriptorUpdateAfterBindStorageImages, 221);
+    EXPECT_EQ(properties_profile.maxPerStageDescriptorUpdateAfterBindInputAttachments, 222);
+    EXPECT_EQ(properties_profile.maxPerStageUpdateAfterBindResources, 223);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindSamplers, 224);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindUniformBuffers, 225);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic, 226);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindStorageBuffers, 227);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic, 228);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindSampledImages, 229);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindStorageImages, 230);
+    EXPECT_EQ(properties_profile.maxDescriptorSetUpdateAfterBindInputAttachments, 231);
+    EXPECT_EQ(properties_profile.supportedDepthResolveModes & VK_RESOLVE_MODE_AVERAGE_BIT, VK_RESOLVE_MODE_AVERAGE_BIT);
+    EXPECT_EQ(properties_profile.supportedStencilResolveModes & VK_RESOLVE_MODE_AVERAGE_BIT, VK_RESOLVE_MODE_AVERAGE_BIT);
+    EXPECT_EQ(properties_profile.independentResolveNone, VK_TRUE);
+    EXPECT_EQ(properties_profile.independentResolve, VK_TRUE);
+    EXPECT_EQ(properties_profile.filterMinmaxSingleComponentFormats, VK_TRUE);
+    EXPECT_EQ(properties_profile.filterMinmaxImageComponentMapping, VK_TRUE);
+    EXPECT_EQ(properties_profile.maxTimelineSemaphoreValueDifference, 232);
+    EXPECT_EQ(properties_profile.framebufferIntegerColorSampleCounts & VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_1_BIT);
 #endif
 }
 
@@ -223,7 +218,7 @@ TEST_F(TestsPromoted, TestVulkan12Features) {
     VkPhysicalDeviceFeatures2 features;
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features.pNext = &vulkan_12_features;
-    vkGetPhysicalDeviceFeatures2(gpu, &features);
+    vkGetPhysicalDeviceFeatures2(gpu_profile, &features);
 
     EXPECT_EQ(vulkan_12_features.samplerMirrorClampToEdge, VK_TRUE);
     EXPECT_EQ(vulkan_12_features.drawIndirectCount, VK_TRUE);
@@ -288,10 +283,10 @@ TEST_F(TestsPromoted, TestVulkan13Properties) {
     VkPhysicalDeviceProperties2 gpu_props{};
     gpu_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     gpu_props.pNext = &vulkan_13_properties;
-    vkGetPhysicalDeviceProperties2(gpu, &gpu_props);
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props);
 
-    EXPECT_EQ(vulkan_13_properties.minSubgroupSize, 338);
-    EXPECT_EQ(vulkan_13_properties.maxSubgroupSize, 339);
+    EXPECT_EQ(vulkan_13_properties.minSubgroupSize, 32);
+    EXPECT_EQ(vulkan_13_properties.maxSubgroupSize, 128);
     EXPECT_EQ(vulkan_13_properties.maxComputeWorkgroupSubgroups, 340);
     EXPECT_EQ(vulkan_13_properties.requiredSubgroupSizeStages & (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -352,7 +347,7 @@ TEST_F(TestsPromoted, TestVulkan13Features) {
     VkPhysicalDeviceFeatures2 features;
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features.pNext = &vulkan_13_features;
-    vkGetPhysicalDeviceFeatures2(gpu, &features);
+    vkGetPhysicalDeviceFeatures2(gpu_profile, &features);
 
     EXPECT_EQ(vulkan_13_features.robustImageAccess, VK_TRUE);
     EXPECT_EQ(vulkan_13_features.inlineUniformBlock, VK_TRUE);
@@ -370,7 +365,4 @@ TEST_F(TestsPromoted, TestVulkan13Features) {
     EXPECT_EQ(vulkan_13_features.shaderIntegerDotProduct, VK_TRUE);
     EXPECT_EQ(vulkan_13_features.maintenance4, VK_TRUE);
 #endif
-
 }
-
-

@@ -1,19 +1,6 @@
 {
     "$schema": "https://schema.khronos.org/vulkan/profiles-0.8.0-154.json#",
     "capabilities": {
-        "vulkan11requirements": {
-            "features": {
-                "VkPhysicalDeviceMultiviewFeatures": {
-                    "multiview": true
-                }
-            },
-            "properties": {
-                "VkPhysicalDeviceMultiviewProperties": {
-                    "maxMultiviewViewCount": 6,
-                    "maxMultiviewInstanceIndex": 134217727
-                }
-            }
-        },
         "baseline": {
             "extensions": {
                 "VK_KHR_8bit_storage": 1,
@@ -34,7 +21,11 @@
                 "VK_EXT_texel_buffer_alignment": 1,
                 "VK_EXT_vertex_attribute_divisor": 1,
                 "VK_KHR_swapchain": 70,
-                "VK_KHR_swapchain_mutable_format": 1
+                "VK_KHR_swapchain_mutable_format": 1,
+                "VK_KHR_maintenance1": 1,
+                "VK_KHR_maintenance2": 1,
+                "VK_KHR_maintenance3": 1,
+                "VK_EXT_image_robustness": 1
             },
             "features": {
                 "VkPhysicalDeviceFeatures": {
@@ -66,7 +57,10 @@
                     "shaderUniformBufferArrayDynamicIndexing": true,
                     "tessellationShader": true,
                     "textureCompressionBC": true,
-                    "vertexPipelineStoresAndAtomics": true
+                    "vertexPipelineStoresAndAtomics": true,
+					"shaderCullDistance": true,
+					"shaderInt64": true,
+					"shaderInt16": true
                 },
                 "VkPhysicalDeviceImagelessFramebufferFeaturesKHR": {
                     "imagelessFramebuffer": true
@@ -109,13 +103,16 @@
                 "VkPhysicalDeviceVariablePointersFeatures": {
                     "variablePointersStorageBuffer": true,
                     "variablePointers": true
+                },
+                "VkPhysicalDeviceImageRobustnessFeaturesEXT": {
+                    "robustImageAccess": true
                 }
             },
             "properties": {
                 "VkPhysicalDeviceProperties": {
                     "limits": {
                         "maxImageDimension1D": 16384,
-                        "maxImageDimension2D": 16384,
+                        "maxImageDimension2D": 32768,
                         "maxImageDimension3D": 2048,
                         "maxImageDimensionCube": 16384,
                         "maxImageArrayLayers": 2048,
@@ -163,9 +160,9 @@
                         "maxComputeWorkGroupCount": [ 65535, 65535, 65535 ],
                         "maxComputeWorkGroupInvocations": 1024,
                         "maxComputeWorkGroupSize": [ 1024, 1024, 64 ],
-                        "subPixelPrecisionBits": 4,
-                        "subTexelPrecisionBits": 4,
-                        "mipmapPrecisionBits": 4,
+                        "subPixelPrecisionBits": 8,
+                        "subTexelPrecisionBits": 8,
+                        "mipmapPrecisionBits": 8,
                         "maxDrawIndexedIndexValue": 4294967295,
                         "maxDrawIndirectCount": 1073740000,
                         "maxSamplerLodBias": 4.0,
@@ -187,7 +184,7 @@
                         "maxFramebufferWidth": 16384,
                         "maxFramebufferHeight": 16384,
                         "maxFramebufferLayers": 1024,
-                        "framebufferColorSampleCounts": [ "VK_SAMPLE_COUNT_1_BIT", "VK_SAMPLE_COUNT_4_BIT" ],
+                        "framebufferColorSampleCounts": [ "VK_SAMPLE_COUNT_1_BIT", "VK_SAMPLE_COUNT_2_BIT", "VK_SAMPLE_COUNT_4_BIT" ],
                         "framebufferDepthSampleCounts": [ "VK_SAMPLE_COUNT_1_BIT", "VK_SAMPLE_COUNT_4_BIT" ],
                         "framebufferStencilSampleCounts": [ "VK_SAMPLE_COUNT_1_BIT", "VK_SAMPLE_COUNT_4_BIT" ],
                         "maxColorAttachments": 8,
@@ -197,10 +194,10 @@
                         "sampledImageStencilSampleCounts": [ "VK_SAMPLE_COUNT_1_BIT", "VK_SAMPLE_COUNT_4_BIT" ],
                         "storageImageSampleCounts": [ "VK_SAMPLE_COUNT_1_BIT" ],
                         "maxSampleMaskWords": 1,
-                        "maxClipDistances": 8,
+                        "maxClipDistances": 16,
                         "maxCombinedClipAndCullDistances": 8,
                         "discreteQueuePriorities": 2,
-                        "pointSizeRange": [ 1.0, 64.0 ],
+                        "pointSizeRange": [ 1.0, 128.0 ],
                         "lineWidthRange": [ 1.0, 1.0 ],
                         "pointSizeGranularity": 1.0,
                         "lineWidthGranularity": 0.5
@@ -238,7 +235,7 @@
             "formats": {
                 "VK_FORMAT_R8_UNORM": {
                     "VkFormatProperties": {
-                        "linearTilingFeatures": [ "VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT", "VK_FORMAT_FEATURE_BLIT_SRC_BIT", "VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT", "VK_FORMAT_FEATURE_TRANSFER_SRC_BIT", "VK_FORMAT_FEATURE_TRANSFER_DST_BIT" ],
+                        "linearTilingFeatures": [ "VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT", "VK_FORMAT_FEATURE_BLIT_SRC_BIT", "VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT", "VK_FORMAT_FEATURE_TRANSFER_SRC_BIT", "VK_FORMAT_FEATURE_TRANSFER_DST_BIT", "VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT" ],
                         "optimalTilingFeatures": [ "VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT", "VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT", "VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT", "VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT", "VK_FORMAT_FEATURE_BLIT_SRC_BIT", "VK_FORMAT_FEATURE_BLIT_DST_BIT", "VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT", "VK_FORMAT_FEATURE_TRANSFER_SRC_BIT", "VK_FORMAT_FEATURE_TRANSFER_DST_BIT" ],
                         "bufferFeatures": [ "VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT", "VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT", "VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT" ]
                     }
@@ -692,6 +689,55 @@
                         "queueCount": 1,
                         "timestampValidBits": 36,
                         "minImageTransferGranularity": {
+                            "width": 2,
+                            "height": 2,
+                            "depth": 2
+                        }
+                    }
+                },
+                {
+                    "VkQueueFamilyProperties": {
+                        "queueFlags": [ "VK_QUEUE_GRAPHICS_BIT", "VK_QUEUE_COMPUTE_BIT", "VK_QUEUE_TRANSFER_BIT" ],
+                        "queueCount": 2,
+                        "timestampValidBits": 36,
+                        "minImageTransferGranularity": {
+                            "width": 1,
+                            "height": 1,
+                            "depth": 1
+                        }
+                    }
+                },
+                {
+                    "VkQueueFamilyProperties": {
+                        "queueFlags": [ "VK_QUEUE_GRAPHICS_BIT", "VK_QUEUE_COMPUTE_BIT", "VK_QUEUE_TRANSFER_BIT" ],
+                        "queueCount": 1,
+                        "timestampValidBits": 40,
+                        "minImageTransferGranularity": {
+                            "width": 1,
+                            "height": 1,
+                            "depth": 1
+                        }
+                    }
+                },
+                {
+                    "VkQueueFamilyProperties": {
+                        "queueFlags": [ "VK_QUEUE_GRAPHICS_BIT", "VK_QUEUE_TRANSFER_BIT" ],
+                        "queueCount": 1,
+                        "timestampValidBits": 36,
+                        "minImageTransferGranularity": {
+                            "width": 1,
+                            "height": 1,
+                            "depth": 1
+                        }
+                    }
+                },
+
+                {
+                    "VkQueueFamilyProperties": {
+                        "queueFlags": [ "VK_QUEUE_GRAPHICS_BIT", "VK_QUEUE_COMPUTE_BIT", "VK_QUEUE_TRANSFER_BIT" ],
+                        "queueCount": 1,
+                        "timestampValidBits": 36,
+                        "minImageTransferGranularity": {
                             "width": 1,
                             "height": 1,
                             "depth": 1
@@ -699,70 +745,13 @@
                     }
                 }
             ]
-        },
-        "macos-specific": {
-            "extensions": {
-                "VK_KHR_portability_subset": 1
-            },
-            "features": {
-                "VkPhysicalDevicePortabilitySubsetFeaturesKHR": {
-                    "vertexAttributeAccessBeyondStride": true,
-                    "separateStencilMaskRef": true,
-                    "mutableComparisonSamplers": true,
-                    "multisampleArrayImage": true,
-                    "imageViewFormatSwizzle": true,
-                    "imageViewFormatReinterpretation": true,
-                    "events": true,
-                    "constantAlphaColorBlendFactors": true
-                }
-            },
-            "properties": {
-                "VkPhysicalDevicePortabilitySubsetPropertiesKHR": {
-                    "minVertexInputBindingStrideAlignment": 4
-                }
-            }
         }
     },
     "profiles": {
-        "VP_LUNARG_desktop_portability_2021_subset": {
-            "version": 1,
-            "status": "BETA",
-            "api-version": "1.1.154",
-            "label": "LunarG Vulkan Desktop Portability 2021 subset profile",
-            "description": "Common desktop platforms with drivers supporting Vulkan 1.1 on macOS.",
-            "contributors": {
-                "Christophe Riccio": {
-                    "company": "LunarG",
-                    "email": "christophe@lunarg.com",
-                    "github": "christophe-lunarg",
-                    "contact": true
-                }
-            },
-            "history": [
-                {
-                    "revision": 2,
-                    "date": "2022-02-15",
-                    "author": "Christophe Riccio",
-                    "comment": "Fix API version, header 154 is required for portability subset"
-                },
-                {
-                    "revision": 1,
-                    "date": "2021-12-20",
-                    "author": "Christophe Riccio",
-                    "comment": "Initial revision"
-                }
-            ],
-            "capabilities": [
-                "vulkan11requirements",
-                "baseline",
-                "macos-specific"
-            ],
-            "fallback": [ "VP_LUNARG_desktop_portability_2021" ]
-        },
-        "VP_LUNARG_desktop_portability_2021": {
+        "VP_LUNARG_desktop_portability_2021_intersect_data1": {
             "version": 1,
             "api-version": "1.1.142",
-            "label": "LunarG Vulkan Desktop Portability 2021 profile",
+            "label": "Test data for Desktop Portability 2021 profile",
             "description": "Common desktop platforms with drivers supporting Vulkan 1.1 on Windows and Linux.",
             "contributors": {
                 "Christophe Riccio": {
@@ -781,7 +770,6 @@
                 }
             ],
             "capabilities": [
-                "vulkan11requirements",
                 "baseline"
             ]
         }
