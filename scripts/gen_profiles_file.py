@@ -30,18 +30,22 @@ class ProfileMerger():
     def __init__(self, registry):
         self.registry = registry
 
-    def merge(self, jsons, profiles, profile_names, merged_path, merged_profile, profile_label, profile_description, mode):
+    def merge(self, jsons, profiles, profile_names, merged_path, merged_profile, profile_label, profile_description, profile_api_version, profile_stage, mode):
         self.mode = mode
 
         # Find the api version to use
-        self.api_version = self.get_api_version(profiles)
+        if args.profile_api_version is not None:
+            self.api_version = self.get_api_version_list(profile_api_version)
+        else:
+            self.api_version = self.get_api_version(profiles)
+
         print('Building a Vulkan ' + '.'.join(self.api_version) + ' profile')
 
         # Begin constructing merged profile
         merged = dict()
         merged['$schema'] = 'https://schema.khronos.org/vulkan/profiles-0.8.0-' + self.api_version[2] + '.json#'
         merged['capabilities'] = self.merge_capabilities(jsons, profile_names, self.api_version)
-        merged['profiles'] = self.get_profiles(merged_profile, self.api_version, profile_label, profile_description)
+        merged['profiles'] = self.get_profiles(merged_profile, self.api_version, profile_label, profile_description, profile_stage)
 
         # Wite new merged profile
         with open(merged_path, 'w') as file:
@@ -575,11 +579,12 @@ class ProfileMerger():
         minor = version[underscore+1:]
         return [major, minor]
 
-    def get_profiles(self, profile_name, api_version, label, description):
+    def get_profiles(self, profile_name, api_version, label, description, stage):
         profiles = dict()
         profiles[profile_name] = dict()
         profiles[profile_name]['version'] = 1
-        profiles[profile_name]['status'] = 'BETA'
+        if stage != 'STABLE':
+            profiles[profile_name]['status'] = stage
         profiles[profile_name]['api-version'] = '.'.join(api_version)
         profiles[profile_name]['label'] = label
         profiles[profile_name]['description'] = description
@@ -590,7 +595,7 @@ class ProfileMerger():
         # Get current time
         now = datetime.now()
         revision['date'] = str(now.year) + '-' + str(now.month).zfill(2) + '-' + str(now.day).zfill(2)
-        revision['author'] = 'LunarG Profiles Merger'
+        revision['author'] = 'LunarG Profiles Generation'
         revision['comment'] = description
         profiles[profile_name]['history'].append(revision)
         profiles[profile_name]['capabilities'] = list()
@@ -638,21 +643,25 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate Vulkan profile JSON files')
 
     parser.add_argument('--registry', '-r', action='store', required=True,
-                        help='Use specified registry file instead of vk.xml')
+                        help='Use specified registry file instead of vk.xml.')
     parser.add_argument('--input_dir', '-i', action='store', required=True,
-                        help='Path to directory with profiles')
+                        help='Path to directory with profiles.')
     parser.add_argument('--input_profiles', action='store',
-                        help='Comma separated list of profiles')
+                        help='Comma separated list of profiles.')
     parser.add_argument('--output_path', '-o', action='store', required=True,
-                        help='Path to output profile')
+                        help='Path to output profile.')
     parser.add_argument('--output_profile', action='store',
-                        help='Profile name of the output profile')
+                        help='Profile name of the output profile. If the argument is not set, the value is generated.')
     parser.add_argument('--profile_label', action='store',
-                        help='Label of the merged profile')
+                        help='Override the Label of the generated profile. If the argument is not set, the value is generated.')
     parser.add_argument('--profile_desc', action='store',
-                        help='Description of the merged profile')
-    parser.add_argument('--mode', '-m', action='store',
-                        help='Mode of profile combination')
+                        help='Override the Description of the generated profile. If the argument is not set, the value is generated.')
+    parser.add_argument('--profile_api_version', action='store',
+                        help='Override the Vulkan API version of the generated profile. If the argument is not set, the value is generated.')
+    parser.add_argument('--profile_stage', action='store', choices=['ALPHA', 'BETA', 'STABLE'], default='STABLE',
+                        help='Override the development stage of the generated profile. If the argument is not set, the value is set to "stable".')
+    parser.add_argument('--mode', '-m', action='store', choices=['union', 'intersection'], default='intersection',
+                        help='Mode of profile combination. If the argument is not set, the value is set to "intersection".')
           
     parser.set_defaults(mode='intersection')
 
@@ -682,7 +691,7 @@ if __name__ == '__main__':
     if args.profile_label is not None:
         profile_label = args.profile_label
     else:
-        profile_label = 'Merged profile'
+        profile_label = 'Generated profile'
 
     # Open file and load json
     jsons = list()
@@ -728,5 +737,10 @@ if __name__ == '__main__':
     else:
         profile_description = profile_merger.get_profile_description(profile_names, args.mode)
 
-    profile_merger.merge(jsons, profiles, profile_names, args.output_path, args.output_profile, args.profile_label, args.profile_desc, args.mode)
+    if args.profile_stage is not None:
+        profile_stage = args.profile_stage
+    else:
+        profile_stage = 'STABLE'
+
+    profile_merger.merge(jsons, profiles, profile_names, args.output_path, args.output_profile, args.profile_label, args.profile_desc, args.profile_api_version, profile_stage, args.mode)
     
