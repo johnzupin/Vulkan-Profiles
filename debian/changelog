@@ -1,3 +1,13 @@
+vulkan-profiles (1.3.224.0~rc2-1lunarg18.04-1) bionic; urgency=medium
+
+  [ Christophe ]
+  * profiles: updated profiles JSON files links
+  * profile: clean up preset names
+  * profiles: exact values are not combine
+  * profile: clean up limittype
+
+ -- john <john@odin>  Thu, 18 Aug 2022 08:21:24 -0600
+
 vulkan-profiles (1.3.224.0~rc1-1lunarg18.04-1) bionic; urgency=medium
 
   [ ziga-lunarg ]
