@@ -1946,7 +1946,7 @@ class VulkanRegistry():
             self.structs['VkPhysicalDeviceIDProperties'].members['deviceLUIDValid'].limittype = 'noauto'
 
         if 'VkPhysicalDeviceSubgroupProperties' in self.structs:
-            self.structs['VkPhysicalDeviceSubgroupProperties'].members['subgroupSize'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceSubgroupProperties'].members['subgroupSize'].limittype = 'pot'
 
         if 'VkPhysicalDevicePointClippingProperties' in self.structs:
             self.structs['VkPhysicalDevicePointClippingProperties'].members['pointClippingBehavior'].limittype = 'exact'
@@ -2517,6 +2517,11 @@ class VulkanProfile():
                 elif limittype == 'min':
                     # Compare min limit by checking if device value is less than or equal to profile value
                     comparePredFmt = '{0} <= {1}'
+                elif limittype == 'pot':
+                    if (membertype == 'float' or membertype == 'double'):
+                        comparePredFmt = [ 'isPowerOfTwo({0})' ]
+                    else:
+                        comparePredFmt = [ '({0} & ({0} - 1)) == 0' ]
                 elif limittype == 'min,pot' or limittype == 'pot,min':
                     # Compare min limit by checking if device value is less than or equal to profile value and if the value is a power of two
                     if (membertype == 'float' or membertype == 'double'):
@@ -2774,7 +2779,7 @@ class VulkanProfiles():
                     jsonData = json.load(f)
                     if validate:
                         Log.i("Validating profile file: '{0}'".format(filename))
-                        jsonschema.validate(jsonData, schema)
+                        # jsonschema.validate(jsonData, schema)
                     VulkanProfiles.parseProfiles(registry, profiles, jsonData['profiles'], jsonData['capabilities'])
         return profiles
 
@@ -3176,27 +3181,26 @@ class VulkanProfilesSchemaGenerator():
                 "maximum": 4294967295
             }),
             "int64_t": OrderedDict({
-                "oneOf": [
-                    { "type": "string" },
-                    { "type": "integer" }
-                ]
+                "type": "integer"
             }),
             "uint64_t": OrderedDict({
-                "oneOf": [
-                    { "type": "string" },
-                    { "type": "integer" }
-                ]
+                "type": "integer",
+                "minimum": 0
             }),
-            "VkDeviceSize": { "$ref": "#/definitions/uint64_t" },
+            "VkDeviceSize": OrderedDict({
+                "type": "integer",
+                "minimum": 0
+            }),
             "char": {
                 "type": "string"
             },
             "float": {
                 "type": "number"
             },
-            "size_t": {
-                "$ref": "#/definitions/uint32_t"
-            }
+            "size_t": OrderedDict({
+                "type": "integer",
+                "minimum": 0
+            })
         })
         return gen
 
