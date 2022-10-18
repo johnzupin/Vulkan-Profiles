@@ -19,16 +19,22 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(LAYER_TEST_FILES
-    tests
-    tests_promoted
-    tests_mechanism
-    #tests_generated
-    #tests_desktop_2022
-    tests_combine_union
-    tests_combine_intersection
-    # Add new test files above this line
-)
+if (NOT ANDROID)
+    set(LAYER_TEST_FILES
+        tests
+        tests_promoted
+        tests_mechanism
+        tests_combine_union
+        tests_combine_intersection
+    )
+else()
+    set(LAYER_TEST_FILES
+        tests
+        tests_promoted
+        tests_mechanism
+    )
+endif()
+
 
 function(LayerTest NAME)
 	set(TEST_FILENAME ./${NAME}.cpp)
@@ -65,13 +71,8 @@ function(LayerTest NAME)
     endif()
 
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "${run_environment}")
-    set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles layer")
+    set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles layer/Tests")
 endfunction(LayerTest)
-
-#add_dependencies(VkLayer_tests_merged_intersection VpMergeIntersect)
-#add_dependencies(VkLayer_tests_merged_union VpMergeUnion)
-#add_dependencies(VkLayer_tests_combine_intersection VpTestIntersect)
-#add_dependencies(VkLayer_tests_combine_union VpTestUnion)
 
 function(LayerTestAndroid NAME)
     set(ANDROID_APK_NAME ${NAME})
@@ -150,13 +151,16 @@ function(LayerTestAndroid NAME)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
     set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "${run_environment}")
-    set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles layer")
+    set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles layer/Tests")
 endfunction(LayerTestAndroid)
 
 if (NOT ANDROID)
     foreach(test_item ${LAYER_TEST_FILES})
         LayerTest(${test_item})
     endforeach()
+
+    add_dependencies(VkLayer_tests_combine_intersection VpTestIntersect)
+    add_dependencies(VkLayer_tests_combine_union VpTestUnion)
 else()
     LayerTestAndroid("VulkanProfilesLayerTests")
 endif()

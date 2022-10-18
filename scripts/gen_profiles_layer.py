@@ -170,6 +170,22 @@ const char *const kLayerSettingsProfileFile = "profile_file";
 const char *const kLayerSettingsProfileName = "profile_name";
 const char *const kLayerSettingsProfileValidation = "profile_validation";
 const char *const kLayerSettingsEmulatePortability = "emulate_portability";
+const char *const kLayerSettings_constantAlphaColorBlendFactors = "constantAlphaColorBlendFactors";
+const char *const kLayerSettings_events = "events";
+const char *const kLayerSettings_imageViewFormatReinterpretation = "imageViewFormatReinterpretation";
+const char *const kLayerSettings_imageViewFormatSwizzle = "imageViewFormatSwizzle";
+const char *const kLayerSettings_imageView2DOn3DImage = "imageView2DOn3DImage";
+const char *const kLayerSettings_multisampleArrayImage = "multisampleArrayImage";
+const char *const kLayerSettings_mutableComparisonSamplers = "mutableComparisonSamplers";
+const char *const kLayerSettings_pointPolygons = "pointPolygons";
+const char *const kLayerSettings_samplerMipLodBias = "samplerMipLodBias";
+const char *const kLayerSettings_separateStencilMaskRef = "separateStencilMaskRef";
+const char *const kLayerSettings_shaderSampleRateInterpolationFunctions = "shaderSampleRateInterpolationFunctions";
+const char *const kLayerSettings_tessellationIsolines = "tessellationIsolines";
+const char *const kLayerSettings_tessellationPointMode = "tessellationPointMode";
+const char *const kLayerSettings_triangleFans = "triangleFans";
+const char *const kLayerSettings_vertexAttributeAccessBeyondStride = "vertexAttributeAccessBeyondStride";
+const char *const kLayerSettings_minVertexInputBindingStrideAlignment = "minVertexInputBindingStrideAlignment";
 const char *const kLayerSettingsSimulateCapabilities = "simulate_capabilities";
 const char *const kLayerSettingsDebugActions = "debug_actions";
 const char *const kLayerSettingsDebugFilename = "debug_filename";
@@ -346,18 +362,18 @@ typedef std::vector<VkExtensionProperties> ArrayOfVkExtensionProperties;
 struct QueueFamilyProperties {
     VkQueueFamilyProperties2 properties_2 = {};
     VkQueueFamilyGlobalPriorityPropertiesKHR global_priority_properties_ = {};
-    VkVideoQueueFamilyProperties2KHR video_properties_2_ = {};
+    VkQueueFamilyVideoPropertiesKHR video_properties_ = {};
     VkQueueFamilyCheckpointPropertiesNV checkpoint_properties_ = {};
     VkQueueFamilyCheckpointProperties2NV checkpoint_properties_2_ = {};
-    VkQueueFamilyQueryResultStatusProperties2KHR query_result_status_properties_2_ = {};
+    VkQueueFamilyQueryResultStatusPropertiesKHR query_result_status_properties_ = {};
 
     QueueFamilyProperties() {
         properties_2.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
         global_priority_properties_.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_GLOBAL_PRIORITY_PROPERTIES_EXT;
-        video_properties_2_.sType = VK_STRUCTURE_TYPE_VIDEO_QUEUE_FAMILY_PROPERTIES_2_KHR;
+        video_properties_.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_VIDEO_PROPERTIES_KHR;
         checkpoint_properties_.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_CHECKPOINT_PROPERTIES_NV;
         checkpoint_properties_2_.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_CHECKPOINT_PROPERTIES_2_NV;
-        query_result_status_properties_2_.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_QUERY_RESULT_STATUS_PROPERTIES_2_KHR;
+        query_result_status_properties_.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_QUERY_RESULT_STATUS_PROPERTIES_KHR;
     }
 };
 typedef std::vector<QueueFamilyProperties> ArrayOfVkQueueFamilyProperties;
@@ -588,12 +604,6 @@ class JsonLoader {
     bool GetQueueFamilyProperties(const Json::Value &qf_props, QueueFamilyProperties *dest);
     bool OrderQueueFamilyProperties(ArrayOfVkQueueFamilyProperties *qfp);
     void AddPromotedExtensions(uint32_t api_level);
-
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, VkExtent2D *dest);
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, VkExtent2D *dest,
-                  std::function<bool(const char *, uint32_t, uint32_t)> warn_func);
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, VkExtent3D *dest);
-
 '''
 
 JSON_LOADER_END = '''
@@ -605,108 +615,181 @@ JsonLoader::ProfileMap JsonLoader::profile_map_;
 '''
 
 WARN_FUNCTIONS = '''
-    static void WarnNotModifiable(const char *parent_name, const std::string &member, const char *name) {
-        if (member != name) {
-            return;
-        }
-        LogMessage(
-            DEBUG_REPORT_WARNING_BIT,
-            format("%s::%s value is set in the profile, but it is not modifiable by the Profiles Layer and will not be set.\\n",
-                   parent_name, name));
-    }
-
-    static bool WarnIfGreater(const char *name, const uint64_t new_value, const uint64_t old_value) {
-        if (new_value > old_value) {
-            LogMessage(
-                DEBUG_REPORT_WARNING_BIT,
-                format("%s profile value (%" PRIu64 ") is greater than device value (%" PRIu64 ")\\n", name, new_value, old_value));
+    static bool WarnIfNotEqualFloat(const char *name, const float new_value, const float old_value, const bool not_modifiable) {
+        if (std::abs(new_value - old_value) > 0.0001f) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%3.2f) which different from the device value (%3.2f).\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%3.2f) is different from the device supported value (%3.2f).\\n", name, new_value, old_value));
+            }
             return true;
         }
         return false;
     }
 
-    static bool WarnIfGreaterSizet(const char *name, const size_t new_value, const size_t old_value) {
-        if (new_value > old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value (%" PRIuLEAST64 ") is greater than device value (%" PRIuLEAST64 ")\\n", name,
-                              new_value, old_value));
-            return true;
-        }
-        return false;
-    }
-
-    static bool WarnIfGreaterFloat(const char *name, const float new_value, const float old_value) {
-        if (new_value > old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value (%3.2f) is greater than device value (%3.2f)\\n", name, new_value, old_value));
-            return true;
-        }
-        return false;
-    }
-
-    static bool WarnIfNotEqualBool(const char *name, const bool new_value, const bool old_value) {
-        if (new_value && !old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value is enabled in the profile, but the device does not support it.\\n", name));
-            return true;
-        }
-        return false;
-    }
-
-    static bool WarnIfNotEqualEnum(const char *name, const uint32_t new_value, const uint32_t old_value) {
+    static bool WarnIfNotEqualBool(const char *name, const bool new_value, const bool old_value, const bool not_modifiable) {
         if (new_value != old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value (%" PRIu32 ") is different from the device value (%" PRIu32 ").\\n", name, new_value,
-                              old_value));
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%s) which different from the device value (%s)\\n", name, new_value ? "true" : "false", old_value ? "true" : "false"));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value is enabled in the profile, but the device does not support it.\\n", name));
+            }
             return true;
         }
         return false;
     }
 
-    static bool WarnIfMissingBit(const char *name, const uint32_t new_value, const uint32_t old_value) {
+    static bool WarnIfNotEqualEnum(const char *name, const uint32_t new_value, const uint32_t old_value, const bool not_modifiable) {
+        if (new_value != old_value) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIu32 ") which different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIu32 ") is different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfNotEqual(const char *name, const uint32_t new_value, const uint32_t old_value, const bool not_modifiable) {
+        if (new_value != old_value) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIu32 ") which different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIu32 ") is different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfNotEqual32u(const char *name, const uint32_t new_value, const uint32_t old_value, const bool not_modifiable) {
+        if (new_value != old_value) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIu32 ") which different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIu32 ") is different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfNotEqual(const char *name, const int32_t new_value, const int32_t old_value, const bool not_modifiable) {
+        if (new_value != old_value) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIi32 ") which different from the device value (%" PRIi32 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIi32 ") is different from the device value (%" PRIi32 ").\\n", name, new_value, old_value));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfNotEqual(const char *name, const uint64_t new_value, const uint64_t old_value, const bool not_modifiable) {
+        if (new_value != old_value) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIu64 ") which different from the device value (%" PRIu64 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIu64 ") is different from the device value (%" PRIu64 ").\\n", name, new_value, old_value));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfNotEquali64(const char *name, const int64_t new_value, const int64_t old_value, const bool not_modifiable) {
+        if (new_value != old_value) {
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIi64 ") which different from the device value (%" PRIi64 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIi64 ") is different from the device value (%" PRIi64 ").\\n", name, new_value, old_value));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfMissingBit(const char *name, const uint32_t new_value, const uint32_t old_value, const bool not_modifiable) {
         if ((old_value | new_value) != old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value (%" PRIu32 ") has bits set that the device value (%" PRIu32 ") does not\\n", name,
-                              new_value, old_value));
+            if (not_modifiable) {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' is not modifiable but the profile value (%" PRIu32 ") which different from the device value (%" PRIu32 ").\\n", name, new_value, old_value));
+            } else {
+                LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                    "'%s' profile value (%" PRIu32 ") has bits set that the device value (%" PRIu32 ") does not.\\n", name, new_value, old_value));
+            }
             return true;
         }
         return false;
     }
 
-    static bool WarnIfMissingBit64(const char *name, const uint64_t new_value, const uint64_t old_value) {
-        if ((old_value | new_value) != old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s JSON value (%" PRIu64 ") has bits set that the existing value (%" PRIu64 ") does not\\n", name,
-                              new_value, old_value));
+    static bool WarnIfGreater(const char *name, const uint64_t new_value, const uint64_t old_value, const bool not_modifiable) {
+        if (new_value > old_value) {
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "'%s' profile value (%" PRIu64 ") is greater than device value (%" PRIu64 ")\\n", name, new_value, old_value));
             return true;
         }
         return false;
     }
 
-    static bool WarnIfLesser(const char *name, const uint64_t new_value, const uint64_t old_value) {
+    static bool WarnIfGreaterSizet(const char *name, const size_t new_value, const size_t old_value, const bool not_modifiable) {
+        if (new_value > old_value) {
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "'%s' profile value (%" PRIuLEAST64 ") is greater than device value (%" PRIuLEAST64 ")\\n", name, new_value, old_value));
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfGreaterFloat(const char *name, const float new_value, const float old_value, const bool not_modifiable) {
+        if (new_value > old_value) {
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "'%s' profile value (%3.2f) is greater than device value (%3.2f)\\n", name, new_value, old_value));
+            return true;
+        }
+        return false;
+    }
+
+    static bool WarnIfLesser(const char *name, const uint64_t new_value, const uint64_t old_value, const bool not_modifiable) {
         if (new_value < old_value) {
-            LogMessage(
-                DEBUG_REPORT_WARNING_BIT,
-                format("%s profile value (%" PRIu64 ") is lesser than device value (%" PRIu64 ")\\n", name, new_value, old_value));
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "'%s' profile value (%" PRIu64 ") is lesser than device value (%" PRIu64 ")\\n", name, new_value, old_value));
             return true;
         }
         return false;
     }
 
-    static bool WarnIfLesserSizet(const char *name, const size_t new_value, const size_t old_value) {
+    static bool WarnIfLesserSizet(const char *name, const size_t new_value, const size_t old_value, const bool not_modifiable) {
         if (new_value < old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value (%" PRIuLEAST64 ") is lesser than device value (%" PRIuLEAST64 ")\\n", name,
-                              new_value, old_value));
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "'%s' profile value (%" PRIuLEAST64 ") is lesser than device value (%" PRIuLEAST64 ")\\n", name, new_value, old_value));
             return true;
         }
         return false;
     }
 
-    static bool WarnIfLesserFloat(const char *name, const float new_value, const float old_value) {
+    static bool WarnIfLesserFloat(const char *name, const float new_value, const float old_value, const bool not_modifiable) {
         if (new_value < old_value) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("%s profile value (%3.2f) is lesser than profile value (%3.2f)\\n", name, new_value, old_value));
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "'%s' profile value (%3.2f) is lesser than device value (%3.2f)\\n", name, new_value, old_value));
             return true;
         }
         return false;
@@ -714,11 +797,16 @@ WARN_FUNCTIONS = '''
 '''
 
 GET_VALUE_FUNCTIONS = '''
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, float *dest,
-                  std::function<bool(const char *, float, float)> warn_func = nullptr) {
+    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, float *dest, bool not_modifiable,
+                  std::function<bool(const char *, float, float, bool)> warn_func = nullptr) {
         if (member != name) {
             return true;
         }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
         const Json::Value value = parent[name];
         if (!value.isDouble()) {
             return true;
@@ -726,49 +814,37 @@ GET_VALUE_FUNCTIONS = '''
         bool valid = true;
         const float new_value = value.asFloat();
         if (warn_func) {
-            if (warn_func(name, new_value, *dest)) {
+            if (warn_func(name, new_value, *dest, not_modifiable)) {
                 valid = false;
             }
         }
-        *dest = new_value;
+        if (!not_modifiable) {
+            *dest = new_value;
+        }
+
         return valid;
     }
 
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, int32_t *dest,
-                  std::function<bool(const char *, int32_t, int32_t)> warn_func = nullptr) {
+    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, uint8_t *dest, bool not_modifiable,
+                  std::function<bool(const char *, uint8_t, uint8_t, bool)> warn_func = nullptr) {
         if (member != name) {
             return true;
         }
-        const Json::Value value = parent[name];
-        if (!value.isInt()) {
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
             return true;
         }
-        bool valid = true;
-        const int32_t new_value = value.asInt();
-        if (warn_func) {
-            if (warn_func(name, new_value, *dest)) {
-                valid = false;
-            }
-        }
-        *dest = new_value;
-        return valid;
-    }
 
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, uint32_t *dest,
-                  std::function<bool(const char *, uint32_t, uint32_t)> warn_func = nullptr) {
-        if (member != name) {
-            return true;
-        }
         const Json::Value value = parent[name];
         bool valid = true;
         if (value.isBool()) {
             const bool new_value = value.asBool();
             if (warn_func) {
-                if (warn_func(name, new_value, *dest)) {
+                if (warn_func(name, new_value, *dest, not_modifiable)) {
                     valid = false;
                 }
             }
-            *dest = static_cast<uint32_t>(new_value);
+            *dest = static_cast<uint8_t>(new_value);
         } else if (value.isArray()) {
             uint32_t sum_bits = 0;
             for (const auto &entry : value) {
@@ -776,43 +852,138 @@ GET_VALUE_FUNCTIONS = '''
                     sum_bits |= VkStringToUint(entry.asString());
                 }
             }
-            *dest = sum_bits;
+            if (!not_modifiable) {
+                *dest = static_cast<uint8_t>(sum_bits);
+            }
+        } else if (value.isUInt()) {
+            const uint8_t new_value = static_cast<uint8_t>(value.asUInt());
+            if (warn_func) {
+                if (warn_func(name, new_value, *dest, not_modifiable)) {
+                    valid = false;
+                }
+            }
+            if (!not_modifiable) {
+                *dest = static_cast<uint8_t>(new_value);
+            }
+        }
+        return valid;
+    }
+
+    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, int32_t *dest, bool not_modifiable,
+                  std::function<bool(const char *, int32_t, int32_t, bool)> warn_func = nullptr) {
+        if (member != name) {
+            return true;
+        }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
+        const Json::Value value = parent[name];
+        if (!value.isInt()) {
+            return true;
+        }
+        bool valid = true;
+        const int32_t new_value = value.asInt();
+        if (warn_func) {
+            if (warn_func(name, new_value, *dest, not_modifiable)) {
+                valid = false;
+            }
+        }
+
+        if (!not_modifiable) {
+            *dest = new_value;
+        }
+        return valid;
+    }
+
+    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, int64_t *dest, bool not_modifiable,
+                  std::function<bool(const char *, int64_t, int64_t, bool)> warn_func = nullptr) {
+        if (member != name) {
+            return true;
+        }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
+        const Json::Value value = parent[name];
+        if (!value.isInt64()) {
+            return true;
+        }
+        bool valid = true;
+        const int64_t new_value = value.asInt64();
+        if (warn_func) {
+            if (warn_func(name, new_value, *dest, not_modifiable)) {
+                valid = false;
+            }
+        }
+
+        if (!not_modifiable) {
+            *dest = new_value;
+        }
+        return valid;
+    }
+
+    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, uint32_t *dest, bool not_modifiable,
+                  std::function<bool(const char *, uint32_t, uint32_t, bool)> warn_func = nullptr) {
+        if (member != name) {
+            return true;
+        }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
+        const Json::Value value = parent[name];
+        bool valid = true;
+        if (value.isBool()) {
+            const bool new_value = value.asBool();
+            if (warn_func) {
+                if (warn_func(name, new_value, *dest, not_modifiable)) {
+                    valid = false;
+                }
+            }
+
+            if (!not_modifiable) {
+                *dest = static_cast<uint32_t>(new_value);
+            }
+        } else if (value.isArray()) {
+            uint32_t sum_bits = 0;
+            for (const auto &entry : value) {
+                if (entry.isString()) {
+                    sum_bits |= VkStringToUint(entry.asString());
+                }
+            }
+
+            if (!not_modifiable) {
+                *dest = sum_bits;
+            }
         } else if (value.isUInt()) {
             const uint32_t new_value = value.asUInt();
             if (warn_func) {
-                if (warn_func(name, new_value, *dest)) {
+                if (warn_func(name, new_value, *dest, not_modifiable)) {
                     valid = false;
                 }
             }
-            *dest = new_value;
+
+            if (!not_modifiable) {
+                *dest = new_value;
+            }
         }
         return valid;
     }
 
-    bool GetValueSizet(const Json::Value &parent, const std::string &member, const char *name, size_t *dest,
-                       std::function<bool(const char *, size_t, size_t)> warn_func = nullptr) {
+    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, uint64_t *dest, bool not_modifiable,
+                  std::function<bool(const char *, uint64_t, uint64_t, bool)> warn_func = nullptr) {
         if (member != name) {
             return true;
         }
-        const Json::Value value = parent[name];
-        bool valid = true;
-        if (value.isUInt()) {
-            const size_t new_value = value.asUInt();
-            if (warn_func) {
-                if (warn_func(name, new_value, *dest)) {
-                    valid = false;
-                }
-            }
-            *dest = new_value;
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
         }
-        return valid;
-    }
 
-    bool GetValue(const Json::Value &parent, const std::string &member, const char *name, uint64_t *dest,
-                  std::function<bool(const char *, uint64_t, uint64_t)> warn_func = nullptr) {
-        if (member != name) {
-            return true;
-        }
         const Json::Value value = parent[name];
         if (!value.isUInt64()) {
             return true;
@@ -820,20 +991,100 @@ GET_VALUE_FUNCTIONS = '''
         bool valid = true;
         const uint64_t new_value = value.asUInt64();
         if (warn_func) {
-            if (warn_func(name, new_value, *dest)) {
+            if (warn_func(name, new_value, *dest, not_modifiable)) {
                 valid = false;
             }
         }
-        *dest = new_value;
+
+        if (!not_modifiable) {
+            *dest = new_value;
+        }
+        return valid;
+    }
+
+    bool GetValue(const Json::Value &pparent, const std::string &member, const char *name, VkExtent2D *dest, bool not_modifiable,
+                  std::function<bool(const char *, uint32_t, uint32_t, bool)> warn_func = nullptr) {
+        if (member != name) {
+            return true;
+        }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
+        const Json::Value parent = pparent[name];
+        if (parent.type() != Json::objectValue) {
+            return true;
+        }
+        bool valid = true;
+        for (const auto &prop : parent.getMemberNames()) {
+            GET_VALUE_WARN(prop, width, not_modifiable, warn_func);
+            GET_VALUE_WARN(prop, height, not_modifiable, warn_func);
+        }
+        return valid;
+    }
+
+    bool GetValue(const Json::Value &pparent, const std::string &member, const char *name, VkExtent3D *dest, bool not_modifiable,
+                  std::function<bool(const char *, uint32_t, uint32_t, bool)> warn_func = nullptr) {
+        if (member != name) {
+            return true;
+        }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
+        const Json::Value parent = pparent[name];
+        if (parent.type() != Json::objectValue) {
+            return true;
+        }
+        bool valid = true;
+        for (const auto &prop : parent.getMemberNames()) {
+            GET_VALUE_WARN(prop, width, not_modifiable, warn_func);
+            GET_VALUE_WARN(prop, height, not_modifiable, warn_func);
+            GET_VALUE_WARN(prop, depth, not_modifiable, warn_func);
+        }
+        return true;
+    }
+
+    bool GetValueSizet(const Json::Value &parent, const std::string &member, const char *name, size_t *dest, bool not_modifiable,
+                       std::function<bool(const char *, size_t, size_t, bool)> warn_func = nullptr) {
+        if (member != name) {
+            return true;
+        }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
+        const Json::Value value = parent[name];
+        bool valid = true;
+        if (value.isUInt()) {
+            const size_t new_value = value.asUInt();
+            if (warn_func) {
+                if (warn_func(name, new_value, *dest, not_modifiable)) {
+                    valid = false;
+                }
+            }
+
+            if (!not_modifiable) {
+                *dest = new_value;
+            }
+        }
         return valid;
     }
 
     template <typename T>  // for Vulkan enum types
-    bool GetValueFlag(const Json::Value &parent, const std::string &member, const char *name, T *dest,
-                      std::function<bool(const char *, T, T)> warn_func = nullptr) {
+    bool GetValueFlag(const Json::Value &parent, const std::string &member, const char *name, T *dest, bool not_modifiable,
+                      std::function<bool(const char *, T, T, bool)> warn_func = nullptr) {
         if (member != name) {
             return true;
         }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
         const Json::Value value = parent[name];
         bool valid = true;
         uint32_t new_value = 0;
@@ -844,19 +1095,27 @@ GET_VALUE_FUNCTIONS = '''
                 }
             }
         }
-        if (WarnIfMissingBit(name, new_value, static_cast<uint32_t>(*dest))) {
+        if (WarnIfMissingBit(name, new_value, static_cast<uint32_t>(*dest), not_modifiable)) {
             valid = false;
         }
-        *dest = static_cast<T>(new_value);
+
+        if (!not_modifiable) {
+            *dest = static_cast<T>(new_value);
+        }
         return valid;
     }
 
     template <typename T>  // for Vulkan enum types
-    bool GetValueEnum(const Json::Value &parent, const std::string &member, const char *name, T *dest,
-                      std::function<bool(const char *, std::uint32_t, std::uint32_t)> warn_func = nullptr) {
+    bool GetValueEnum(const Json::Value &parent, const std::string &member, const char *name, T *dest, bool not_modifiable,
+                      std::function<bool(const char *, uint32_t, uint32_t, bool)> warn_func = nullptr) {
         if (member != name) {
             return true;
         }
+        // If the value is not modifiable and we don't warn, we can return immediately, we will use the native value
+        if (not_modifiable && warn_func == nullptr) {
+            return true;
+        }
+
         const Json::Value value = parent[name];
         bool valid = true;
         uint32_t new_value = 0;
@@ -864,71 +1123,26 @@ GET_VALUE_FUNCTIONS = '''
             new_value = static_cast<T>(VkStringToUint(value.asString()));
         }
         if (warn_func) {
-            if (warn_func(name, new_value, *dest)) {
+            if (warn_func(name, new_value, *dest, not_modifiable)) {
                 valid = false;
             }
         } else {
-            if (WarnIfNotEqualEnum(name, new_value, *dest)) {
+            if (WarnIfNotEqualEnum(name, new_value, *dest, not_modifiable)) {
                 valid = false;
             }
         }
-        *dest = static_cast<T>(new_value);
+
+        if (!not_modifiable) {
+            *dest = static_cast<T>(new_value);
+        }
         return valid;
     }
-'''
 
-GET_VALUE_EXTENT_FUNCTIONS = '''
-bool JsonLoader::GetValue(const Json::Value &parent, const std::string &member, const char *name, VkExtent2D *dest) {
-    if (member != name) {
-        return true;
-    }
-    const Json::Value value = parent[name];
-    if (value.type() != Json::objectValue) {
-        return true;
-    }
-    for (const auto &prop : parent.getMemberNames()) {
-        GET_VALUE(prop, width);
-        GET_VALUE(prop, height);
-    }
-    return true;
-}
+    int GetArray(const Json::Value &parent, const std::string &member, const char *name, uint8_t *dest, bool not_modifiable) {
+        if (member != name) {
+            return -1;
+        }
 
-bool JsonLoader::GetValue(const Json::Value &pparent, const std::string &member, const char *name, VkExtent2D *dest,
-                          std::function<bool(const char *, uint32_t, uint32_t)> warn_func = nullptr) {
-    if (member != name) {
-        return true;
-    }
-    const Json::Value parent = pparent[name];
-    if (parent.type() != Json::objectValue) {
-        return true;
-    }
-    bool valid = true;
-    for (const auto &prop : parent.getMemberNames()) {
-        GET_VALUE_WARN(prop, width, warn_func);
-        GET_VALUE_WARN(prop, height, warn_func);
-    }
-    return valid;
-}
-
-bool JsonLoader::GetValue(const Json::Value &pparent, const std::string &member, const char *name, VkExtent3D *dest) {
-    if (member != name) {
-        return true;
-    }
-    const Json::Value parent = pparent[name];
-    if (parent.type() != Json::objectValue) {
-        return true;
-    }
-    for (const auto &prop : parent.getMemberNames()) {
-        GET_VALUE(prop, width);
-        GET_VALUE(prop, height);
-        GET_VALUE(prop, depth);
-    }
-    return true;
-}
-'''
-
-GET_ARRAY_FUNCTIONS = '''
-    int GetArray(const Json::Value &parent, const char *name, uint8_t *dest) {
         const Json::Value value = parent[name];
         if (value.type() != Json::arrayValue) {
             return -1;
@@ -940,7 +1154,11 @@ GET_ARRAY_FUNCTIONS = '''
         return count;
     }
 
-    int GetArray(const Json::Value &parent, const char *name, uint32_t *dest) {
+    int GetArray(const Json::Value &parent, const std::string &member, const char *name, uint32_t *dest, bool not_modifiable) {
+        if (member != name) {
+            return -1;
+        }
+
         const Json::Value value = parent[name];
         if (value.type() != Json::arrayValue) {
             return -1;
@@ -952,7 +1170,11 @@ GET_ARRAY_FUNCTIONS = '''
         return count;
     }
 
-    int GetArray(const Json::Value &parent, const char *name, float *dest) {
+    int GetArray(const Json::Value &parent, const std::string &member, const char *name, float *dest, bool not_modifiable) {
+        if (member != name) {
+            return -1;
+        }
+
         const Json::Value value = parent[name];
         if (value.type() != Json::arrayValue) {
             return -1;
@@ -964,7 +1186,11 @@ GET_ARRAY_FUNCTIONS = '''
         return count;
     }
 
-    int GetArray(const Json::Value &parent, const char *name, char *dest) {
+    int GetArray(const Json::Value &parent, const std::string &member, const char *name, char *dest, bool not_modifiable) {
+        if (member != name) {
+            return -1;
+        }
+
         const Json::Value value = parent[name];
         if (!value.isString()) {
             return -1;
@@ -1226,7 +1452,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
             dest->global_priority_properties_.priorityCount = props["priorityCount"].asUInt();
         } else if (name == "VkVideoQueueFamilyProperties2KHR") {
             for (const auto &feature : props["videoCodecOperations"]) {
-                dest->video_properties_2_.videoCodecOperations |= StringToVkVideoCodecOperationFlagsKHR(feature.asString());
+                dest->video_properties_.videoCodecOperations |= StringToVkVideoCodecOperationFlagsKHR(feature.asString());
             }
         } else if (name == "VkQueueFamilyCheckpointProperties2NV") {
             for (const auto &feature : props["checkpointExecutionStageMask"]) {
@@ -1237,7 +1463,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
                 dest->checkpoint_properties_.checkpointExecutionStageMask |= StringToVkPipelineStageFlags(feature.asString());
             }
         } else if (name == "VkQueueFamilyQueryResultStatusProperties2KHR") {
-            dest->query_result_status_properties_2_.queryResultStatusSupport = props["queryResultStatusSupport"].asBool() ? VK_TRUE : VK_FALSE;
+            dest->query_result_status_properties_.queryResultStatusSupport = props["queryResultStatusSupport"].asBool() ? VK_TRUE : VK_FALSE;
         }
     }
 
@@ -1251,8 +1477,8 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
         if (!GlobalPriorityMatch(device_qfp.global_priority_properties_, dest->global_priority_properties_)) {
             continue;
         }
-        if ((device_qfp.video_properties_2_.videoCodecOperations & dest->video_properties_2_.videoCodecOperations) !=
-            dest->video_properties_2_.videoCodecOperations) {
+        if ((device_qfp.video_properties_.videoCodecOperations & dest->video_properties_.videoCodecOperations) !=
+            dest->video_properties_.videoCodecOperations) {
             continue;
         }
         if ((device_qfp.checkpoint_properties_.checkpointExecutionStageMask &
@@ -1265,7 +1491,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
             dest->checkpoint_properties_2_.checkpointExecutionStageMask) {
             continue;
         }
-        if (device_qfp.query_result_status_properties_2_.queryResultStatusSupport != dest->query_result_status_properties_2_.queryResultStatusSupport) {
+        if (device_qfp.query_result_status_properties_.queryResultStatusSupport != dest->query_result_status_properties_.queryResultStatusSupport) {
             continue;
         }
         supported = true;
@@ -1293,9 +1519,9 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
             message += format(", VkQueueFamilyGlobalPriorityPropertiesKHR [priorityCount: %" PRIu32 ", priorities: %s]",
                               dest->global_priority_properties_.priorityCount, priorities.c_str());
         }
-        if (dest->video_properties_2_.videoCodecOperations > 0) {
+        if (dest->video_properties_.videoCodecOperations > 0) {
             message += format(", VkVideoQueueFamilyProperties2KHR [videoCodecOperations: %s]",
-                              string_VkVideoCodecOperationFlagsKHR(dest->video_properties_2_.videoCodecOperations).c_str());
+                              string_VkVideoCodecOperationFlagsKHR(dest->video_properties_.videoCodecOperations).c_str());
         }
         if (dest->checkpoint_properties_.checkpointExecutionStageMask > 0) {
             message += format(", VkQueueFamilyCheckpointPropertiesNV [checkpointExecutionStageMask: %s]",
@@ -1305,7 +1531,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
             message += format(", VkQueueFamilyCheckpointProperties2NV [checkpointExecutionStageMask: %s]",
                               string_VkPipelineStageFlags2KHR(dest->checkpoint_properties_2_.checkpointExecutionStageMask).c_str());
         }
-        if (dest->query_result_status_properties_2_.queryResultStatusSupport) {
+        if (dest->query_result_status_properties_.queryResultStatusSupport) {
             message += format(", VkQueueFamilyQueryResultStatusProperties2KHR [queryResultStatusSupport: VK_TRUE]");
         }
         message += ".\\n";
@@ -1325,8 +1551,8 @@ bool QueueFamilyAndExtensionsMatch(const QueueFamilyProperties &device, const Qu
     if (!GlobalPriorityMatch(device.global_priority_properties_, profile.global_priority_properties_)) {
         return false;
     }
-    if ((device.video_properties_2_.videoCodecOperations & profile.video_properties_2_.videoCodecOperations) !=
-        profile.video_properties_2_.videoCodecOperations) {
+    if ((device.video_properties_.videoCodecOperations & profile.video_properties_.videoCodecOperations) !=
+        profile.video_properties_.videoCodecOperations) {
         return false;
     }
     if ((device.checkpoint_properties_.checkpointExecutionStageMask &
@@ -1339,7 +1565,7 @@ bool QueueFamilyAndExtensionsMatch(const QueueFamilyProperties &device, const Qu
         profile.checkpoint_properties_2_.checkpointExecutionStageMask) {
         return false;
     }
-    if (device.query_result_status_properties_2_.queryResultStatusSupport != profile.query_result_status_properties_2_.queryResultStatusSupport) {
+    if (device.query_result_status_properties_.queryResultStatusSupport != profile.query_result_status_properties_.queryResultStatusSupport) {
         return false;
     }
     return true;
@@ -1541,14 +1767,13 @@ VkResult JsonLoader::ReadProfile(const Json::Value root, const std::vector<std::
         const auto &properties = c["properties"];
 
         if (VK_API_VERSION_PATCH(this->profile_api_version_) > VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion)) {
-            LogMessage(DEBUG_REPORT_ERROR_BIT,
-                       format("Profile apiVersion (%" PRIu32 ".%" PRIu32 ".%" PRIu32
-                              ") is greater than the device apiVersion (%" PRIu32 ".%" PRIu32 ".%" PRIu32 ")\\n",
-                              VK_API_VERSION_MAJOR(this->profile_api_version_), VK_API_VERSION_MINOR(this->profile_api_version_),
-                              VK_API_VERSION_PATCH(this->profile_api_version_),
-                              VK_API_VERSION_MAJOR(pdd_->physical_device_properties_.apiVersion),
-                              VK_API_VERSION_MINOR(pdd_->physical_device_properties_.apiVersion),
-                              VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion)));
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "Profile apiVersion (%" PRIu32 ".%" PRIu32 ".%" PRIu32 ") is greater than the device apiVersion (%" PRIu32 ".%" PRIu32 ".%" PRIu32 ").\\n",
+                    VK_API_VERSION_MAJOR(this->profile_api_version_), VK_API_VERSION_MINOR(this->profile_api_version_),
+                    VK_API_VERSION_PATCH(this->profile_api_version_),
+                    VK_API_VERSION_MAJOR(pdd_->physical_device_properties_.apiVersion),
+                    VK_API_VERSION_MINOR(pdd_->physical_device_properties_.apiVersion),
+                    VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion)));
             failed = true;
         }
 
@@ -1667,25 +1892,21 @@ VkResult JsonLoader::ReadProfile(const Json::Value root, const std::vector<std::
     }
 
     if (properties_api_version != 0) {
-        LogMessage(DEBUG_REPORT_NOTIFICATION_BIT,
-                   format("VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32
-                          ". Using the API version specified by the profile VkPhysicalDeviceProperties structure.\\n",
-                          VK_API_VERSION_MAJOR(properties_api_version), VK_API_VERSION_MINOR(properties_api_version),
-                          VK_API_VERSION_PATCH(properties_api_version)));
+        LogMessage(DEBUG_REPORT_NOTIFICATION_BIT, format(
+            "VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32 ". Using the API version specified by the profile VkPhysicalDeviceProperties structure.\\n",
+            VK_API_VERSION_MAJOR(properties_api_version), VK_API_VERSION_MINOR(properties_api_version), VK_API_VERSION_PATCH(properties_api_version)));
     } else if (layer_settings->simulate_capabilities & SIMULATE_API_VERSION_BIT) {
-        LogMessage(DEBUG_REPORT_NOTIFICATION_BIT,
-                   format("VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32
-                          ". Using the API version specified by the profile.\\n",
-                          VK_API_VERSION_MAJOR(this->profile_api_version_), VK_API_VERSION_MINOR(this->profile_api_version_),
-                          VK_API_VERSION_PATCH(this->profile_api_version_)));
+        LogMessage(DEBUG_REPORT_NOTIFICATION_BIT, format(
+            "VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32". Using the API version specified by the profile.\\n",
+            VK_API_VERSION_MAJOR(this->profile_api_version_), VK_API_VERSION_MINOR(this->profile_api_version_), VK_API_VERSION_PATCH(this->profile_api_version_)));
 
         pdd_->physical_device_properties_.apiVersion = this->profile_api_version_;
     } else {
-        LogMessage(DEBUG_REPORT_NOTIFICATION_BIT, format("VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32
-                                                         ". Using the device version.\\n",
-                                                         VK_API_VERSION_MAJOR(pdd_->physical_device_properties_.apiVersion),
-                                                         VK_API_VERSION_MINOR(pdd_->physical_device_properties_.apiVersion),
-                                                         VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion)));
+        LogMessage(DEBUG_REPORT_NOTIFICATION_BIT, format(
+            "VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32 ". Using the device version.\\n",
+                VK_API_VERSION_MAJOR(pdd_->physical_device_properties_.apiVersion),
+                VK_API_VERSION_MINOR(pdd_->physical_device_properties_.apiVersion),
+                VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion)));
     }
 
     if (failed && layer_settings->debug_fail_on_error) {
@@ -1701,9 +1922,9 @@ VkResult JsonLoader::LoadFile(std::string filename) {
     profile_filename_ = filename;
     if (filename.empty()) {
         if (!layer_settings->profile_name.empty()) {
-            LogMessage(DEBUG_REPORT_WARNING_BIT,
-                       format("Profile name is set to \\"%s\\", but profile_file is unset. The profile will not be loaded.\\n",
-                              layer_settings->profile_name.c_str()));
+            LogMessage(DEBUG_REPORT_WARNING_BIT, format(
+                "Profile name is set to \\"%s\\", but profile_file is unset. The profile will not be loaded.\\n",
+                layer_settings->profile_name.c_str()));
         }
         return VK_SUCCESS;
     }
@@ -1792,7 +2013,7 @@ VkResult JsonLoader::LoadDevice(PhysicalDeviceData *pdd) {
             }
 
             found_profile = true;
-            LogMessage(DEBUG_REPORT_NOTIFICATION_BIT, format("Overriding device capabilities with \\"%s\\" profile capabilities\\n", profile.c_str()).c_str());
+            LogMessage(DEBUG_REPORT_NOTIFICATION_BIT, format("Overriding device capabilities with \\"%s\\" profile capabilities.\\n", profile.c_str()).c_str());
             break;  // load a single profile
         }
     }
@@ -1872,25 +2093,24 @@ VkResult JsonLoader::LoadDevice(PhysicalDeviceData *pdd) {
 '''
 
 GET_DEFINES = '''
-// Apply the DRY principle, see https://en.wikipedia.org/wiki/Don%27t_repeat_yourself
-#define GET_VALUE(member, name) GetValue(parent, member, #name, &dest->name)
-#define GET_ARRAY(name) GetArray(parent, #name, dest->name)
-#define GET_MEMBER_VALUE(member, name) GetValue(parent, member, #name, &dest->name)
-#define GET_VALUE_WARN(member, name, warn_func)                     \\
-    if (!GetValue(parent, member, #name, &dest->name, warn_func)) { \\
-        valid = false;                                              \\
+#define GET_VALUE(member, name, not_modifiable) GetValue(parent, member, #name, &dest->name, not_modifiable)
+#define GET_ARRAY(member, name, not_modifiable) GetArray(parent, member, #name, dest->name, not_modifiable)
+
+#define GET_VALUE_WARN(member, name, not_modifiable, warn_func)                     \\
+    if (!GetValue(parent, member, #name, &dest->name, not_modifiable, warn_func)) { \\
+        valid = false;                                                              \\
     }
-#define GET_VALUE_SIZE_T_WARN(member, name, warn_func)                   \\
-    if (!GetValueSizet(parent, member, #name, &dest->name, warn_func)) { \\
-        valid = false;                                                   \\
+#define GET_VALUE_SIZE_T_WARN(member, name, not_modifiable, warn_func)                   \\
+    if (!GetValueSizet(parent, member, #name, &dest->name, not_modifiable, warn_func)) { \\
+        valid = false;                                                                   \\
     }
-#define GET_VALUE_FLAG_WARN(member, name)                    \\
-    if (!GetValueFlag(parent, member, #name, &dest->name)) { \\
-        valid = false;                                       \\
+#define GET_VALUE_FLAG_WARN(member, name, not_modifiable)                    \\
+    if (!GetValueFlag(parent, member, #name, &dest->name, not_modifiable)) { \\
+        valid = false;                                                       \\
     }
-#define GET_VALUE_ENUM_WARN(member, name, warn_func)                    \\
-    if (!GetValueEnum(parent, member, #name, &dest->name, warn_func)) { \\
-        valid = false;                                       \\
+#define GET_VALUE_ENUM_WARN(member, name, not_modifiable, warn_func)                    \\
+    if (!GetValueEnum(parent, member, #name, &dest->name, not_modifiable, warn_func)) { \\
+        valid = false;                                                                  \\
     }
 '''
 
@@ -2012,6 +2232,76 @@ static void InitSettings(const void *pnext) {
             layer_settings->emulate_portability = vku::GetLayerSettingBool(kOurLayerName, kLayerSettingsEmulatePortability);
         }
 
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_constantAlphaColorBlendFactors)) {
+            layer_settings->constantAlphaColorBlendFactors =
+                vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_constantAlphaColorBlendFactors);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_events)) {
+            layer_settings->events = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_events);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_imageViewFormatReinterpretation)) {
+            layer_settings->imageViewFormatReinterpretation =
+                vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_imageViewFormatReinterpretation);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_imageViewFormatSwizzle)) {
+            layer_settings->imageViewFormatSwizzle = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_imageViewFormatSwizzle);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_imageView2DOn3DImage)) {
+            layer_settings->imageView2DOn3DImage = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_imageView2DOn3DImage);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_multisampleArrayImage)) {
+            layer_settings->multisampleArrayImage = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_multisampleArrayImage);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_mutableComparisonSamplers)) {
+            layer_settings->mutableComparisonSamplers =
+                vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_mutableComparisonSamplers);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_pointPolygons)) {
+            layer_settings->pointPolygons = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_pointPolygons);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_samplerMipLodBias)) {
+            layer_settings->samplerMipLodBias = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_samplerMipLodBias);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_separateStencilMaskRef)) {
+            layer_settings->separateStencilMaskRef = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_separateStencilMaskRef);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_shaderSampleRateInterpolationFunctions)) {
+            layer_settings->shaderSampleRateInterpolationFunctions =
+                vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_shaderSampleRateInterpolationFunctions);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_tessellationIsolines)) {
+            layer_settings->tessellationIsolines = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_tessellationIsolines);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_tessellationPointMode)) {
+            layer_settings->tessellationPointMode = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_tessellationPointMode);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_triangleFans)) {
+            layer_settings->triangleFans = vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_triangleFans);
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_vertexAttributeAccessBeyondStride)) {
+            layer_settings->vertexAttributeAccessBeyondStride = static_cast<std::uint32_t>(
+                vku::GetLayerSettingInt(kOurLayerName, kLayerSettings_vertexAttributeAccessBeyondStride));
+        }
+
+        if (vku::IsLayerSetting(kOurLayerName, kLayerSettings_minVertexInputBindingStrideAlignment)) {
+            layer_settings->minVertexInputBindingStrideAlignment =
+                vku::GetLayerSettingBool(kOurLayerName, kLayerSettings_minVertexInputBindingStrideAlignment);
+        }
+
         if (vku::IsLayerSetting(kOurLayerName, kLayerSettingsSimulateCapabilities)) {
             layer_settings->simulate_capabilities =
                 GetSimulateCapabilityFlags(vku::GetLayerSettingStrings(kOurLayerName, kLayerSettingsSimulateCapabilities));
@@ -2077,6 +2367,35 @@ static void InitSettings(const void *pnext) {
     settings_log += format("\\t%s: %s\\n", kLayerSettingsProfileName, layer_settings->profile_name.c_str());
     settings_log += format("\\t%s: %s\\n", kLayerSettingsProfileValidation, layer_settings->profile_validation ? "true" : "false");
     settings_log += format("\\t%s: %s\\n", kLayerSettingsEmulatePortability, layer_settings->emulate_portability ? "true" : "false");
+    if (layer_settings->emulate_portability) {
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_constantAlphaColorBlendFactors,
+                               layer_settings->constantAlphaColorBlendFactors ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_events, layer_settings->events ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_imageViewFormatReinterpretation,
+                               layer_settings->imageViewFormatReinterpretation ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_imageViewFormatSwizzle,
+                               layer_settings->imageViewFormatSwizzle ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_imageView2DOn3DImage,
+                               layer_settings->imageView2DOn3DImage ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_multisampleArrayImage,
+                               layer_settings->multisampleArrayImage ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_mutableComparisonSamplers,
+                               layer_settings->mutableComparisonSamplers ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_pointPolygons, layer_settings->pointPolygons ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_samplerMipLodBias,
+                               layer_settings->samplerMipLodBias ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_separateStencilMaskRef,
+                               layer_settings->separateStencilMaskRef ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_shaderSampleRateInterpolationFunctions,
+                               layer_settings->shaderSampleRateInterpolationFunctions ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_tessellationIsolines,
+                               layer_settings->tessellationIsolines ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_triangleFans, layer_settings->triangleFans ? "true" : "false");
+        settings_log += format("\\t\\t%s: %s\\n", kLayerSettings_vertexAttributeAccessBeyondStride,
+                               layer_settings->vertexAttributeAccessBeyondStride ? "true" : "false");
+        settings_log += format("\\t\\t%s: %d\\n", kLayerSettings_minVertexInputBindingStrideAlignment,
+                               static_cast<int>(layer_settings->minVertexInputBindingStrideAlignment));
+    }
     settings_log += format("\\t%s: %s\\n", kLayerSettingsSimulateCapabilities, simulation_capabilities_log.c_str());
     settings_log += format("\\t%s: %s\\n", kLayerSettingsDebugActions, debug_actions_log.c_str());
     settings_log += format("\\t%s: %s\\n", kLayerSettingsDebugFilename, layer_settings->debug_filename.c_str());
@@ -2742,13 +3061,13 @@ void LoadQueueFamilyProperties(VkInstance instance, VkPhysicalDevice pd, Physica
                 pNext[i] = &pdd->device_queue_family_properties_[i].global_priority_properties_;
             }
             if (PhysicalDeviceData::HasExtension(pdd, VK_KHR_VIDEO_QUEUE_EXTENSION_NAME)) {
-                pdd->device_queue_family_properties_[i].video_properties_2_.pNext = pNext[i];
+                pdd->device_queue_family_properties_[i].video_properties_.pNext = pNext[i];
 
-                pNext[i] = &pdd->device_queue_family_properties_[i].video_properties_2_;
+                pNext[i] = &pdd->device_queue_family_properties_[i].video_properties_;
 
-                pdd->device_queue_family_properties_[i].query_result_status_properties_2_.pNext = pNext[i];
+                pdd->device_queue_family_properties_[i].query_result_status_properties_.pNext = pNext[i];
 
-                pNext[i] = &pdd->device_queue_family_properties_[i].query_result_status_properties_2_;
+                pNext[i] = &pdd->device_queue_family_properties_[i].query_result_status_properties_;
             }
             if (PhysicalDeviceData::HasExtension(pdd, VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME)) {
                 pdd->device_queue_family_properties_[i].checkpoint_properties_.pNext = pNext[i];
@@ -2826,25 +3145,25 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
                     feature_chain.pNext = &(pdd.physical_device_portability_subset_features_);
                 } else if (layer_settings->emulate_portability) {
                     pdd.physical_device_portability_subset_properties_ = {
-                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_PROPERTIES_KHR, nullptr, 1};
+                        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_PROPERTIES_KHR, nullptr, layer_settings->minVertexInputBindingStrideAlignment};
                     pdd.physical_device_portability_subset_features_ = {
                         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR,
                         nullptr,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE,
-                        VK_TRUE};
+                        layer_settings->constantAlphaColorBlendFactors,
+                        layer_settings->events,
+                        layer_settings->imageViewFormatReinterpretation,
+                        layer_settings->imageViewFormatSwizzle,
+                        layer_settings->imageView2DOn3DImage,
+                        layer_settings->multisampleArrayImage,
+                        layer_settings->mutableComparisonSamplers,
+                        layer_settings->pointPolygons,
+                        layer_settings->samplerMipLodBias,
+                        layer_settings->separateStencilMaskRef,
+                        layer_settings->shaderSampleRateInterpolationFunctions,
+                        layer_settings->tessellationIsolines,
+                        layer_settings->tessellationPointMode,
+                        layer_settings->triangleFans,
+                        layer_settings->vertexAttributeAccessBeyondStride};
                 }
 '''
 
@@ -3012,20 +3331,21 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
 // vim: set sw=4 ts=8 et ic ai:
 '''
 
-GET_VALUE_PHYSICAL_DEVICE_PROPERTIES = '''bool JsonLoader::GetValue(const Json::Value &parent, VkPhysicalDeviceProperties *dest) {
-    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetValue(VkPhysicalDeviceProperties)\\n");
+GET_VALUE_PHYSICAL_DEVICE_PROPERTIES = '''
+bool JsonLoader::GetStruct(const Json::Value &parent, VkPhysicalDeviceProperties *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetStruct(VkPhysicalDeviceProperties)\\n");
     bool valid = true;
-    if (!GetValue(parent["limits"], &dest->limits)) {
+    if (!GetStruct(parent["limits"], &dest->limits)) {
         valid = false;
     }
     for (const auto &prop : parent.getMemberNames()) {
-        GET_VALUE(prop, apiVersion);
-        GET_VALUE(prop, driverVersion);
-        GET_VALUE(prop, vendorID);
-        GET_VALUE(prop, deviceID);
-        GET_VALUE_ENUM_WARN(prop, deviceType, WarnIfNotEqualEnum);
-        GET_ARRAY(deviceName);         // size < VK_MAX_PHYSICAL_DEVICE_NAME_SIZE
-        GET_ARRAY(pipelineCacheUUID);  // size == VK_UUID_SIZE*/
+        GET_VALUE(prop, apiVersion, false);
+        GET_VALUE(prop, driverVersion, true);
+        GET_VALUE(prop, vendorID, true);
+        GET_VALUE(prop, deviceID, true);
+        GET_VALUE_ENUM_WARN(prop, deviceType, true, WarnIfNotEqualEnum);
+        GetArray(parent, prop, "deviceName", dest->deviceName, true);         // size < VK_MAX_PHYSICAL_DEVICE_NAME_SIZE
+        GetArray(parent, prop, "pipelineCacheUUID", dest->pipelineCacheUUID, true);  // size == VK_UUID_SIZE*/
     }
     return valid;
 }
@@ -3047,6 +3367,7 @@ class VulkanProfilesLayerGenerator():
             f.write(BEGIN_NAMESPACE)
             f.write(GLOBAL_CONSTANTS)
             f.write(GLOBAL_VARS)
+            f.write(GET_DEFINES)
             f.write(SETTINGS)
             f.write(self.generate_helpers())
             f.write(UTILITY_FUNCTIONS)
@@ -3065,7 +3386,6 @@ class VulkanProfilesLayerGenerator():
             f.write(self.generate_add_promoted_extensions())
             f.write(JSON_VALIDATOR)
             f.write(READ_PROFILE)
-            f.write(GET_DEFINES)
             f.write(self.generate_json_get_value())
             f.write(GET_UNDEFINE)
             f.write(SETTINGS_FUNCTIONS)
@@ -3101,9 +3421,9 @@ class VulkanProfilesLayerGenerator():
         gen += self.generate_format_to_string(registry.enums['VkFormat'].values, registry.enums['VkFormat'].aliasValues)
         gen += self.generate_string_to_format(registry.enums['VkFormat'].values)
 
-        gen += self.generate_string_to_uint(('VkSampleCountFlagBits', 'VkResolveModeFlagBits', 'VkShaderStageFlagBits', 'VkSubgroupFeatureFlagBits', 'VkShaderFloatControlsIndependence', 'VkPointClippingBehavior'), registry.enums)
+        gen += self.generate_string_to_uint(('VkToolPurposeFlagBits', 'VkSampleCountFlagBits', 'VkResolveModeFlagBits', 'VkShaderStageFlagBits', 'VkSubgroupFeatureFlagBits', 'VkShaderFloatControlsIndependence', 'VkPointClippingBehavior'), registry.enums)
 
-        gen += self.generate_string_to_flag_functions(('VkFormatFeatureFlags', 'VkQueueFlags', 'VkQueueGlobalPriorityKHR', 'VkVideoCodecOperationFlagsKHR', 'VkPipelineStageFlags', 'VkPipelineStageFlags2', 'VkFormatFeatureFlags2'))
+        gen += self.generate_string_to_flag_functions(('VkToolPurposeFlags', 'VkFormatFeatureFlags', 'VkQueueFlags', 'VkQueueGlobalPriorityKHR', 'VkVideoCodecOperationFlagsKHR', 'VkPipelineStageFlags', 'VkPipelineStageFlags2', 'VkFormatFeatureFlags2'))
 
         return gen
 
@@ -3256,11 +3576,11 @@ class VulkanProfilesLayerGenerator():
                             gen += '        if (support != ExtensionSupport::SUPPORTED) return valid(support);\n'
                     # Workarounds
                     if current == 'VkPhysicalDeviceLimits':
-                        gen += '        return GetValue(' + struct + ', &pdd_->physical_device_properties_.limits);\n'
+                        gen += '        return GetStruct(' + struct + ', &pdd_->physical_device_properties_.limits);\n'
                     elif current == 'VkPhysicalDeviceSparseProperties':
-                        gen += '        return GetValue(' + struct + ', &pdd_->physical_device_properties_.sparseProperties);\n'
+                        gen += '        return GetStruct(' + struct + ', &pdd_->physical_device_properties_.sparseProperties);\n'
                     else:
-                        gen += '        return GetValue(' + struct + ', &pdd_->' + self.create_var_name(current) + ');\n'
+                        gen += '        return GetStruct(' + struct + ', &pdd_->' + self.create_var_name(current) + ');\n'
 
                     gen += '    }'
         return gen
@@ -3315,7 +3635,7 @@ class VulkanProfilesLayerGenerator():
         gen += '\tconst uint32_t minor = VK_API_VERSION_MINOR(api_version);\n'
         gen += '\tconst uint32_t major = VK_API_VERSION_MAJOR(api_version);\n'
         gen += '\tLogMessage(DEBUG_REPORT_NOTIFICATION_BIT,\n'
-        gen += '\t\tformat("Adding promoted extensions to core in Vulkan (%" PRIu32 ".%" PRIu32 ")",major, minor));\n\n'
+        gen += '\t\tformat("Adding promoted extensions to core in Vulkan (%" PRIu32 ".%" PRIu32 ").\\n", major, minor));\n\n'
 
         for i in range(registry.headerVersionNumber.major):
             major = str(i + 1)
@@ -3343,8 +3663,6 @@ class VulkanProfilesLayerGenerator():
 
     def generate_json_get_value(self):
         gen = '\n'
-
-        gen += GET_VALUE_EXTENT_FUNCTIONS
         
         for property in self.non_extension_properties:
             gen += self.generate_get_value_function(property)
@@ -3379,6 +3697,9 @@ class VulkanProfilesLayerGenerator():
         gen += '                    VkPhysicalDevicePortabilitySubsetPropertiesKHR *psp = (VkPhysicalDevicePortabilitySubsetPropertiesKHR *)place;\n'
         gen += '                    void *pNext = psp->pNext;\n'
         gen += '                    *psp = physicalDeviceData->physical_device_portability_subset_properties_;\n'
+        gen += '                    if (layer_settings->vertexAttributeAccessBeyondStride) {'
+        gen += '                        psp->minVertexInputBindingStrideAlignment = layer_settings->minVertexInputBindingStrideAlignment;'
+        gen += '                    }'
         gen += '                    psp->pNext = pNext;\n'
         gen += '                }\n'
         gen += '                break;\n'
@@ -3616,57 +3937,76 @@ class VulkanProfilesLayerGenerator():
         return gen
 
     def generate_get_value_function(self, structure):
-        gen = 'bool JsonLoader::GetValue(const Json::Value &parent, ' + structure + ' *dest) {\n'
+        gen = 'bool JsonLoader::GetStruct(const Json::Value &parent, ' + structure + ' *dest) {\n'
         gen += '    (void)dest;\n'
-        gen += '    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetValue(' + structure + ')\\n\");\n'
+        gen += '    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetStruct(' + structure + ')\\n\");\n'
         gen += '    bool valid = true;\n'
         gen += '    for (const auto &member : parent.getMemberNames()) {\n'
         for member_name in registry.structs[structure].members:
             member = registry.structs[structure].members[member_name]
-            if member.limittype == 'exact' or member.limittype == 'noauto':
-                gen += '        WarnNotModifiable(\"' + structure + '\", member, \"' + member_name + '\");\n'
-            elif member.type in registry.enums and member.limittype == 'bitmask':
-                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', WarnIfNotEqualEnum);\n'
-            elif member.isArray:
-                gen += '        GET_ARRAY(' + member_name + ');\n'
-            elif member.type == 'VkBool32':
-                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfNotEqualBool);\n'
-            elif member.limittype == 'bitmask':
-                gen += '        GET_VALUE_FLAG_WARN(member, ' + member_name + ');\n'
-            elif member.type == 'size_t' and 'min' in member.limittype:
-                gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfLesserSizet);\n'
-            elif member.type == 'size_t' and ('max' in member.limittype or 'bits' in member.limittype):
-                gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', WarnIfGreaterSizet);\n'
-            elif member.type == 'float' and 'min' in member.limittype:
-                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfLesserFloat);\n'
-            elif member.type == 'float' and 'max' in member.limittype:
-                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfGreaterFloat);\n'
-            elif (member.type == 'VkExtent2D' or member.type == 'VkDeviceSize' or member.type == 'int32_t' or member.type == 'uint32_t' or member.type == 'uint64_t') and 'min' in member.limittype: # integer types
-                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfLesser);\n'
-            elif (member.type == 'VkExtent2D' or member.type == 'VkDeviceSize' or member.type == 'int32_t' or member.type == 'uint32_t' or member.type == 'uint64_t') and ('max' in member.limittype or 'bits' in member.limittype): # integer types
-                gen += '        GET_VALUE_WARN(member, ' + member_name + ', WarnIfGreater);\n'
-            elif member.limittype == 'min': # enum values
-                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', WarnIfLesser);\n'
-            elif member.limittype == 'max' or member.limittype == 'bits': # enum values
-                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', WarnIfGreater);\n'
-            elif member.limittype == 'pot':
+            not_modifiable = str(member.limittype == 'exact' or member.limittype == 'noauto').lower()
+            if member.isArray:
+                gen += '        GetArray(parent, member, "' + member_name + '", dest->' + member_name + ', ' + not_modifiable + ');\n'
+            elif member.type in registry.enums:
+                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqualEnum);\n'
+            elif member.type == 'VkConformanceVersion' or member.type == 'VkToolPurposeFlags':
                 continue
+            elif member.type == 'VkBool32':
+                gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqualBool);\n'
+            elif member.type == 'size_t':
+                if 'min' in member.limittype:
+                    gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesserSizet);\n'
+                elif 'max' in member.limittype or 'bits' in member.limittype:
+                    gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreaterSizet);\n'
+                #elif member.limittype == 'pot':
+                else:
+                    gen += '        GET_VALUE_SIZE_T_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqual);\n'
+            elif member.type == 'uint64_t' or member.type == 'int32_t' or member.type == 'VkDeviceSize':
+                if 'min' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesser);\n'
+                elif 'max' in member.limittype or 'bits' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreater);\n'
+                else:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqual);\n'
+            elif member.type == 'int64_t':
+                if 'min' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesser);\n'
+                elif 'max' in member.limittype or 'bits' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreater);\n'
+                else:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEquali64);\n'
+            elif member.type == 'uint32_t':
+                if 'min' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesser);\n'
+                elif 'max' in member.limittype or 'bits' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreater);\n'
+                else:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqual32u);\n'
+            elif member.type == 'VkExtent2D' or member.type == 'VkExtent3D':
+                if 'min' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesser);\n'
+                elif 'max' in member.limittype or 'bits' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreater);\n'
+                else:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqual32u);\n'
+            elif member.type == 'float':
+                if 'min' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesserFloat);\n'
+                elif 'max' in member.limittype:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreaterFloat);\n'
+                else:
+                    gen += '        GET_VALUE_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfNotEqualFloat);\n'
+            elif member.limittype == 'bitmask':
+                gen += '        GET_VALUE_FLAG_WARN(member, ' + member_name + ', ' + not_modifiable + ');\n'
+            elif member.limittype == 'min': # enum values
+                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfLesser);\n'
+            elif member.limittype == 'max' or member.limittype == 'bits': # enum values
+                gen += '        GET_VALUE_ENUM_WARN(member, ' + member_name + ', ' + not_modifiable + ', WarnIfGreater);\n'
             else:
                 print("ERROR: Unsupported limittype '{0}' in member '{1}' of structure '{2}'".format(member.limittype, member_name, structure))
                 
         gen += '    }\n'
         gen += '    return valid;\n'
-        gen += '}\n\n'
-        return gen
-
-    def generate_get_value_non_modifiable(self, structure):
-        gen = 'bool JsonLoader::GetValue' + structure[2:] + '(const Json::Value &parent) {\n'
-        gen += '    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetValue(' + structure + ')\\n\");\n'
-        gen += '    for (const auto &member : parent.getMemberNames()) {\n'
-        for member_name in registry.structs[structure].members:
-            gen += '        WarnNotModifiable(\"' + structure + '\", member, \"' + member_name + '\");\n'
-        gen += '    }\n'
-        gen += '    return true;\n'
         gen += '}\n\n'
         return gen
 
@@ -3694,22 +4034,21 @@ class VulkanProfilesLayerGenerator():
     def generate_json_loader(self):
         gen = JSON_LOADER_BEGIN
         for property in self.non_extension_properties:
-            gen += '    bool GetValue(const Json::Value &parent, ' + property + ' *dest);\n'
+            gen += '    bool GetStruct(const Json::Value &parent, ' + property + ' *dest);\n'
         for feature in self.non_extension_features:
-            gen += '    bool GetValue(const Json::Value &parent, ' + feature + ' *dest);\n'
+            gen += '    bool GetStruct(const Json::Value &parent, ' + feature + ' *dest);\n'
         for ext, property, feature in self.extension_structs:
             if property:
-                gen += '    bool GetValue(const Json::Value &parent, ' + property + ' *dest);\n'
+                gen += '    bool GetStruct(const Json::Value &parent, ' + property + ' *dest);\n'
             if feature:
-                gen += '    bool GetValue(const Json::Value &parent, ' + feature + ' *dest);\n'
+                gen += '    bool GetStruct(const Json::Value &parent, ' + feature + ' *dest);\n'
         for struct in self.additional_features:
-            gen += '    bool GetValue(const Json::Value &parent, ' + struct + ' *dest);\n'
+            gen += '    bool GetStruct(const Json::Value &parent, ' + struct + ' *dest);\n'
         for struct in self.additional_properties:
-            gen += '    bool GetValue(const Json::Value &parent, ' + struct + ' *dest);\n'
+            gen += '    bool GetStruct(const Json::Value &parent, ' + struct + ' *dest);\n'
 
         gen += WARN_FUNCTIONS
         gen += GET_VALUE_FUNCTIONS
-        gen += GET_ARRAY_FUNCTIONS
         gen += JSON_LOADER_END
         return gen
 
@@ -3789,6 +4128,7 @@ class VulkanProfilesLayerGenerator():
         return False
 
     def create_var_name(self, struct):
+        nv = struct.endswith("NV")
         var_name = ''
         while struct[-1].isupper():
             struct = struct[:-1]
@@ -3811,6 +4151,8 @@ class VulkanProfilesLayerGenerator():
             var_name = 'physical_device_float_16_int_8_features_'
         if 'queue_family_' in var_name:
             var_name = 'arrayof_queue_family_properties_[i].' + var_name.replace('queue_family_', '')
+        if (var_name == 'physical_device_mesh_shader_features_' or var_name == 'physical_device_mesh_shader_properties_') and nv:
+            var_name += 'nv_'
         return var_name
     
     def get_non_aliased_list(self, list, aliases):
