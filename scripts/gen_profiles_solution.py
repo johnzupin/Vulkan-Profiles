@@ -51,7 +51,9 @@ DEBUG_MSG_CB_DEFINE = '''
 #ifndef VP_DEBUG_MESSAGE_CALLBACK
 #if defined(ANDROID) || defined(__ANDROID__)
 #include <android/log.h>
-#define VP_DEBUG_MESSAGE_CALLBACK(MSG) __android_log_print(ANDROID_LOG_DEBUG, "Profiles", "%s", MSG)
+#define VP_DEBUG_MESSAGE_CALLBACK(MSG) \
+    __android_log_print(ANDROID_LOG_ERROR, "Profiles ERROR", "%s", MSG); \\
+    __android_log_print(ANDROID_LOG_DEBUG, "Profiles WARNING", "%s", MSG)
 #else
 #define VP_DEBUG_MESSAGE_CALLBACK(MSG) fprintf(stderr, "%s\\n", MSG)
 #endif
@@ -2458,19 +2460,28 @@ class VulkanProfile():
                                   "(currently only 1D non-dynamic arrays are supported in this context)")
                         # If it's an array we have to generate per-element assignment code
                         for i, v in enumerate(value):
-                            gen += fmt.format('{0}{1}[{2}] = {3}'.format(var, member, i, v))
+                            if type(v) == float:
+                                if structDef.members[member].type == 'double':
+                                    gen += fmt.format('{0}{1}[{2}] = {3}'.format(var, member, i, v))
+                                else:
+                                    gen += fmt.format('{0}{1}[{2}] = {3}f'.format(var, member, i, v))
+                            else:
+                                gen += fmt.format('{0}{1}[{2}] = {3}'.format(var, member, i, v))
                     else:
                         # For enums and struct initialization, most of the code can be shared
                         isEnum = isinstance(value[0], str)
                         if isEnum:
                             # For enums we only add bits
-                            genAssign = '{0}{1} |= '.format(var, member)
+                            genAssign = '{0}{1} = '.format(var, member)
                         else:
                             genAssign = '{0}{1} = '.format(var, member)
                         genAssign += '{0}'.format(self.gen_listValue(value, isEnum))
                         gen += fmt.format(genAssign)
                 elif type(value) == float:
-                    gen += fmt.format('{0}{1} = {2}f'.format(var, member, value))
+                    if structDef.members[member].type == 'double':
+                        gen += fmt.format('{0}{1} = {2}'.format(var, member, value))
+                    else:
+                        gen += fmt.format('{0}{1} = {2}f'.format(var, member, value))
                 elif type(value) == bool:
                     # Boolean
                     gen += fmt.format('{0}{1} = {2}'.format(var, member, 'VK_TRUE' if value else 'VK_FALSE'))
@@ -2982,7 +2993,7 @@ class VulkanProfilesSchemaGenerator():
 
         return OrderedDict({
             "$schema": "http://json-schema.org/draft-07/schema#",
-            "$id": "https://schema.khronos.org/vulkan/profiles-0.8-latest.json#",
+            "$id": "https://schema.khronos.org/vulkan/profiles-0.8.1-{0}.json#".format(str(self.registry.headerVersionNumber.patch)),
             "title": "Vulkan Profiles Schema for Vulkan {0}".format(versionStr),
             "additionalProperties": True,
             "required": [
@@ -3047,8 +3058,6 @@ class VulkanProfilesSchemaGenerator():
                                 "description",
                                 "version",
                                 "api-version",
-                                "contributors",
-                                "history",
                                 "capabilities"
                             ],
                             "properties": OrderedDict({
@@ -3111,11 +3120,41 @@ class VulkanProfilesSchemaGenerator():
                                     })
                                 }),
                                 "capabilities": OrderedDict({
-                                    "description": "The list of capability sets that can be reference by a profile.",
+                                    "description": "The list of required capability sets that can be referenced by a profile.",
                                     "type": "array",
                                     "uniqueItems": True,
                                     "items": OrderedDict({
-                                        "type": "string"
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "array",
+                                                "uniqueItems": True,
+                                                "items": OrderedDict({
+                                                    "type": "string"
+                                                })
+                                            }
+                                        ]
+                                    })
+                                }),
+                                "optionals": OrderedDict({
+                                    "description": "The list of optional capability sets that can be referenced by a profile.",
+                                    "type": "array",
+                                    "uniqueItems": True,
+                                    "items": OrderedDict({
+                                        "anyOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "array",
+                                                "uniqueItems": True,
+                                                "items": OrderedDict({
+                                                    "type": "string"
+                                                })
+                                            }
+                                        ]
                                     })
                                 }),
                                 "fallback": OrderedDict({
@@ -3126,7 +3165,44 @@ class VulkanProfilesSchemaGenerator():
                                     "items": OrderedDict({
                                         "type": "string"
                                     })
-                                })
+                                }),
+                                "contributors": OrderedDict({
+                                    "type": "object",
+                                    "description": "The list of contributors of the profile.",
+                                    "additionalProperties": OrderedDict({
+                                        "$ref": "#/definitions/contributor"
+                                    })
+                                }),
+                                "history": OrderedDict({
+                                    "description": "The version history of the profile file",
+                                    "type": "array",
+                                    "uniqueItems": True,
+                                    "minItems": 1,
+                                    "items": OrderedDict({
+                                        "type": "object",
+                                        "required": [
+                                            "revision",
+                                            "date",
+                                            "author",
+                                            "comment"
+                                        ],
+                                        "properties": OrderedDict({
+                                            "revision": OrderedDict({
+                                                "type": "integer"
+                                            }),
+                                            "date": OrderedDict({
+                                                "type": "string",
+                                                "pattern": "((?:19|20)\\d\\d)-(0?[1-9]|1[012])-([12][0-9]|3[01]|0?[1-9])"
+                                            }),
+                                            "author": OrderedDict({
+                                                "type": "string"
+                                            }),
+                                            "comment": OrderedDict({
+                                                "type": "string"
+                                            })
+                                        })
+                                    })
+                                }),
                             })
                         })
                     })
@@ -4202,44 +4278,44 @@ class VulkanProfilesDocGenerator():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-registry', action='store',
+    parser.add_argument('--registry', '-r', action='store', required=True,
                         help='Use specified registry file instead of vk.xml')
-    parser.add_argument('-profiles', action='store',
-                        help='Generate based on profiles in the specified directory')
-    parser.add_argument('-outIncDir', action='store',
+    parser.add_argument('--input', '-i', action='store', required=True,
+                        help='Path to directory with profiles.')
+    parser.add_argument('--output-library-inc', action='store',
                         help='Output include directory for profile library')
-    parser.add_argument('-outSrcDir', action='store',
+    parser.add_argument('--output-library-src', action='store',
                         help='Output source directory for profile library')
-    parser.add_argument('-outSchema', action='store',
+    parser.add_argument('--output-schema', action='store',
                         help='Output file for JSON profile schema')
-    parser.add_argument('-outDoc', action='store',
-                        help='Output file for profiles documentation')
-    parser.add_argument('-validate', action='store_true',
+    parser.add_argument('--output-doc', action='store',
+                        help='Output file for profiles markdown documentation')
+    parser.add_argument('--validate', '-v', action='store_true',
                         help='Validate generated JSON profile schema and JSON profiles against the schema')
-    parser.add_argument('-generateDebugLibrary', action='store_true',
+    parser.add_argument('--debug', '-d', action='store_true',
                         help='Also generate library variant with debug messages')
 
     args = parser.parse_args()
 
-    if args.outIncDir is None and args.outSchema is None and args.outDoc is None and not args.validate:
+    if args.output_library_inc is None and args.output_schema is None and args.output_doc is None and not args.validate:
         parser.print_help()
         exit()
 
-    if args.outIncDir != None or args.outSrcDir != None:
-        if args.registry is None or args.profiles is None or args.outIncDir is None or args.outSrcDir is None:
-            Log.e("Generating the profile library requires specifying -registry, -profiles, -outIncDir and -outSrcDir arguments")
+    if args.output_library_inc != None or args.output_library_src != None:
+        if args.registry is None or args.input is None or args.output_library_inc is None or args.output_library_src is None:
+            Log.e("Generating the profile library requires specifying --registry, --input, --output-library-inc and --output-library-src arguments")
             parser.print_help()
             exit()
 
-    if args.outSchema != None:
+    if args.output_schema != None:
         if args.registry is None:
-            Log.e("Generating the profile schema requires specifying -registry and -outSchema arguments")
+            Log.e("Generating the profile schema requires specifying --registry and ---output-schema arguments")
             parser.print_help()
             exit()
 
-    if args.outDoc != None:
-        if args.registry is None or args.profiles is None:
-            Log.e("Generating the profile schema requires specifying -registry, -profiles and -outDoc arguments")
+    if args.output_doc != None:
+        if args.registry is None or args.input is None:
+            Log.e("Generating the profile schema requires specifying --registry, --input and --output-doc arguments")
             parser.print_help()
             exit()
 
@@ -4248,24 +4324,24 @@ if __name__ == '__main__':
     if args.registry != None:
         registry = VulkanRegistry(args.registry)
 
-    if args.outSchema != None or args.validate:
+    if args.output_schema != None or args.validate:
         generator = VulkanProfilesSchemaGenerator(registry)
-        if args.outSchema is not None:
-            generator.generate(args.outSchema)
+        if args.output_schema is not None:
+            generator.generate(args.output_schema)
         if args.validate:
             generator.validate()
             schema = generator.schema
 
-    if args.profiles != None:
-        profiles = VulkanProfiles.loadFromDir(registry, args.profiles, args.validate, schema)
+    if args.input != None:
+        profiles = VulkanProfiles.loadFromDir(registry, args.input, args.validate, schema)
 
-    if args.outIncDir != None:
+    if args.output_library_inc != None:
         generator = VulkanProfilesLibraryGenerator(registry, profiles)
-        generator.generate(args.outIncDir, args.outSrcDir)
-        if args.generateDebugLibrary:
+        generator.generate(args.output_library_inc, args.output_library_src)
+        if args.debug:
             generator = VulkanProfilesLibraryGenerator(registry, profiles, True)
-            generator.generate(args.outIncDir + '/debug', args.outSrcDir + '/debug')
+            generator.generate(args.output_library_inc + '/debug', args.output_library_src + '/debug')
 
-    if args.outDoc != None:
+    if args.output_doc != None:
         generator = VulkanProfilesDocGenerator(registry, profiles)
-        generator.generate(args.outDoc)
+        generator.generate(args.output_doc)

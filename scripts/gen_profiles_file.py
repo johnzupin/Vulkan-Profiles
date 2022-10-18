@@ -30,7 +30,7 @@ class ProfileMerger():
     def __init__(self, registry):
         self.registry = registry
 
-    def merge(self, jsons, profiles, profile_names, merged_path, merged_profile, profile_label, profile_description, profile_api_version, profile_stage, mode):
+    def merge(self, jsons, profiles, profile_names, merged_path, merged_profile, profile_label, profile_description, profile_api_version, profile_stage, profile_date, mode):
         self.mode = mode
 
         # Find the api version to use
@@ -45,7 +45,7 @@ class ProfileMerger():
         merged = dict()
         merged['$schema'] = 'https://schema.khronos.org/vulkan/profiles-0.8.0-' + self.api_version[2] + '.json#'
         merged['capabilities'] = self.merge_capabilities(jsons, profile_names, self.api_version)
-        merged['profiles'] = self.get_profiles(merged_profile, self.api_version, profile_label, profile_description, profile_stage)
+        merged['profiles'] = self.get_profiles(merged_profile, self.api_version, profile_label, profile_description, profile_stage, profile_date)
 
         # Wite new merged profile
         with open(merged_path, 'w') as file:
@@ -378,7 +378,10 @@ class ProfileMerger():
                 if xmlmember.limittype == 'noauto':
                     continue
                 elif self.mode == 'union' or self.first is True:
-                    merged[member] = entry[member]
+                    if xmlmember.type == 'uint64_t' or xmlmember.type == 'VkDeviceSize':
+                        merged[member] = int(entry[member])
+                    else:
+                        merged[member] = entry[member]
             else:
                 # Merge properties
                 xmlmember = self.registry.structs[property].members[member]
@@ -390,7 +393,10 @@ class ProfileMerger():
                                 self.merge_members(merged[member], smember, entry[member], s[smember])
                         #elif self.mode == 'union' and smember in entry[member]:
                         elif smember in entry[member]:
-                            merged[member][smember] = entry[member][smember]
+                            if xmlmember.type == 'uint64_t' or xmlmember.type == 'VkDeviceSize':
+                                merged[member][smember] = int(entry[member][smember])
+                            else:
+                                merged[member][smember] = entry[member][smember]
                 else:
                     self.merge_members(merged, member, entry, xmlmember)
 
@@ -489,8 +495,10 @@ class ProfileMerger():
                         merged[member][1] = entry[member][1]
                 elif xmlmember.type == 'uint64_t' or xmlmember.type == 'VkDeviceSize':
                     if int(entry[member]) < int(merged[member]):
-                        merged[member] = entry[member]
-                elif xmlmember.type == 'uint32_t' or xmlmember.type == 'int32_t'  or xmlmember.type == 'size_t' or xmlmember.type == 'float':
+                        merged[member] = int(entry[member])
+                    else:
+                        merged[member] = int(merged[member])
+                elif xmlmember.type == 'uint32_t' or xmlmember.type == 'int32_t'  or xmlmember.type == 'size_t' or xmlmember.type == 'float' or 'VkSampleCountFlagBits':
                     if entry[member] < merged[member]:
                         merged[member] = entry[member]
                 else:
@@ -515,8 +523,10 @@ class ProfileMerger():
                         merged[member][1] = entry[member][1]
                 elif xmlmember.type == 'uint64_t' or xmlmember.type == 'VkDeviceSize':
                     if int(entry[member]) > int(merged[member]):
-                        merged[member] = entry[member]
-                elif xmlmember.type == 'uint32_t' or xmlmember.type == 'int32_t' or xmlmember.type == 'size_t' or xmlmember.type == 'float':
+                        merged[member] = int(entry[member])
+                    else:
+                        merged[member] = int(merged[member])
+                elif xmlmember.type == 'uint32_t' or xmlmember.type == 'int32_t' or xmlmember.type == 'size_t' or xmlmember.type == 'float' or 'VkSampleCountFlagBits':
                     if entry[member] > merged[member]:
                         merged[member] = entry[member]
                 else:
@@ -585,7 +595,7 @@ class ProfileMerger():
         minor = version[underscore+1:]
         return [major, minor]
 
-    def get_profiles(self, profile_name, api_version, label, description, stage):
+    def get_profiles(self, profile_name, api_version, label, description, stage, date):
         profiles = dict()
         profiles[profile_name] = dict()
         profiles[profile_name]['version'] = 1
@@ -598,11 +608,9 @@ class ProfileMerger():
         profiles[profile_name]['history'] = list()
         revision = dict()
         revision['revision'] = 1
-        # Get current time
-        now = datetime.now()
-        revision['date'] = str(now.year) + '-' + str(now.month).zfill(2) + '-' + str(now.day).zfill(2)
+        revision['date'] = date
         revision['author'] = 'LunarG Profiles Generation'
-        revision['comment'] = description
+        revision['comment'] = 'Generated profile'
         profiles[profile_name]['history'].append(revision)
         profiles[profile_name]['capabilities'] = list()
         profiles[profile_name]['capabilities'].append('baseline')
@@ -650,21 +658,23 @@ if __name__ == '__main__':
 
     parser.add_argument('--registry', '-r', action='store', required=True,
                         help='Use specified registry file instead of vk.xml.')
-    parser.add_argument('--input_dir', '-i', action='store', required=True,
+    parser.add_argument('--input', '-i', action='store', required=True,
                         help='Path to directory with profiles.')
-    parser.add_argument('--input_profiles', action='store',
+    parser.add_argument('--input-profiles', action='store',
                         help='Comma separated list of profiles.')
-    parser.add_argument('--output_path', '-o', action='store', required=True,
+    parser.add_argument('--output-path', '-o', action='store', required=True,
                         help='Path to output profile.')
-    parser.add_argument('--output_profile', action='store',
+    parser.add_argument('--output-profile', action='store',
                         help='Profile name of the output profile. If the argument is not set, the value is generated.')
-    parser.add_argument('--profile_label', action='store',
+    parser.add_argument('--profile-label', action='store',
                         help='Override the Label of the generated profile. If the argument is not set, the value is generated.')
-    parser.add_argument('--profile_desc', action='store',
+    parser.add_argument('--profile-desc', action='store',
                         help='Override the Description of the generated profile. If the argument is not set, the value is generated.')
-    parser.add_argument('--profile_api_version', action='store',
+    parser.add_argument('--profile-date', action='store',
+                        help='Override the release date of the generated profile. If the argument is not set, the value is generated.')
+    parser.add_argument('--profile-api-version', action='store',
                         help='Override the Vulkan API version of the generated profile. If the argument is not set, the value is generated.')
-    parser.add_argument('--profile_stage', action='store', choices=['ALPHA', 'BETA', 'STABLE'], default='STABLE',
+    parser.add_argument('--profile-stage', action='store', choices=['ALPHA', 'BETA', 'STABLE'], default='STABLE',
                         help='Override the development stage of the generated profile. If the argument is not set, the value is set to "stable".')
     parser.add_argument('--mode', '-m', action='store', choices=['union', 'intersection'], default='intersection',
                         help='Mode of profile combination. If the argument is not set, the value is set to "intersection".')
@@ -674,7 +684,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.registry is None:
-        gen_profiles_solution.Log.e('Merging the profiles requires specifying -registry')
+        gen_profiles_solution.Log.e('Merging the profiles requires specifying --registry')
         parser.print_help()
         exit()
 
@@ -702,10 +712,10 @@ if __name__ == '__main__':
     # Open file and load json
     jsons = list()
     profiles = list()
-    if args.input_dir is not None:
+    if args.input is not None:
         profiles_not_found = profile_names.copy()
         # Find all jsons in the folder
-        paths = [args.input_dir + '/' + pos_json for pos_json in os.listdir(args.input_dir) if pos_json.endswith('.json')]
+        paths = [args.input + '/' + pos_json for pos_json in os.listdir(args.input) if pos_json.endswith('.json')]
         json_files = list()
         for i in range(len(paths)):
             print('Opening: ' + paths[i])
@@ -722,7 +732,7 @@ if __name__ == '__main__':
                         profiles_not_found.remove(profile_name)
                         break
             if profiles_not_found:
-                print('Profiles: ' + ' '.join(profiles_not_found) + ' not found in directory ' + args.input_dir)
+                print('Profiles: ' + ' '.join(profiles_not_found) + ' not found in directory ' + args.input)
                 exit()
         else:
             for json_file in json_files:
@@ -732,7 +742,7 @@ if __name__ == '__main__':
                         profiles.append(json_file['profiles'][profile])
                         profile_names.append(profile)
     else:
-        print('ERROR: Not input directory set, use -input_dir')
+        print('ERROR: Not input directory set, use --input')
         exit()
 
     registry = gen_profiles_solution.VulkanRegistry(args.registry)
@@ -748,5 +758,12 @@ if __name__ == '__main__':
     else:
         profile_stage = 'STABLE'
 
-    profile_merger.merge(jsons, profiles, profile_names, args.output_path, args.output_profile, args.profile_label, args.profile_desc, args.profile_api_version, profile_stage, args.mode)
+    if args.profile_date is not None:
+        profile_date = args.profile_date
+    else:
+        # Get current time
+        now = datetime.now()
+        profile_date = str(now.year) + '-' + str(now.month).zfill(2) + '-' + str(now.day).zfill(2)
+
+    profile_merger.merge(jsons, profiles, profile_names, args.output_path, args.output_profile, args.profile_label, args.profile_desc, args.profile_api_version, profile_stage, profile_date, args.mode)
     
