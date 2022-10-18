@@ -24,7 +24,7 @@ override_dh_auto_configure:
 	update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 99
 	pip3 install jsonschema --upgrade
 	dh_auto_configure -- 	-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) \
-				-DVULKAN_HEADERS_SOURCE_DIR="/usr" \
+				-DVULKAN_HEADERS_SOURCE_DIR="/usr/share/vulkan/" \
 				-DVULKAN_LOADER_INSTALL_DIR="/usr" \
 				-DVULKAN_VALIDATIONLAYERS_SOURCE_DIR="/usr" \
 				-DCMAKE_INSTALL_SYSCONFDIR="/usr/share" \
