@@ -7,7 +7,7 @@ Subject: patch: configure for system package path
  1 file changed, 1 insertion(+)
 
 diff --git a/layer/CMakeLists.txt b/layer/CMakeLists.txt
-index 176f5d5..9c810e0 100644
+index 406784f..01f796b 100644
 --- a/layer/CMakeLists.txt
 +++ b/layer/CMakeLists.txt
 @@ -62,6 +62,7 @@ else ()
