@@ -1,3 +1,12 @@
+vulkan-profiles (1.3.231.0~rc2-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * profile: fix built-in portatbility subset
+  * layer: removed generated file
+  * layer: fix CMake project generation
+
+ -- john <john@odin>  Thu, 20 Oct 2022 14:55:43 -0600
+
 vulkan-profiles (1.3.231.0~rc1-1lunarg20.04-1) focal; urgency=medium
 
   [ Christophe ]
