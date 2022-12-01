@@ -30,7 +30,7 @@ endif()
 include(FetchContent)
 
 # Always need C++2011 throughout the project.
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # FetchContent_MakeAvailable(jsoncpp) will set these values (which
 # affect the whole build).  Make sure they're set even if we
@@ -71,13 +71,6 @@ if(REGENERATE_JSONCPP)
         GIT_TAG 1.9.5
     )
 endif()
-
-FetchContent_Declare(
-    tinyxml2
-    GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
-    GIT_TAG 9.0.0
-)
-FetchContent_MakeAvailable(tinyxml2)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_OBJECT_LIBS OFF CACHE BOOL "" FORCE)
@@ -228,10 +221,6 @@ include_directories(external)
 set(API_NAME "Vulkan" CACHE STRING "API name to use when building")
 string(TOLOWER ${API_NAME} API_LOWERCASE)
 add_definitions(-DAPI_NAME="${API_NAME}")
-
-if (NOT ANDROID)
-    add_subdirectory(generator)
-endif()
 
 # The scripts directory regenerates the Profiles source and headers.
 if(REGENERATE_PROFILES)

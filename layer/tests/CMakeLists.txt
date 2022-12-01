@@ -57,7 +57,7 @@ function(LayerTest NAME)
         )
     target_link_libraries(${TEST_NAME} gtest gtest_main)
     target_link_libraries(${TEST_NAME} Vulkan::Vulkan)
-    target_compile_definitions(${TEST_NAME} PUBLIC JSON_TEST_FILES_PATH="${CMAKE_BINARY_DIR}/profiles/test/")
+    target_compile_definitions(${TEST_NAME} PUBLIC JSON_TEST_FILES_PATH="${CMAKE_SOURCE_DIR}/profiles/test/data/")
 
     target_compile_definitions(${TEST_NAME} PUBLIC TEST_BINARY_PATH="${CMAKE_BINARY_DIR}/")
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
@@ -91,7 +91,7 @@ function(LayerTestAndroid NAME)
                 ${jsoncpp_generated_source})
 
     add_test(NAME ${ANDROID_APK_NAME} COMMAND profiles_${NAME})
-    add_dependencies(${ANDROID_APK_NAME} VkLayer_khronos_profiles)
+    add_dependencies(${ANDROID_APK_NAME} VkLayer_khronos_profiles VpCreateDesktopBaseline2022 VpCreateDesktopPortability2022)
 
     if (NOT ANDROID_SDK_HOME)
         set(ANDROID_SDK_HOME $ENV{ANDROID_SDK_HOME})
