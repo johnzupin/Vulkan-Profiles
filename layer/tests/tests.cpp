@@ -36,6 +36,8 @@ class LayerTests : public VkTestFramework {
 };
 
 TEST_F(LayerTests, TestSetCombinationMode) {
+    TEST_DESCRIPTION("Test different profile capabilities settings");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
@@ -170,6 +172,8 @@ TEST_F(LayerTests, TestSetCombinationMode) {
 }
 
 TEST_F(LayerTests, TestExtensionNotSupported) {
+    TEST_DESCRIPTION("Test using a profile with an unsupported extension for the device");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
@@ -207,6 +211,8 @@ TEST_F(LayerTests, TestExtensionNotSupported) {
 }
 
 TEST_F(LayerTests, TestExcludingDeviceExtensions) {
+    TEST_DESCRIPTION("Test specifying device extensions to be excluded from being reported by the device");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
@@ -264,6 +270,8 @@ TEST_F(LayerTests, TestExcludingDeviceExtensions) {
 }
 
 TEST_F(LayerTests, TestExcludingFormats) {
+    TEST_DESCRIPTION("Test specifying image formats to be excluded from being reported by the device");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
@@ -292,14 +300,14 @@ TEST_F(LayerTests, TestExcludingFormats) {
     ASSERT_EQ(format_properties.bufferFeatures, 0);
 }
 
-TEST_F(LayerTests, TestMissingPhysDevProps2) {
+TEST_F(LayerTests, TestProfileLayerSettingsEXT_EnumerateExtensions) {
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
 
     VkProfileLayerSettingsEXT settings;
-    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_desktop_baseline_2022.json";
-    settings.profile_name = "VP_LUNARG_desktop_baseline_2022";
+    settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_device_extensions.json";
+    settings.profile_name = "VP_LUNARG_test_device_extensions";
     settings.emulate_portability = false;
     settings.debug_fail_on_error = false;
     settings.simulate_capabilities = SIMULATE_MAX_ENUM;
@@ -312,7 +320,7 @@ TEST_F(LayerTests, TestMissingPhysDevProps2) {
 
     uint32_t count = 0;
     vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
-    ASSERT_EQ(count, 43);
+    ASSERT_EQ(count, 1);
 }
 
 TEST_F(LayerTests, TestNotSettingProfileFile) {
@@ -503,6 +511,8 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesGlobalPriorityProperties) {
 }
 
 TEST_F(LayerTests, TestQueueFamilyCheckpointProperties) {
+    TEST_DESCRIPTION("Test profile with VK_NV_device_diagnostic_checkpoints extension");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
@@ -534,6 +544,8 @@ TEST_F(LayerTests, TestQueueFamilyCheckpointProperties) {
 }
 
 TEST_F(LayerTests, TestQueueFamilyCheckpointProperties2) {
+    TEST_DESCRIPTION("Test profile with VK_NV_device_diagnostic_checkpoints extension");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;
@@ -567,6 +579,8 @@ TEST_F(LayerTests, TestQueueFamilyCheckpointProperties2) {
 }
 
 TEST_F(LayerTests, TestQueueFamilyPropertiesPartial) {
+    TEST_DESCRIPTION("Test profile with queue family properties that does not specify all members");
+
     VkResult err = VK_SUCCESS;
 
     profiles_test::VulkanInstanceBuilder inst_builder;

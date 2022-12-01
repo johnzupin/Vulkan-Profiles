@@ -52,7 +52,7 @@ static std::string format(const char *message, ...) {
     va_list list;
 
     va_start(list, message);
-    vsprintf(buffer, message, list);
+    vsnprintf(buffer, STRING_BUFFER, message, list);
     va_end(list);
 
     return buffer;
@@ -197,6 +197,13 @@ TEST(test_validate, VP_LUNARG_test_formats) {
 
     const Json::Value document = ParseJsonFile("VP_LUNARG_test_formats.json");
     EXPECT_TRUE(validator.Check(document));
+}
+
+TEST(test_validate, VP_KHR_baseline) {
+    JsonValidator validator;
+
+    const Json::Value json_document2 = ParseJsonFile("VP_KHR_baseline.json");
+    EXPECT_TRUE(validator.Check(json_document2));
 }
 
 TEST(test_validate, VP_LUNARG_desktop_baseline_2022) {

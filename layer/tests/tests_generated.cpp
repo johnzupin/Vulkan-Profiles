@@ -949,6 +949,55 @@ TEST_F(TestsCapabilitiesGenerated, TestTransformFeedbackPropertiesEXT) {
 #endif
 }
 
+TEST_F(TestsCapabilitiesGenerated, TestCopyMemoryIndirectPropertiesNV) {
+#ifdef VK_NV_copy_memory_indirect
+    bool supported = false;
+    supported = supported && IsSupported(gpu_profile, "VK_NV_copy_memory_indirect");
+
+    VkPhysicalDeviceCopyMemoryIndirectPropertiesNV copy_memory_indirect_properties_native{};
+    copy_memory_indirect_properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COPY_MEMORY_INDIRECT_PROPERTIES_NV;
+
+    VkPhysicalDeviceProperties2 gpu_props_native{};
+    gpu_props_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_native.pNext = &copy_memory_indirect_properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props_native);
+
+    VkPhysicalDeviceCopyMemoryIndirectPropertiesNV copy_memory_indirect_properties_profile{};
+    copy_memory_indirect_properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COPY_MEMORY_INDIRECT_PROPERTIES_NV;
+
+    VkPhysicalDeviceProperties2 gpu_props_profile{};
+    gpu_props_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_profile.pNext = &copy_memory_indirect_properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
+
+#endif
+}
+
+TEST_F(TestsCapabilitiesGenerated, TestMemoryDecompressionPropertiesNV) {
+#ifdef VK_NV_memory_decompression
+    bool supported = false;
+    supported = supported && IsSupported(gpu_profile, "VK_NV_memory_decompression");
+
+    VkPhysicalDeviceMemoryDecompressionPropertiesNV memory_decompression_properties_native{};
+    memory_decompression_properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_DECOMPRESSION_PROPERTIES_NV;
+
+    VkPhysicalDeviceProperties2 gpu_props_native{};
+    gpu_props_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_native.pNext = &memory_decompression_properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props_native);
+
+    VkPhysicalDeviceMemoryDecompressionPropertiesNV memory_decompression_properties_profile{};
+    memory_decompression_properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_DECOMPRESSION_PROPERTIES_NV;
+
+    VkPhysicalDeviceProperties2 gpu_props_profile{};
+    gpu_props_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_profile.pNext = &memory_decompression_properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
+
+    EXPECT_EQ(memory_decompression_properties_profile.maxDecompressionIndirectCount, 91);
+#endif
+}
+
 TEST_F(TestsCapabilitiesGenerated, TestShadingRateImagePropertiesNV) {
 #ifdef VK_NV_shading_rate_image
     bool supported = false;
@@ -975,8 +1024,8 @@ TEST_F(TestsCapabilitiesGenerated, TestShadingRateImagePropertiesNV) {
     EXPECT_EQ(shading_rate_image_properties_profile.shadingRateTexelSize.height, shading_rate_image_properties_native.shadingRateTexelSize.height);
     }
 
-    EXPECT_EQ(shading_rate_image_properties_profile.shadingRatePaletteSize, 93);
-    EXPECT_EQ(shading_rate_image_properties_profile.shadingRateMaxCoarseSamples, 94);
+    EXPECT_EQ(shading_rate_image_properties_profile.shadingRatePaletteSize, 94);
+    EXPECT_EQ(shading_rate_image_properties_profile.shadingRateMaxCoarseSamples, 95);
 #endif
 }
 
@@ -1001,23 +1050,23 @@ TEST_F(TestsCapabilitiesGenerated, TestMeshShaderPropertiesNV) {
     gpu_props_profile.pNext = &mesh_shader_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(mesh_shader_properties_profile.maxDrawMeshTasksCount, 95);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupInvocations, 96);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[0], 97);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[1], 97);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[2], 97);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskTotalMemorySize, 98);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskOutputCount, 99);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupInvocations, 100);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[0], 101);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[1], 101);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[2], 101);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshTotalMemorySize, 102);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputVertices, 103);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputPrimitives, 104);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshMultiviewViewCount, 105);
-    EXPECT_EQ(mesh_shader_properties_profile.meshOutputPerVertexGranularity, 106);
-    EXPECT_EQ(mesh_shader_properties_profile.meshOutputPerPrimitiveGranularity, 107);
+    EXPECT_EQ(mesh_shader_properties_profile.maxDrawMeshTasksCount, 96);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupInvocations, 97);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[0], 98);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[1], 98);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[2], 98);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskTotalMemorySize, 99);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskOutputCount, 100);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupInvocations, 101);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[0], 102);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[1], 102);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[2], 102);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshTotalMemorySize, 103);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputVertices, 104);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputPrimitives, 105);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshMultiviewViewCount, 106);
+    EXPECT_EQ(mesh_shader_properties_profile.meshOutputPerVertexGranularity, 107);
+    EXPECT_EQ(mesh_shader_properties_profile.meshOutputPerPrimitiveGranularity, 108);
 #endif
 }
 
@@ -1042,34 +1091,34 @@ TEST_F(TestsCapabilitiesGenerated, TestMeshShaderPropertiesEXT) {
     gpu_props_profile.pNext = &mesh_shader_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupTotalCount, 108);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupCount[0], 109);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupCount[1], 109);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupCount[2], 109);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupInvocations, 110);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[0], 111);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[1], 111);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[2], 111);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskPayloadSize, 112);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskSharedMemorySize, 113);
-    EXPECT_EQ(mesh_shader_properties_profile.maxTaskPayloadAndSharedMemorySize, 114);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupTotalCount, 115);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupCount[0], 116);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupCount[1], 116);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupCount[2], 116);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupInvocations, 117);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[0], 118);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[1], 118);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[2], 118);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshSharedMemorySize, 119);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshPayloadAndSharedMemorySize, 120);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputMemorySize, 121);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshPayloadAndOutputMemorySize, 122);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputComponents, 123);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputVertices, 124);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputPrimitives, 125);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputLayers, 126);
-    EXPECT_EQ(mesh_shader_properties_profile.maxMeshMultiviewViewCount, 127);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupTotalCount, 109);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupCount[0], 110);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupCount[1], 110);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupCount[2], 110);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupInvocations, 111);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[0], 112);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[1], 112);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskWorkGroupSize[2], 112);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskPayloadSize, 113);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskSharedMemorySize, 114);
+    EXPECT_EQ(mesh_shader_properties_profile.maxTaskPayloadAndSharedMemorySize, 115);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupTotalCount, 116);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupCount[0], 117);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupCount[1], 117);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupCount[2], 117);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupInvocations, 118);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[0], 119);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[1], 119);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshWorkGroupSize[2], 119);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshSharedMemorySize, 120);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshPayloadAndSharedMemorySize, 121);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputMemorySize, 122);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshPayloadAndOutputMemorySize, 123);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputComponents, 124);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputVertices, 125);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputPrimitives, 126);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshOutputLayers, 127);
+    EXPECT_EQ(mesh_shader_properties_profile.maxMeshMultiviewViewCount, 128);
     if (supported) {
     EXPECT_EQ(mesh_shader_properties_profile.meshOutputPerVertexGranularity, mesh_shader_properties_native.meshOutputPerVertexGranularity);
     }
@@ -1078,8 +1127,8 @@ TEST_F(TestsCapabilitiesGenerated, TestMeshShaderPropertiesEXT) {
     EXPECT_EQ(mesh_shader_properties_profile.meshOutputPerPrimitiveGranularity, mesh_shader_properties_native.meshOutputPerPrimitiveGranularity);
     }
 
-    EXPECT_EQ(mesh_shader_properties_profile.maxPreferredTaskWorkGroupInvocations, 130);
-    EXPECT_EQ(mesh_shader_properties_profile.maxPreferredMeshWorkGroupInvocations, 131);
+    EXPECT_EQ(mesh_shader_properties_profile.maxPreferredTaskWorkGroupInvocations, 131);
+    EXPECT_EQ(mesh_shader_properties_profile.maxPreferredMeshWorkGroupInvocations, 132);
     if (supported) {
     EXPECT_EQ(mesh_shader_properties_profile.prefersLocalInvocationVertexOutput, mesh_shader_properties_native.prefersLocalInvocationVertexOutput);
     }
@@ -1120,14 +1169,14 @@ TEST_F(TestsCapabilitiesGenerated, TestAccelerationStructurePropertiesKHR) {
     gpu_props_profile.pNext = &acceleration_structure_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(acceleration_structure_properties_profile.maxGeometryCount, 132);
-    EXPECT_EQ(acceleration_structure_properties_profile.maxInstanceCount, 133);
-    EXPECT_EQ(acceleration_structure_properties_profile.maxPrimitiveCount, 134);
-    EXPECT_EQ(acceleration_structure_properties_profile.maxPerStageDescriptorAccelerationStructures, 135);
-    EXPECT_EQ(acceleration_structure_properties_profile.maxPerStageDescriptorUpdateAfterBindAccelerationStructures, 136);
-    EXPECT_EQ(acceleration_structure_properties_profile.maxDescriptorSetAccelerationStructures, 137);
-    EXPECT_EQ(acceleration_structure_properties_profile.maxDescriptorSetUpdateAfterBindAccelerationStructures, 138);
-    EXPECT_EQ(acceleration_structure_properties_profile.minAccelerationStructureScratchOffsetAlignment, 139);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxGeometryCount, 133);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxInstanceCount, 134);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxPrimitiveCount, 135);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxPerStageDescriptorAccelerationStructures, 136);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxPerStageDescriptorUpdateAfterBindAccelerationStructures, 137);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxDescriptorSetAccelerationStructures, 138);
+    EXPECT_EQ(acceleration_structure_properties_profile.maxDescriptorSetUpdateAfterBindAccelerationStructures, 139);
+    EXPECT_EQ(acceleration_structure_properties_profile.minAccelerationStructureScratchOffsetAlignment, 140);
 #endif
 }
 
@@ -1156,8 +1205,8 @@ TEST_F(TestsCapabilitiesGenerated, TestRayTracingPipelinePropertiesKHR) {
     EXPECT_EQ(ray_tracing_pipeline_properties_profile.shaderGroupHandleSize, ray_tracing_pipeline_properties_native.shaderGroupHandleSize);
     }
 
-    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxRayRecursionDepth, 141);
-    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxShaderGroupStride, 142);
+    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxRayRecursionDepth, 142);
+    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxShaderGroupStride, 143);
     if (supported) {
     EXPECT_EQ(ray_tracing_pipeline_properties_profile.shaderGroupBaseAlignment, ray_tracing_pipeline_properties_native.shaderGroupBaseAlignment);
     }
@@ -1166,9 +1215,9 @@ TEST_F(TestsCapabilitiesGenerated, TestRayTracingPipelinePropertiesKHR) {
     EXPECT_EQ(ray_tracing_pipeline_properties_profile.shaderGroupHandleCaptureReplaySize, ray_tracing_pipeline_properties_native.shaderGroupHandleCaptureReplaySize);
     }
 
-    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxRayDispatchInvocationCount, 145);
-    EXPECT_EQ(ray_tracing_pipeline_properties_profile.shaderGroupHandleAlignment, 146);
-    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxRayHitAttributeSize, 147);
+    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxRayDispatchInvocationCount, 146);
+    EXPECT_EQ(ray_tracing_pipeline_properties_profile.shaderGroupHandleAlignment, 147);
+    EXPECT_EQ(ray_tracing_pipeline_properties_profile.maxRayHitAttributeSize, 148);
 #endif
 }
 
@@ -1197,16 +1246,16 @@ TEST_F(TestsCapabilitiesGenerated, TestRayTracingPropertiesNV) {
     EXPECT_EQ(ray_tracing_properties_profile.shaderGroupHandleSize, ray_tracing_properties_native.shaderGroupHandleSize);
     }
 
-    EXPECT_EQ(ray_tracing_properties_profile.maxRecursionDepth, 149);
-    EXPECT_EQ(ray_tracing_properties_profile.maxShaderGroupStride, 150);
+    EXPECT_EQ(ray_tracing_properties_profile.maxRecursionDepth, 150);
+    EXPECT_EQ(ray_tracing_properties_profile.maxShaderGroupStride, 151);
     if (supported) {
     EXPECT_EQ(ray_tracing_properties_profile.shaderGroupBaseAlignment, ray_tracing_properties_native.shaderGroupBaseAlignment);
     }
 
-    EXPECT_EQ(ray_tracing_properties_profile.maxGeometryCount, 152);
-    EXPECT_EQ(ray_tracing_properties_profile.maxInstanceCount, 153);
-    EXPECT_EQ(ray_tracing_properties_profile.maxTriangleCount, 154);
-    EXPECT_EQ(ray_tracing_properties_profile.maxDescriptorSetAccelerationStructures, 155);
+    EXPECT_EQ(ray_tracing_properties_profile.maxGeometryCount, 153);
+    EXPECT_EQ(ray_tracing_properties_profile.maxInstanceCount, 154);
+    EXPECT_EQ(ray_tracing_properties_profile.maxTriangleCount, 155);
+    EXPECT_EQ(ray_tracing_properties_profile.maxDescriptorSetAccelerationStructures, 156);
 #endif
 }
 
@@ -1231,10 +1280,10 @@ TEST_F(TestsCapabilitiesGenerated, TestFragmentDensityMapPropertiesEXT) {
     gpu_props_profile.pNext = &fragment_density_map_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(fragment_density_map_properties_profile.minFragmentDensityTexelSize.width, 156);
-    EXPECT_EQ(fragment_density_map_properties_profile.minFragmentDensityTexelSize.height, 157);
-    EXPECT_EQ(fragment_density_map_properties_profile.maxFragmentDensityTexelSize.width, 158);
-    EXPECT_EQ(fragment_density_map_properties_profile.maxFragmentDensityTexelSize.height, 159);
+    EXPECT_EQ(fragment_density_map_properties_profile.minFragmentDensityTexelSize.width, 157);
+    EXPECT_EQ(fragment_density_map_properties_profile.minFragmentDensityTexelSize.height, 158);
+    EXPECT_EQ(fragment_density_map_properties_profile.maxFragmentDensityTexelSize.width, 159);
+    EXPECT_EQ(fragment_density_map_properties_profile.maxFragmentDensityTexelSize.height, 160);
     EXPECT_EQ(fragment_density_map_properties_profile.fragmentDensityInvocations, VK_TRUE);
 #endif
 }
@@ -1268,8 +1317,8 @@ TEST_F(TestsCapabilitiesGenerated, TestFragmentDensityMap2PropertiesEXT) {
     EXPECT_EQ(fragment_density_map_2_properties_profile.subsampledCoarseReconstructionEarlyAccess, fragment_density_map_2_properties_native.subsampledCoarseReconstructionEarlyAccess);
     }
 
-    EXPECT_EQ(fragment_density_map_2_properties_profile.maxSubsampledArrayLayers, 160);
-    EXPECT_EQ(fragment_density_map_2_properties_profile.maxDescriptorSetSubsampledSamplers, 161);
+    EXPECT_EQ(fragment_density_map_2_properties_profile.maxSubsampledArrayLayers, 161);
+    EXPECT_EQ(fragment_density_map_2_properties_profile.maxDescriptorSetSubsampledSamplers, 162);
 #endif
 }
 
@@ -1294,8 +1343,8 @@ TEST_F(TestsCapabilitiesGenerated, TestFragmentDensityMapOffsetPropertiesQCOM) {
     gpu_props_profile.pNext = &fragment_density_map_offset_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(fragment_density_map_offset_properties_profile.fragmentDensityOffsetGranularity.width, 162);
-    EXPECT_EQ(fragment_density_map_offset_properties_profile.fragmentDensityOffsetGranularity.height, 163);
+    EXPECT_EQ(fragment_density_map_offset_properties_profile.fragmentDensityOffsetGranularity.width, 163);
+    EXPECT_EQ(fragment_density_map_offset_properties_profile.fragmentDensityOffsetGranularity.height, 164);
 #endif
 }
 
@@ -1320,7 +1369,7 @@ TEST_F(TestsCapabilitiesGenerated, TestCooperativeMatrixPropertiesNV) {
     gpu_props_profile.pNext = &cooperative_matrix_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(cooperative_matrix_properties_profile.cooperativeMatrixSupportedStages, VK_SHADER_STAGE_TASK_BIT_EXT);
+    EXPECT_EQ(cooperative_matrix_properties_profile.cooperativeMatrixSupportedStages, VK_SHADER_STAGE_MESH_BIT_EXT);
 #endif
 }
 
@@ -1370,8 +1419,8 @@ TEST_F(TestsCapabilitiesGenerated, TestShaderSMBuiltinsPropertiesNV) {
     gpu_props_profile.pNext = &shader_smbuiltins_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(shader_smbuiltins_properties_profile.shaderSMCount, 165);
-    EXPECT_EQ(shader_smbuiltins_properties_profile.shaderWarpsPerSM, 166);
+    EXPECT_EQ(shader_smbuiltins_properties_profile.shaderSMCount, 166);
+    EXPECT_EQ(shader_smbuiltins_properties_profile.shaderWarpsPerSM, 167);
 #endif
 }
 
@@ -1396,12 +1445,12 @@ TEST_F(TestsCapabilitiesGenerated, TestTexelBufferAlignmentPropertiesEXT) {
     gpu_props_profile.pNext = &texel_buffer_alignment_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(texel_buffer_alignment_properties_profile.storageTexelBufferOffsetAlignmentBytes, 167);
+    EXPECT_EQ(texel_buffer_alignment_properties_profile.storageTexelBufferOffsetAlignmentBytes, 168);
     if (supported) {
     EXPECT_EQ(texel_buffer_alignment_properties_profile.storageTexelBufferOffsetSingleTexelAlignment, texel_buffer_alignment_properties_native.storageTexelBufferOffsetSingleTexelAlignment);
     }
 
-    EXPECT_EQ(texel_buffer_alignment_properties_profile.uniformTexelBufferOffsetAlignmentBytes, 168);
+    EXPECT_EQ(texel_buffer_alignment_properties_profile.uniformTexelBufferOffsetAlignmentBytes, 169);
     if (supported) {
     EXPECT_EQ(texel_buffer_alignment_properties_profile.uniformTexelBufferOffsetSingleTexelAlignment, texel_buffer_alignment_properties_native.uniformTexelBufferOffsetSingleTexelAlignment);
     }
@@ -1430,10 +1479,10 @@ TEST_F(TestsCapabilitiesGenerated, TestSubgroupSizeControlPropertiesEXT) {
     gpu_props_profile.pNext = &subgroup_size_control_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(subgroup_size_control_properties_profile.minSubgroupSize, 169);
-    EXPECT_EQ(subgroup_size_control_properties_profile.maxSubgroupSize, 170);
-    EXPECT_EQ(subgroup_size_control_properties_profile.maxComputeWorkgroupSubgroups, 171);
-    EXPECT_EQ(subgroup_size_control_properties_profile.requiredSubgroupSizeStages, VK_SHADER_STAGE_CALLABLE_BIT_NV);
+    EXPECT_EQ(subgroup_size_control_properties_profile.minSubgroupSize, 170);
+    EXPECT_EQ(subgroup_size_control_properties_profile.maxSubgroupSize, 171);
+    EXPECT_EQ(subgroup_size_control_properties_profile.maxComputeWorkgroupSubgroups, 172);
+    EXPECT_EQ(subgroup_size_control_properties_profile.requiredSubgroupSizeStages, VK_SHADER_STAGE_TASK_BIT_NV);
 #endif
 }
 
@@ -1458,7 +1507,7 @@ TEST_F(TestsCapabilitiesGenerated, TestSubpassShadingPropertiesHUAWEI) {
     gpu_props_profile.pNext = &subpass_shading_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(subpass_shading_properties_profile.maxSubpassShadingWorkgroupSizeAspectRatio, 173);
+    EXPECT_EQ(subpass_shading_properties_profile.maxSubpassShadingWorkgroupSizeAspectRatio, 174);
 #endif
 }
 
@@ -1483,7 +1532,7 @@ TEST_F(TestsCapabilitiesGenerated, TestLineRasterizationPropertiesEXT) {
     gpu_props_profile.pNext = &line_rasterization_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(line_rasterization_properties_profile.lineSubPixelPrecisionBits, 174);
+    EXPECT_EQ(line_rasterization_properties_profile.lineSubPixelPrecisionBits, 175);
 #endif
 }
 
@@ -1508,7 +1557,7 @@ TEST_F(TestsCapabilitiesGenerated, TestCustomBorderColorPropertiesEXT) {
     gpu_props_profile.pNext = &custom_border_color_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(custom_border_color_properties_profile.maxCustomBorderColorSamplers, 175);
+    EXPECT_EQ(custom_border_color_properties_profile.maxCustomBorderColorSamplers, 176);
 #endif
 }
 
@@ -1558,8 +1607,8 @@ TEST_F(TestsCapabilitiesGenerated, TestRobustness2PropertiesEXT) {
     gpu_props_profile.pNext = &robustness_2_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(robustness_2_properties_profile.robustStorageBufferAccessSizeAlignment, 176);
-    EXPECT_EQ(robustness_2_properties_profile.robustUniformBufferAccessSizeAlignment, 177);
+    EXPECT_EQ(robustness_2_properties_profile.robustStorageBufferAccessSizeAlignment, 177);
+    EXPECT_EQ(robustness_2_properties_profile.robustUniformBufferAccessSizeAlignment, 178);
 #endif
 }
 
@@ -1584,7 +1633,7 @@ TEST_F(TestsCapabilitiesGenerated, TestPortabilitySubsetPropertiesKHR) {
     gpu_props_profile.pNext = &portability_subset_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(portability_subset_properties_profile.minVertexInputBindingStrideAlignment, 178);
+    EXPECT_EQ(portability_subset_properties_profile.minVertexInputBindingStrideAlignment, 179);
 #endif
 }
 
@@ -1609,19 +1658,19 @@ TEST_F(TestsCapabilitiesGenerated, TestFragmentShadingRatePropertiesKHR) {
     gpu_props_profile.pNext = &fragment_shading_rate_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(fragment_shading_rate_properties_profile.minFragmentShadingRateAttachmentTexelSize.width, 179);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.minFragmentShadingRateAttachmentTexelSize.height, 180);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateAttachmentTexelSize.width, 181);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateAttachmentTexelSize.height, 182);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateAttachmentTexelSizeAspectRatio, 183);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.minFragmentShadingRateAttachmentTexelSize.width, 180);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.minFragmentShadingRateAttachmentTexelSize.height, 181);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateAttachmentTexelSize.width, 182);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateAttachmentTexelSize.height, 183);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateAttachmentTexelSizeAspectRatio, 184);
     EXPECT_EQ(fragment_shading_rate_properties_profile.primitiveFragmentShadingRateWithMultipleViewports, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties_profile.layeredShadingRateAttachments, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties_profile.fragmentShadingRateNonTrivialCombinerOps, VK_TRUE);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentSize.width, 184);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentSize.height, 185);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentSizeAspectRatio, 186);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateCoverageSamples, 187);
-    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateRasterizationSamples, VK_SAMPLE_COUNT_64_BIT);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentSize.width, 185);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentSize.height, 186);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentSizeAspectRatio, 187);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateCoverageSamples, 188);
+    EXPECT_EQ(fragment_shading_rate_properties_profile.maxFragmentShadingRateRasterizationSamples, VK_SAMPLE_COUNT_1_BIT);
     EXPECT_EQ(fragment_shading_rate_properties_profile.fragmentShadingRateWithShaderDepthStencilWrites, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties_profile.fragmentShadingRateWithSampleMask, VK_TRUE);
     EXPECT_EQ(fragment_shading_rate_properties_profile.fragmentShadingRateWithShaderSampleMask, VK_TRUE);
@@ -1653,7 +1702,7 @@ TEST_F(TestsCapabilitiesGenerated, TestFragmentShadingRateEnumsPropertiesNV) {
     gpu_props_profile.pNext = &fragment_shading_rate_enums_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(fragment_shading_rate_enums_properties_profile.maxFragmentShadingRateInvocationCount, VK_SAMPLE_COUNT_1_BIT);
+    EXPECT_EQ(fragment_shading_rate_enums_properties_profile.maxFragmentShadingRateInvocationCount, VK_SAMPLE_COUNT_2_BIT);
 #endif
 }
 
@@ -1680,6 +1729,80 @@ TEST_F(TestsCapabilitiesGenerated, TestProvokingVertexPropertiesEXT) {
 
     EXPECT_EQ(provoking_vertex_properties_profile.provokingVertexModePerPipeline, VK_TRUE);
     EXPECT_EQ(provoking_vertex_properties_profile.transformFeedbackPreservesTriangleFanProvokingVertex, VK_TRUE);
+#endif
+}
+
+TEST_F(TestsCapabilitiesGenerated, TestDescriptorBufferPropertiesEXT) {
+#ifdef VK_EXT_descriptor_buffer
+    bool supported = false;
+    supported = supported && IsSupported(gpu_profile, "VK_EXT_descriptor_buffer");
+
+    VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties_native{};
+    descriptor_buffer_properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
+
+    VkPhysicalDeviceProperties2 gpu_props_native{};
+    gpu_props_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_native.pNext = &descriptor_buffer_properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props_native);
+
+    VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_buffer_properties_profile{};
+    descriptor_buffer_properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
+
+    VkPhysicalDeviceProperties2 gpu_props_profile{};
+    gpu_props_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_profile.pNext = &descriptor_buffer_properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
+
+    if (supported) {
+    EXPECT_EQ(descriptor_buffer_properties_profile.combinedImageSamplerDescriptorSingleArray, descriptor_buffer_properties_native.combinedImageSamplerDescriptorSingleArray);
+    }
+
+    if (supported) {
+    EXPECT_EQ(descriptor_buffer_properties_profile.bufferlessPushDescriptors, descriptor_buffer_properties_native.bufferlessPushDescriptors);
+    }
+
+    if (supported) {
+    EXPECT_EQ(descriptor_buffer_properties_profile.allowSamplerImageViewPostSubmitCreation, descriptor_buffer_properties_native.allowSamplerImageViewPostSubmitCreation);
+    }
+
+    if (supported) {
+    EXPECT_EQ(descriptor_buffer_properties_profile.descriptorBufferOffsetAlignment, descriptor_buffer_properties_native.descriptorBufferOffsetAlignment);
+    }
+
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxDescriptorBufferBindings, 192);
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxResourceDescriptorBufferBindings, 193);
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxSamplerDescriptorBufferBindings, 194);
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxEmbeddedImmutableSamplerBindings, 195);
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxEmbeddedImmutableSamplers, 196);
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxSamplerDescriptorBufferRange, 197);
+    EXPECT_EQ(descriptor_buffer_properties_profile.maxResourceDescriptorBufferRange, 198);
+    EXPECT_EQ(descriptor_buffer_properties_profile.samplerDescriptorBufferAddressSpaceSize, 199);
+    EXPECT_EQ(descriptor_buffer_properties_profile.resourceDescriptorBufferAddressSpaceSize, 200);
+    EXPECT_EQ(descriptor_buffer_properties_profile.descriptorBufferAddressSpaceSize, 201);
+#endif
+}
+
+TEST_F(TestsCapabilitiesGenerated, TestDescriptorBufferDensityMapPropertiesEXT) {
+#ifdef VK_EXT_descriptor_buffer
+    bool supported = false;
+    supported = supported && IsSupported(gpu_profile, "VK_EXT_descriptor_buffer");
+
+    VkPhysicalDeviceDescriptorBufferDensityMapPropertiesEXT descriptor_buffer_density_map_properties_native{};
+    descriptor_buffer_density_map_properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_DENSITY_MAP_PROPERTIES_EXT;
+
+    VkPhysicalDeviceProperties2 gpu_props_native{};
+    gpu_props_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_native.pNext = &descriptor_buffer_density_map_properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props_native);
+
+    VkPhysicalDeviceDescriptorBufferDensityMapPropertiesEXT descriptor_buffer_density_map_properties_profile{};
+    descriptor_buffer_density_map_properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_DENSITY_MAP_PROPERTIES_EXT;
+
+    VkPhysicalDeviceProperties2 gpu_props_profile{};
+    gpu_props_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_profile.pNext = &descriptor_buffer_density_map_properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
+
 #endif
 }
 
@@ -1900,8 +2023,8 @@ TEST_F(TestsCapabilitiesGenerated, TestOpacityMicromapPropertiesEXT) {
     gpu_props_profile.pNext = &opacity_micromap_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(opacity_micromap_properties_profile.maxOpacity2StateSubdivisionLevel, 195);
-    EXPECT_EQ(opacity_micromap_properties_profile.maxOpacity4StateSubdivisionLevel, 196);
+    EXPECT_EQ(opacity_micromap_properties_profile.maxOpacity2StateSubdivisionLevel, 207);
+    EXPECT_EQ(opacity_micromap_properties_profile.maxOpacity4StateSubdivisionLevel, 208);
 #endif
 }
 
@@ -1966,13 +2089,13 @@ TEST_F(TestsCapabilitiesGenerated, TestImageProcessingPropertiesQCOM) {
     gpu_props_profile.pNext = &image_processing_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(image_processing_properties_profile.maxWeightFilterPhases, 201);
-    EXPECT_EQ(image_processing_properties_profile.maxWeightFilterDimension.width, 202);
-    EXPECT_EQ(image_processing_properties_profile.maxWeightFilterDimension.height, 203);
-    EXPECT_EQ(image_processing_properties_profile.maxBlockMatchRegion.width, 204);
-    EXPECT_EQ(image_processing_properties_profile.maxBlockMatchRegion.height, 205);
-    EXPECT_EQ(image_processing_properties_profile.maxBoxFilterBlockSize.width, 206);
-    EXPECT_EQ(image_processing_properties_profile.maxBoxFilterBlockSize.height, 207);
+    EXPECT_EQ(image_processing_properties_profile.maxWeightFilterPhases, 213);
+    EXPECT_EQ(image_processing_properties_profile.maxWeightFilterDimension.width, 214);
+    EXPECT_EQ(image_processing_properties_profile.maxWeightFilterDimension.height, 215);
+    EXPECT_EQ(image_processing_properties_profile.maxBlockMatchRegion.width, 216);
+    EXPECT_EQ(image_processing_properties_profile.maxBlockMatchRegion.height, 217);
+    EXPECT_EQ(image_processing_properties_profile.maxBoxFilterBlockSize.width, 218);
+    EXPECT_EQ(image_processing_properties_profile.maxBoxFilterBlockSize.height, 219);
 #endif
 }
 
@@ -2057,8 +2180,33 @@ TEST_F(TestsCapabilitiesGenerated, TestShaderCoreBuiltinsPropertiesARM) {
     gpu_props_profile.pNext = &shader_core_builtins_properties_profile;
     vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
 
-    EXPECT_EQ(shader_core_builtins_properties_profile.shaderCoreCount, 213);
-    EXPECT_EQ(shader_core_builtins_properties_profile.shaderWarpsPerCore, 214);
+    EXPECT_EQ(shader_core_builtins_properties_profile.shaderCoreMask, 225);
+    EXPECT_EQ(shader_core_builtins_properties_profile.shaderCoreCount, 226);
+    EXPECT_EQ(shader_core_builtins_properties_profile.shaderWarpsPerCore, 227);
+#endif
+}
+
+TEST_F(TestsCapabilitiesGenerated, TestRayTracingInvocationReorderPropertiesNV) {
+#ifdef VK_NV_ray_tracing_invocation_reorder
+    bool supported = false;
+    supported = supported && IsSupported(gpu_profile, "VK_NV_ray_tracing_invocation_reorder");
+
+    VkPhysicalDeviceRayTracingInvocationReorderPropertiesNV ray_tracing_invocation_reorder_properties_native{};
+    ray_tracing_invocation_reorder_properties_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_NV;
+
+    VkPhysicalDeviceProperties2 gpu_props_native{};
+    gpu_props_native.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_native.pNext = &ray_tracing_invocation_reorder_properties_native;
+    vkGetPhysicalDeviceProperties2(gpu_native, &gpu_props_native);
+
+    VkPhysicalDeviceRayTracingInvocationReorderPropertiesNV ray_tracing_invocation_reorder_properties_profile{};
+    ray_tracing_invocation_reorder_properties_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_NV;
+
+    VkPhysicalDeviceProperties2 gpu_props_profile{};
+    gpu_props_profile.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    gpu_props_profile.pNext = &ray_tracing_invocation_reorder_properties_profile;
+    vkGetPhysicalDeviceProperties2(gpu_profile, &gpu_props_profile);
+
 #endif
 }
 
@@ -2067,9 +2215,9 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_UNDEFINED) {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT | VK_FORMAT_FEATURE_FRAGMENT_DENSITY_MAP_BIT_EXT;
-    VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_TRANSFER_DST_BIT_KHR | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT_KHR | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT;
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT;
+    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT_KHR;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
@@ -2080,9 +2228,9 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R4G4_UNORM_PACK8) {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT | VK_FORMAT_FEATURE_DISJOINT_BIT_KHR;
-    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR | VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT | VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT | VK_FORMAT_FEATURE_TRANSFER_SRC_BIT_KHR | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT;
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_FRAGMENT_DENSITY_MAP_BIT_EXT | VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT;
+    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_FRAGMENT_DENSITY_MAP_BIT_EXT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT | VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT | VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
@@ -2093,9 +2241,9 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R4G4B4A4_UNORM_PACK16) {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT_KHR | VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT | VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+    VkFormatFeatureFlags optimal_tiling_features = 0;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
@@ -2107,32 +2255,6 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B4G4R4A4_UNORM_PACK16) {
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
     VkFormatFeatureFlags linear_tiling_features = 0;
-    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT | VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR;
-    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
-    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
-    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-}
-
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R5G6B5_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_R5G6B5_UNORM_PACK16;
-    VkFormatProperties format_properties;
-    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
-
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
-    VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT;
-    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
-    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
-    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-}
-
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B5G6R5_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_B5G6R5_UNORM_PACK16;
-    VkFormatProperties format_properties;
-    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
-
-    VkFormatFeatureFlags linear_tiling_features = 0;
     VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT | VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR;
     VkFormatFeatureFlags buffer_features = 0;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
@@ -2140,8 +2262,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B5G6R5_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R5G5B5A1_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_R5G5B5A1_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R5G6B5_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_R5G6B5_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2153,8 +2275,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R5G5B5A1_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B5G5R5A1_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_B5G5R5A1_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B5G6R5_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_B5G6R5_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2166,8 +2288,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B5G5R5A1_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A1R5G5B5_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R5G5B5A1_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_R5G5B5A1_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2179,8 +2301,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A1R5G5B5_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_UNORM) {
-    VkFormat format = VK_FORMAT_R8_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B5G5R5A1_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_B5G5R5A1_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2192,8 +2314,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SNORM) {
-    VkFormat format = VK_FORMAT_R8_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A1R5G5B5_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_A1R5G5B5_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2205,8 +2327,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_USCALED) {
-    VkFormat format = VK_FORMAT_R8_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_UNORM) {
+    VkFormat format = VK_FORMAT_R8_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2218,8 +2340,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SSCALED) {
-    VkFormat format = VK_FORMAT_R8_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SNORM) {
+    VkFormat format = VK_FORMAT_R8_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2231,8 +2353,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_UINT) {
-    VkFormat format = VK_FORMAT_R8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_USCALED) {
+    VkFormat format = VK_FORMAT_R8_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2244,8 +2366,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SINT) {
-    VkFormat format = VK_FORMAT_R8_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SSCALED) {
+    VkFormat format = VK_FORMAT_R8_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2257,8 +2379,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SRGB) {
-    VkFormat format = VK_FORMAT_R8_SRGB;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_UINT) {
+    VkFormat format = VK_FORMAT_R8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2270,8 +2392,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SRGB) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_UNORM) {
-    VkFormat format = VK_FORMAT_R8G8_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SINT) {
+    VkFormat format = VK_FORMAT_R8_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2283,8 +2405,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SNORM) {
-    VkFormat format = VK_FORMAT_R8G8_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8_SRGB) {
+    VkFormat format = VK_FORMAT_R8_SRGB;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2296,8 +2418,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_USCALED) {
-    VkFormat format = VK_FORMAT_R8G8_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_UNORM) {
+    VkFormat format = VK_FORMAT_R8G8_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2309,8 +2431,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SSCALED) {
-    VkFormat format = VK_FORMAT_R8G8_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SNORM) {
+    VkFormat format = VK_FORMAT_R8G8_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2322,8 +2444,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_UINT) {
-    VkFormat format = VK_FORMAT_R8G8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_USCALED) {
+    VkFormat format = VK_FORMAT_R8G8_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2335,8 +2457,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SINT) {
-    VkFormat format = VK_FORMAT_R8G8_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SSCALED) {
+    VkFormat format = VK_FORMAT_R8G8_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2348,8 +2470,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SRGB) {
-    VkFormat format = VK_FORMAT_R8G8_SRGB;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_UINT) {
+    VkFormat format = VK_FORMAT_R8G8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2361,8 +2483,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SRGB) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_UNORM) {
-    VkFormat format = VK_FORMAT_R8G8B8_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SINT) {
+    VkFormat format = VK_FORMAT_R8G8_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2374,8 +2496,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SNORM) {
-    VkFormat format = VK_FORMAT_R8G8B8_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8_SRGB) {
+    VkFormat format = VK_FORMAT_R8G8_SRGB;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2387,8 +2509,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_USCALED) {
-    VkFormat format = VK_FORMAT_R8G8B8_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_UNORM) {
+    VkFormat format = VK_FORMAT_R8G8B8_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2400,8 +2522,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SSCALED) {
-    VkFormat format = VK_FORMAT_R8G8B8_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SNORM) {
+    VkFormat format = VK_FORMAT_R8G8B8_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2413,8 +2535,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_UINT) {
-    VkFormat format = VK_FORMAT_R8G8B8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_USCALED) {
+    VkFormat format = VK_FORMAT_R8G8B8_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2426,8 +2548,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SINT) {
-    VkFormat format = VK_FORMAT_R8G8B8_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SSCALED) {
+    VkFormat format = VK_FORMAT_R8G8B8_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2439,8 +2561,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SRGB) {
-    VkFormat format = VK_FORMAT_R8G8B8_SRGB;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_UINT) {
+    VkFormat format = VK_FORMAT_R8G8B8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2452,8 +2574,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SRGB) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_UNORM) {
-    VkFormat format = VK_FORMAT_B8G8R8_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SINT) {
+    VkFormat format = VK_FORMAT_R8G8B8_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2465,8 +2587,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SNORM) {
-    VkFormat format = VK_FORMAT_B8G8R8_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8_SRGB) {
+    VkFormat format = VK_FORMAT_R8G8B8_SRGB;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2478,8 +2600,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_USCALED) {
-    VkFormat format = VK_FORMAT_B8G8R8_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_UNORM) {
+    VkFormat format = VK_FORMAT_B8G8R8_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2491,8 +2613,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SSCALED) {
-    VkFormat format = VK_FORMAT_B8G8R8_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SNORM) {
+    VkFormat format = VK_FORMAT_B8G8R8_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2504,8 +2626,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_UINT) {
-    VkFormat format = VK_FORMAT_B8G8R8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_USCALED) {
+    VkFormat format = VK_FORMAT_B8G8R8_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2517,8 +2639,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SINT) {
-    VkFormat format = VK_FORMAT_B8G8R8_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SSCALED) {
+    VkFormat format = VK_FORMAT_B8G8R8_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2530,8 +2652,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SRGB) {
-    VkFormat format = VK_FORMAT_B8G8R8_SRGB;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_UINT) {
+    VkFormat format = VK_FORMAT_B8G8R8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2543,8 +2665,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SRGB) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_UNORM) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SINT) {
+    VkFormat format = VK_FORMAT_B8G8R8_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2556,8 +2678,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SNORM) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8_SRGB) {
+    VkFormat format = VK_FORMAT_B8G8R8_SRGB;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2569,8 +2691,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_USCALED) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_UNORM) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2582,8 +2704,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SSCALED) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SNORM) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2595,8 +2717,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_UINT) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_USCALED) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2608,8 +2730,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SINT) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SSCALED) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2621,8 +2743,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SRGB) {
-    VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_UINT) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2634,8 +2756,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SRGB) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_UNORM) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SINT) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2647,8 +2769,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SNORM) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R8G8B8A8_SRGB) {
+    VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2660,8 +2782,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_USCALED) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_UNORM) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2673,8 +2795,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SSCALED) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SNORM) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2686,8 +2808,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_UINT) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_USCALED) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2699,8 +2821,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SINT) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SSCALED) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2712,8 +2834,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SRGB) {
-    VkFormat format = VK_FORMAT_B8G8R8A8_SRGB;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_UINT) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2725,8 +2847,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SRGB) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_UNORM_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SINT) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2738,8 +2860,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_UNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SNORM_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_SNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8A8_SRGB) {
+    VkFormat format = VK_FORMAT_B8G8R8A8_SRGB;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2751,8 +2873,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_USCALED_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_USCALED_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_UNORM_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2764,8 +2886,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_USCALED_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SSCALED_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_SSCALED_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SNORM_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_SNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2777,8 +2899,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SSCALED_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_UINT_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_UINT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_USCALED_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_USCALED_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2790,8 +2912,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_UINT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SINT_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_SINT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SSCALED_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_SSCALED_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2803,8 +2925,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SINT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SRGB_PACK32) {
-    VkFormat format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_UINT_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_UINT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2816,8 +2938,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SRGB_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_UNORM_PACK32) {
-    VkFormat format = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SINT_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_SINT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2829,8 +2951,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_UNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SNORM_PACK32) {
-    VkFormat format = VK_FORMAT_A2R10G10B10_SNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A8B8G8R8_SRGB_PACK32) {
+    VkFormat format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2842,8 +2964,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_USCALED_PACK32) {
-    VkFormat format = VK_FORMAT_A2R10G10B10_USCALED_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_UNORM_PACK32) {
+    VkFormat format = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2855,8 +2977,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_USCALED_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SSCALED_PACK32) {
-    VkFormat format = VK_FORMAT_A2R10G10B10_SSCALED_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SNORM_PACK32) {
+    VkFormat format = VK_FORMAT_A2R10G10B10_SNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2868,8 +2990,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SSCALED_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_UINT_PACK32) {
-    VkFormat format = VK_FORMAT_A2R10G10B10_UINT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_USCALED_PACK32) {
+    VkFormat format = VK_FORMAT_A2R10G10B10_USCALED_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2881,8 +3003,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_UINT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SINT_PACK32) {
-    VkFormat format = VK_FORMAT_A2R10G10B10_SINT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SSCALED_PACK32) {
+    VkFormat format = VK_FORMAT_A2R10G10B10_SSCALED_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2894,8 +3016,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SINT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_UNORM_PACK32) {
-    VkFormat format = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_UINT_PACK32) {
+    VkFormat format = VK_FORMAT_A2R10G10B10_UINT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2907,8 +3029,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_UNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SNORM_PACK32) {
-    VkFormat format = VK_FORMAT_A2B10G10R10_SNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2R10G10B10_SINT_PACK32) {
+    VkFormat format = VK_FORMAT_A2R10G10B10_SINT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2920,8 +3042,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_USCALED_PACK32) {
-    VkFormat format = VK_FORMAT_A2B10G10R10_USCALED_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_UNORM_PACK32) {
+    VkFormat format = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2933,8 +3055,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_USCALED_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SSCALED_PACK32) {
-    VkFormat format = VK_FORMAT_A2B10G10R10_SSCALED_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SNORM_PACK32) {
+    VkFormat format = VK_FORMAT_A2B10G10R10_SNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2946,8 +3068,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SSCALED_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_UINT_PACK32) {
-    VkFormat format = VK_FORMAT_A2B10G10R10_UINT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_USCALED_PACK32) {
+    VkFormat format = VK_FORMAT_A2B10G10R10_USCALED_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2959,8 +3081,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_UINT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SINT_PACK32) {
-    VkFormat format = VK_FORMAT_A2B10G10R10_SINT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SSCALED_PACK32) {
+    VkFormat format = VK_FORMAT_A2B10G10R10_SSCALED_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2972,8 +3094,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SINT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_UNORM) {
-    VkFormat format = VK_FORMAT_R16_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_UINT_PACK32) {
+    VkFormat format = VK_FORMAT_A2B10G10R10_UINT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2985,8 +3107,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SNORM) {
-    VkFormat format = VK_FORMAT_R16_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A2B10G10R10_SINT_PACK32) {
+    VkFormat format = VK_FORMAT_A2B10G10R10_SINT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -2998,8 +3120,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_USCALED) {
-    VkFormat format = VK_FORMAT_R16_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_UNORM) {
+    VkFormat format = VK_FORMAT_R16_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3011,8 +3133,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SSCALED) {
-    VkFormat format = VK_FORMAT_R16_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SNORM) {
+    VkFormat format = VK_FORMAT_R16_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3024,8 +3146,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_UINT) {
-    VkFormat format = VK_FORMAT_R16_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_USCALED) {
+    VkFormat format = VK_FORMAT_R16_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3037,8 +3159,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SINT) {
-    VkFormat format = VK_FORMAT_R16_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SSCALED) {
+    VkFormat format = VK_FORMAT_R16_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3050,8 +3172,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SFLOAT) {
-    VkFormat format = VK_FORMAT_R16_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_UINT) {
+    VkFormat format = VK_FORMAT_R16_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3063,8 +3185,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_UNORM) {
-    VkFormat format = VK_FORMAT_R16G16_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SINT) {
+    VkFormat format = VK_FORMAT_R16_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3076,8 +3198,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SNORM) {
-    VkFormat format = VK_FORMAT_R16G16_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16_SFLOAT) {
+    VkFormat format = VK_FORMAT_R16_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3089,8 +3211,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_USCALED) {
-    VkFormat format = VK_FORMAT_R16G16_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_UNORM) {
+    VkFormat format = VK_FORMAT_R16G16_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3102,8 +3224,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SSCALED) {
-    VkFormat format = VK_FORMAT_R16G16_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SNORM) {
+    VkFormat format = VK_FORMAT_R16G16_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3115,8 +3237,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_UINT) {
-    VkFormat format = VK_FORMAT_R16G16_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_USCALED) {
+    VkFormat format = VK_FORMAT_R16G16_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3128,8 +3250,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SINT) {
-    VkFormat format = VK_FORMAT_R16G16_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SSCALED) {
+    VkFormat format = VK_FORMAT_R16G16_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3141,8 +3263,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SFLOAT) {
-    VkFormat format = VK_FORMAT_R16G16_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_UINT) {
+    VkFormat format = VK_FORMAT_R16G16_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3154,8 +3276,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_UNORM) {
-    VkFormat format = VK_FORMAT_R16G16B16_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SINT) {
+    VkFormat format = VK_FORMAT_R16G16_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3167,8 +3289,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SNORM) {
-    VkFormat format = VK_FORMAT_R16G16B16_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_SFLOAT) {
+    VkFormat format = VK_FORMAT_R16G16_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3180,8 +3302,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_USCALED) {
-    VkFormat format = VK_FORMAT_R16G16B16_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_UNORM) {
+    VkFormat format = VK_FORMAT_R16G16B16_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3193,8 +3315,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SSCALED) {
-    VkFormat format = VK_FORMAT_R16G16B16_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SNORM) {
+    VkFormat format = VK_FORMAT_R16G16B16_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3206,8 +3328,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_UINT) {
-    VkFormat format = VK_FORMAT_R16G16B16_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_USCALED) {
+    VkFormat format = VK_FORMAT_R16G16B16_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3219,8 +3341,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SINT) {
-    VkFormat format = VK_FORMAT_R16G16B16_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SSCALED) {
+    VkFormat format = VK_FORMAT_R16G16B16_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3232,8 +3354,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SFLOAT) {
-    VkFormat format = VK_FORMAT_R16G16B16_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_UINT) {
+    VkFormat format = VK_FORMAT_R16G16B16_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3245,8 +3367,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_UNORM) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SINT) {
+    VkFormat format = VK_FORMAT_R16G16B16_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3258,8 +3380,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SNORM) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_SNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16_SFLOAT) {
+    VkFormat format = VK_FORMAT_R16G16B16_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3271,8 +3393,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_USCALED) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_USCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_UNORM) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3284,8 +3406,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_USCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SSCALED) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_SSCALED;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SNORM) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_SNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3297,8 +3419,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SSCALED) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_UINT) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_USCALED) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_USCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3310,8 +3432,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SINT) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SSCALED) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_SSCALED;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3323,8 +3445,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SFLOAT) {
-    VkFormat format = VK_FORMAT_R16G16B16A16_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_UINT) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3336,8 +3458,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_UINT) {
-    VkFormat format = VK_FORMAT_R32_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SINT) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3349,8 +3471,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_SINT) {
-    VkFormat format = VK_FORMAT_R32_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16B16A16_SFLOAT) {
+    VkFormat format = VK_FORMAT_R16G16B16A16_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3362,8 +3484,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_SFLOAT) {
-    VkFormat format = VK_FORMAT_R32_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_UINT) {
+    VkFormat format = VK_FORMAT_R32_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3375,8 +3497,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_UINT) {
-    VkFormat format = VK_FORMAT_R32G32_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_SINT) {
+    VkFormat format = VK_FORMAT_R32_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3388,8 +3510,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_SINT) {
-    VkFormat format = VK_FORMAT_R32G32_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32_SFLOAT) {
+    VkFormat format = VK_FORMAT_R32_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3401,8 +3523,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_SFLOAT) {
-    VkFormat format = VK_FORMAT_R32G32_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_UINT) {
+    VkFormat format = VK_FORMAT_R32G32_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3414,8 +3536,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_UINT) {
-    VkFormat format = VK_FORMAT_R32G32B32_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_SINT) {
+    VkFormat format = VK_FORMAT_R32G32_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3427,8 +3549,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_SINT) {
-    VkFormat format = VK_FORMAT_R32G32B32_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32_SFLOAT) {
+    VkFormat format = VK_FORMAT_R32G32_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3440,8 +3562,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_SFLOAT) {
-    VkFormat format = VK_FORMAT_R32G32B32_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_UINT) {
+    VkFormat format = VK_FORMAT_R32G32B32_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3453,8 +3575,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_UINT) {
-    VkFormat format = VK_FORMAT_R32G32B32A32_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_SINT) {
+    VkFormat format = VK_FORMAT_R32G32B32_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3466,8 +3588,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_SINT) {
-    VkFormat format = VK_FORMAT_R32G32B32A32_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32_SFLOAT) {
+    VkFormat format = VK_FORMAT_R32G32B32_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3479,8 +3601,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_SFLOAT) {
-    VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_UINT) {
+    VkFormat format = VK_FORMAT_R32G32B32A32_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3492,8 +3614,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_UINT) {
-    VkFormat format = VK_FORMAT_R64_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_SINT) {
+    VkFormat format = VK_FORMAT_R32G32B32A32_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3505,8 +3627,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_SINT) {
-    VkFormat format = VK_FORMAT_R64_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R32G32B32A32_SFLOAT) {
+    VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3518,8 +3640,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_SFLOAT) {
-    VkFormat format = VK_FORMAT_R64_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_UINT) {
+    VkFormat format = VK_FORMAT_R64_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3531,8 +3653,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_UINT) {
-    VkFormat format = VK_FORMAT_R64G64_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_SINT) {
+    VkFormat format = VK_FORMAT_R64_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3544,8 +3666,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_SINT) {
-    VkFormat format = VK_FORMAT_R64G64_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64_SFLOAT) {
+    VkFormat format = VK_FORMAT_R64_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3557,8 +3679,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_SFLOAT) {
-    VkFormat format = VK_FORMAT_R64G64_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_UINT) {
+    VkFormat format = VK_FORMAT_R64G64_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3570,8 +3692,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_UINT) {
-    VkFormat format = VK_FORMAT_R64G64B64_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_SINT) {
+    VkFormat format = VK_FORMAT_R64G64_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3583,8 +3705,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_SINT) {
-    VkFormat format = VK_FORMAT_R64G64B64_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64_SFLOAT) {
+    VkFormat format = VK_FORMAT_R64G64_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3596,8 +3718,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_SFLOAT) {
-    VkFormat format = VK_FORMAT_R64G64B64_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_UINT) {
+    VkFormat format = VK_FORMAT_R64G64B64_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3609,8 +3731,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_UINT) {
-    VkFormat format = VK_FORMAT_R64G64B64A64_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_SINT) {
+    VkFormat format = VK_FORMAT_R64G64B64_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3622,8 +3744,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_SINT) {
-    VkFormat format = VK_FORMAT_R64G64B64A64_SINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64_SFLOAT) {
+    VkFormat format = VK_FORMAT_R64G64B64_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3635,8 +3757,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_SINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_SFLOAT) {
-    VkFormat format = VK_FORMAT_R64G64B64A64_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_UINT) {
+    VkFormat format = VK_FORMAT_R64G64B64A64_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3648,8 +3770,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B10G11R11_UFLOAT_PACK32) {
-    VkFormat format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_SINT) {
+    VkFormat format = VK_FORMAT_R64G64B64A64_SINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3661,8 +3783,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B10G11R11_UFLOAT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_E5B9G9R9_UFLOAT_PACK32) {
-    VkFormat format = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R64G64B64A64_SFLOAT) {
+    VkFormat format = VK_FORMAT_R64G64B64A64_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3674,8 +3796,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_E5B9G9R9_UFLOAT_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D16_UNORM) {
-    VkFormat format = VK_FORMAT_D16_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B10G11R11_UFLOAT_PACK32) {
+    VkFormat format = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3687,8 +3809,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D16_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_X8_D24_UNORM_PACK32) {
-    VkFormat format = VK_FORMAT_X8_D24_UNORM_PACK32;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_E5B9G9R9_UFLOAT_PACK32) {
+    VkFormat format = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3700,8 +3822,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_X8_D24_UNORM_PACK32) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D32_SFLOAT) {
-    VkFormat format = VK_FORMAT_D32_SFLOAT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D16_UNORM) {
+    VkFormat format = VK_FORMAT_D16_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3713,8 +3835,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D32_SFLOAT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_S8_UINT) {
-    VkFormat format = VK_FORMAT_S8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_X8_D24_UNORM_PACK32) {
+    VkFormat format = VK_FORMAT_X8_D24_UNORM_PACK32;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3726,8 +3848,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_S8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D16_UNORM_S8_UINT) {
-    VkFormat format = VK_FORMAT_D16_UNORM_S8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D32_SFLOAT) {
+    VkFormat format = VK_FORMAT_D32_SFLOAT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3739,8 +3861,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D16_UNORM_S8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D24_UNORM_S8_UINT) {
-    VkFormat format = VK_FORMAT_D24_UNORM_S8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_S8_UINT) {
+    VkFormat format = VK_FORMAT_S8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3752,8 +3874,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D24_UNORM_S8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D32_SFLOAT_S8_UINT) {
-    VkFormat format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D16_UNORM_S8_UINT) {
+    VkFormat format = VK_FORMAT_D16_UNORM_S8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3765,8 +3887,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D32_SFLOAT_S8_UINT) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGB_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D24_UNORM_S8_UINT) {
+    VkFormat format = VK_FORMAT_D24_UNORM_S8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3778,8 +3900,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGB_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGB_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_D32_SFLOAT_S8_UINT) {
+    VkFormat format = VK_FORMAT_D32_SFLOAT_S8_UINT;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3791,8 +3913,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGB_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGBA_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGB_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3804,8 +3926,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGBA_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGBA_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGB_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3817,8 +3939,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGBA_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC2_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC2_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGBA_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3830,8 +3952,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC2_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC2_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_BC2_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC1_RGBA_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3843,8 +3965,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC2_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC3_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC3_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC2_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC2_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3856,8 +3978,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC3_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC3_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_BC3_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC2_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_BC2_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3869,8 +3991,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC3_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC4_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC4_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC3_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC3_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3882,8 +4004,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC4_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC4_SNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC4_SNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC3_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_BC3_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3895,8 +4017,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC4_SNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC5_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC5_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC4_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC4_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3908,8 +4030,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC5_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC5_SNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC5_SNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC4_SNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC4_SNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3921,8 +4043,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC5_SNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC6H_UFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_BC6H_UFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC5_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC5_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3934,8 +4056,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC6H_UFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC6H_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_BC6H_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC5_SNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC5_SNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3947,8 +4069,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC6H_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC7_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_BC7_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC6H_UFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_BC6H_UFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3960,8 +4082,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC7_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC7_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_BC7_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC6H_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_BC6H_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3973,8 +4095,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC7_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC7_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_BC7_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3986,8 +4108,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_BC7_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_BC7_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -3999,8 +4121,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4012,8 +4134,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4025,8 +4147,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4038,8 +4160,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4051,8 +4173,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_EAC_R11_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4064,8 +4186,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11_SNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_EAC_R11_SNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4077,8 +4199,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11_SNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11G11_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_EAC_R11G11_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_EAC_R11_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4090,8 +4212,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11G11_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11G11_SNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_EAC_R11G11_SNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11_SNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_EAC_R11_SNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4103,8 +4225,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11G11_SNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11G11_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_EAC_R11G11_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4116,8 +4238,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_EAC_R11G11_SNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_EAC_R11G11_SNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4129,8 +4251,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_5x4_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4142,8 +4264,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_5x4_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4155,8 +4277,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_5x5_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_5x4_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4168,8 +4290,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_5x4_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4181,8 +4303,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_6x5_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_5x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4194,8 +4316,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_6x5_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4207,8 +4329,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_6x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4220,8 +4342,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_6x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4233,8 +4355,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x5_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4246,8 +4368,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x5_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4259,8 +4381,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x6_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4272,8 +4394,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x6_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4285,8 +4407,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x6_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4298,8 +4420,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x6_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4311,8 +4433,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x5_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4324,8 +4446,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x5_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4337,8 +4459,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x6_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x5_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4350,8 +4472,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x6_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x5_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4363,8 +4485,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x8_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x6_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4376,8 +4498,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x8_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x6_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4389,8 +4511,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x10_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x8_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4402,8 +4524,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x8_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4415,8 +4537,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_12x10_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x10_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4428,8 +4550,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_12x10_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4441,8 +4563,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_UNORM_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_12x10_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4454,8 +4576,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_UNORM_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_SRGB_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_12x10_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4467,8 +4589,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_SRGB_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8B8G8R8_422_UNORM) {
-    VkFormat format = VK_FORMAT_G8B8G8R8_422_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_UNORM_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4480,8 +4602,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8B8G8R8_422_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8G8_422_UNORM) {
-    VkFormat format = VK_FORMAT_B8G8R8G8_422_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_SRGB_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4493,8 +4615,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8G8_422_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
-    VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8B8G8R8_422_UNORM) {
+    VkFormat format = VK_FORMAT_G8B8G8R8_422_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4506,8 +4628,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_420_UNORM) {
-    VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B8G8R8G8_422_UNORM) {
+    VkFormat format = VK_FORMAT_B8G8R8G8_422_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4519,8 +4641,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_420_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_422_UNORM) {
-    VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
+    VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4532,8 +4654,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_422_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_422_UNORM) {
-    VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_422_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_420_UNORM) {
+    VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4545,8 +4667,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_422_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_444_UNORM) {
-    VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_422_UNORM) {
+    VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4558,8 +4680,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_444_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_R10X6_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_422_UNORM) {
+    VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_422_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4571,8 +4693,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6G10X6_UNORM_2PACK16) {
-    VkFormat format = VK_FORMAT_R10X6G10X6_UNORM_2PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8_R8_3PLANE_444_UNORM) {
+    VkFormat format = VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4584,8 +4706,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6G10X6_UNORM_2PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16) {
-    VkFormat format = VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_R10X6_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4597,8 +4719,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK1
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16) {
-    VkFormat format = VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6G10X6_UNORM_2PACK16) {
+    VkFormat format = VK_FORMAT_R10X6G10X6_UNORM_2PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4610,8 +4732,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4P
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16) {
-    VkFormat format = VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16) {
+    VkFormat format = VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4623,8 +4745,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4P
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16) {
+    VkFormat format = VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4636,8 +4758,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNOR
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16) {
+    VkFormat format = VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4649,8 +4771,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4662,8 +4784,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNOR
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4675,8 +4797,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4688,8 +4810,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNOR
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_R12X4_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4701,8 +4823,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4G12X4_UNORM_2PACK16) {
-    VkFormat format = VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4714,8 +4836,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4G12X4_UNORM_2PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16) {
-    VkFormat format = VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_R12X4_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4727,8 +4849,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK1
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16) {
-    VkFormat format = VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4G12X4_UNORM_2PACK16) {
+    VkFormat format = VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4740,8 +4862,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4P
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16) {
-    VkFormat format = VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16) {
+    VkFormat format = VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4753,8 +4875,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4P
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16) {
+    VkFormat format = VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4766,8 +4888,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNOR
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16) {
+    VkFormat format = VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4779,8 +4901,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4792,8 +4914,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNOR
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4805,8 +4927,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4818,8 +4940,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNOR
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16B16G16R16_422_UNORM) {
-    VkFormat format = VK_FORMAT_G16B16G16R16_422_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4831,13 +4953,39 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16B16G16R16_422_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B16G16R16G16_422_UNORM) {
-    VkFormat format = VK_FORMAT_B16G16R16G16_422_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
     VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
     VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | VK_FORMAT_FEATURE_TRANSFER_SRC_BIT_KHR | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_EXT;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT_KHR;
+    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
+    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
+    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
+}
+
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16B16G16R16_422_UNORM) {
+    VkFormat format = VK_FORMAT_G16B16G16R16_422_UNORM;
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
+
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT_KHR;
+    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
+    VkFormatFeatureFlags buffer_features = 0;
+    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
+    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
+    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
+}
+
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_B16G16R16G16_422_UNORM) {
+    VkFormat format = VK_FORMAT_B16G16R16G16_422_UNORM;
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
+
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR;
+    VkFormatFeatureFlags optimal_tiling_features = 0;
     VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT_KHR;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
@@ -4850,7 +4998,7 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16_R16_3PLANE_420_UNORM) {
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
     VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT_KHR;
-    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
+    VkFormatFeatureFlags optimal_tiling_features = 0;
     VkFormatFeatureFlags buffer_features = 0;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
@@ -4862,9 +5010,9 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16R16_2PLANE_420_UNORM) {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR;
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT | VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT;
     VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT_KHR;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT_KHR;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
@@ -4875,7 +5023,7 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16_R16_3PLANE_422_UNORM) {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT_KHR;
+    VkFormatFeatureFlags linear_tiling_features = 0;
     VkFormatFeatureFlags optimal_tiling_features = 0;
     VkFormatFeatureFlags buffer_features = 0;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
@@ -4888,9 +5036,9 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16R16_2PLANE_422_UNORM) {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
-    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT | VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT;
+    VkFormatFeatureFlags linear_tiling_features = 0;
     VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT_KHR;
+    VkFormatFeatureFlags buffer_features = 0;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
@@ -4898,32 +5046,6 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16R16_2PLANE_422_UNORM) {
 
 TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16_R16_3PLANE_444_UNORM) {
     VkFormat format = VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM;
-    VkFormatProperties format_properties;
-    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
-
-    VkFormatFeatureFlags linear_tiling_features = 0;
-    VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = 0;
-    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
-    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
-    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-}
-
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_444_UNORM) {
-    VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_444_UNORM;
-    VkFormatProperties format_properties;
-    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
-
-    VkFormatFeatureFlags linear_tiling_features = 0;
-    VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = 0;
-    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
-    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
-    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-}
-
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4935,8 +5057,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16) {
-    VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G8_B8R8_2PLANE_444_UNORM) {
+    VkFormat format = VK_FORMAT_G8_B8R8_2PLANE_444_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4948,8 +5070,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16R16_2PLANE_444_UNORM) {
-    VkFormat format = VK_FORMAT_G16_B16R16_2PLANE_444_UNORM;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4961,8 +5083,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16R16_2PLANE_444_UNORM) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A4R4G4B4_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_A4R4G4B4_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16) {
+    VkFormat format = VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4974,8 +5096,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A4R4G4B4_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A4B4G4R4_UNORM_PACK16) {
-    VkFormat format = VK_FORMAT_A4B4G4R4_UNORM_PACK16;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_G16_B16R16_2PLANE_444_UNORM) {
+    VkFormat format = VK_FORMAT_G16_B16R16_2PLANE_444_UNORM;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -4987,8 +5109,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A4B4G4R4_UNORM_PACK16) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_4x4_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A4R4G4B4_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_A4R4G4B4_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5000,8 +5122,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_5x4_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_A4B4G4R4_UNORM_PACK16) {
+    VkFormat format = VK_FORMAT_A4B4G4R4_UNORM_PACK16;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5013,8 +5135,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_5x5_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_4x4_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_4x4_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5026,8 +5148,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_6x5_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x4_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_5x4_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5039,8 +5161,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_5x5_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_5x5_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5052,8 +5174,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x5_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x5_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_6x5_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5065,8 +5187,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x6_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_6x6_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5078,8 +5200,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x5_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x5_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5091,8 +5213,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x5_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x6_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x6_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5104,8 +5226,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x6_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_8x8_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5117,8 +5239,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_10x8_SFLOAT_BLOCK;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x5_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x5_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5130,34 +5252,34 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x6_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x6_SFLOAT_BLOCK;
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
+
+    VkFormatFeatureFlags linear_tiling_features = 0;
+    VkFormatFeatureFlags optimal_tiling_features = 0;
+    VkFormatFeatureFlags buffer_features = 0;
+    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
+    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
+    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
+}
+
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x8_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_10x8_SFLOAT_BLOCK;
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
+
+    VkFormatFeatureFlags linear_tiling_features = 0;
+    VkFormatFeatureFlags optimal_tiling_features = 0;
+    VkFormatFeatureFlags buffer_features = 0;
+    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
+    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
+    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
+}
+
 TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_10x10_SFLOAT_BLOCK) {
     VkFormat format = VK_FORMAT_ASTC_10x10_SFLOAT_BLOCK;
-    VkFormatProperties format_properties;
-    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
-
-    VkFormatFeatureFlags linear_tiling_features = 0;
-    VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = 0;
-    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
-    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
-    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-}
-
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_12x10_SFLOAT_BLOCK;
-    VkFormatProperties format_properties;
-    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
-
-    VkFormatFeatureFlags linear_tiling_features = 0;
-    VkFormatFeatureFlags optimal_tiling_features = 0;
-    VkFormatFeatureFlags buffer_features = 0;
-    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
-    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
-    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
-}
-
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_SFLOAT_BLOCK) {
-    VkFormat format = VK_FORMAT_ASTC_12x12_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5169,8 +5291,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_SFLOAT_BLOCK) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x10_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_12x10_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5182,8 +5304,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_ASTC_12x12_SFLOAT_BLOCK) {
+    VkFormat format = VK_FORMAT_ASTC_12x12_SFLOAT_BLOCK;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5195,8 +5317,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5208,8 +5330,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5221,8 +5343,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5234,8 +5356,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5247,8 +5369,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5260,8 +5382,8 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG) {
-    VkFormat format = VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
@@ -5273,14 +5395,40 @@ TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG) {
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
 }
 
-TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_S10_5_NV) {
-    VkFormat format = VK_FORMAT_R16G16_S10_5_NV;
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG;
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
 
     VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT | VK_FORMAT_FEATURE_TRANSFER_SRC_BIT;
     VkFormatFeatureFlags optimal_tiling_features = 0;
     VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_TRANSFER_DST_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
+    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
+    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
+    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
+}
+
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG) {
+    VkFormat format = VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG;
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
+
+    VkFormatFeatureFlags linear_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT;
+    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT_KHR;
+    EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
+    EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
+    EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
+}
+
+TEST_F(TestsCapabilitiesGenerated, Test_FORMAT_R16G16_S10_5_NV) {
+    VkFormat format = VK_FORMAT_R16G16_S10_5_NV;
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(gpu_profile, format, &format_properties);
+
+    VkFormatFeatureFlags linear_tiling_features = 0;
+    VkFormatFeatureFlags optimal_tiling_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT_KHR | VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT;
+    VkFormatFeatureFlags buffer_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT;
     EXPECT_EQ(format_properties.linearTilingFeatures & linear_tiling_features, linear_tiling_features);
     EXPECT_EQ(format_properties.optimalTilingFeatures & optimal_tiling_features, optimal_tiling_features);
     EXPECT_EQ(format_properties.bufferFeatures & buffer_features, buffer_features);
