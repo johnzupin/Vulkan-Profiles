@@ -1,3 +1,115 @@
+vulkan-profiles (1.3.239.0~rc1-1lunarg22.04-1) jammy; urgency=medium
+
+  [ Christophe ]
+  * profile: fix built-in portatbility subset
+  * layer: removed generated file
+  * layer: fix CMake project generation
+  * merge: WIP formatprop3 support
+  * profile: remove dead files
+  * profiles: add format prop 3 support
+  * profiles: more mix format tests
+  * merge: add formatprop3 merge
+  * merge: updated changelog
+  * profile: trying to resolve Android C.I.
+  * profiles: remove dead files
+  * profiles: remove dead files
+  * profile: Fix test
+  * profile: Remove BETA status
+  * layer: add test description
+
+  [ ziga-lunarg ]
+  * profiles: Update to 232 header
+
+  [ Christophe ]
+  * layer: add schema capabilities or test
+  * profile: fixed missing profile file
+  * clean up test file
+  * layer: notify when trying to override instance extension #220
+  * profile: add all the possible capabilities blocks when using the API library
+
+  [ Mike Schuchardt ]
+  * docs: Fix Android settings doc
+  * profiles: Fix Profiles setting code on Android
+  * profiles: Fix flags warning
+
+  [ Christophe ]
+  * profile: fix roadmap 2022 maxInlineUniformTotalSize limit
+  * profiles: pull Roadmap 2022 profiles from Vulkan-Header repository
+
+  [ ziga-lunarg ]
+  * profiles: Update to 233 header
+
+  [ Christophe ]
+  * profile: initial work for a Vulkan baseline profile proposal
+  * profile: add VkPhysicalDeviceLimits requirements
+  * profile: add extension limits from spec
+  * profiles: add validation of KHR baseline profiles
+  * profiles: fix Vulkan baseline description
+  * profiles: add Vulkan baseline optional features
+  * profile: add optional features
+  * profiles: add extract optional features for future work
+  * profiles: add optional properties to Vulkan baseline profiles
+  * profiles: add all extension properties
+  * profiles: add Vulkan 1.3 requirements to Vulkan baseline profiles
+  * profiles: fix Vulkan Baseline validation errors
+
+  [ Richard S. Wright Jr ]
+  * Updated to more secure vsnprintf to fix deprecation errors with Apple LLVM compiler
+
+  [ ziga-lunarg ]
+  * profiles: Update to 234 header
+  * profiles: Update to 235 header
+
+  [ Christophe ]
+  * cmake: remove dead stuff
+  * cmake: set CXX standard uniformaly
+  * cmake: cleanup
+
+  [ John Zupin ]
+  * packaging: update patches
+
+  [ ziga-lunarg ]
+  * profiles: Update to 236 header
+
+  [ Christophe ]
+  * layer: fix portability subset warnings
+  * profile: fix regression due to Vulkan SC changes to vk.xml
+
+  [ ziga-lunarg ]
+  * profiles: Update to 237 header
+  * profiles: Update to 238 header
+
+  [ Christophe ]
+  * test: remove copy of test files in build directory
+  * layer: fix build on Linux and macOS
+  * Improve handling of by profiles layer #337
+  * profile: add Android Baseline 2022 v1 and 2021 v2 profiles
+  * Updated copyright date
+
+  [ Juan Ramos ]
+  * github: Use main instead of master
+
+  [ Christophe ]
+  * profile: add VP_LUNARG_test_api_generated validation
+  * test: bring back generated tests
+  * test: fix handling of flags types
+  * C.I.: disable Windows assert window
+  * schema: add missing enum handling
+  * cmake: removed generated test file
+  * CMake: fix project generation
+  * profile: add doc for Android Baseline 2022
+  * profiles: fix Android Baseline 2022 unit test
+  * profile: updated change log
+  * test: add tests_generated to run systematically
+  * layer: add missing enums
+  * layer: add workaround to handle 32bit flags specified as 64bit
+  * fix usage of deprecated header
+
+  [ ziga-lunarg ]
+  * profiles: Update to 238 header
+
+ -- john <john@odin>  Mon, 23 Jan 2023 14:25:12 -0700
+
 vulkan-profiles (1.3.231.0~rc2-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
