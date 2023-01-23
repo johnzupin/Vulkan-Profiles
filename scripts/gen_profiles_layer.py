@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (c) 2021-2022 LunarG, Inc.
+# Copyright (c) 2021-2023 LunarG, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License")
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ DESCRIPTION_HEADER = '''
  * References (several documents are also included in the LunarG Vulkan SDK, see [SDK]):
  * [SPEC]   https://www.khronos.org/registry/vulkan/specs/1.0-extensions/html/vkspec.html
  * [SDK]    https://vulkan.lunarg.com/sdk/home
- * [LALI]   https://github.com/KhronosGroup/Vulkan-Loader/blob/master/loader/LoaderAndLayerInterface.md
+ * [LALI]   https://github.com/KhronosGroup/Vulkan-Loader/blob/main/loader/LoaderAndLayerInterface.md
  *
  * Misc notes:
  * This code generally follows the spirit of the Google C++ styleguide, while accommodating conventions of the Vulkan styleguide.
@@ -74,6 +74,7 @@ INCLUDES_HEADER = '''
 #include <stdlib.h>
 #include <cinttypes>
 #include <string.h>
+#include <signal.h>
 
 #include <functional>
 #include <unordered_map>
@@ -95,6 +96,7 @@ INCLUDES_HEADER = '''
 #include "vulkan/vulkan_beta.h"
 #include <vk_layer_config.h>
 #include "vk_layer_table.h"
+#include "vk_enum_string_helper.h"
 #include "vk_layer_settings.h"
 #include "profiles.h"
 
@@ -1259,17 +1261,18 @@ bool JsonLoader::GetFormat(const Json::Value &formats, const std::string &format
             for (const auto &feature : props["bufferFeatures"]) {
                 profile_properties.bufferFeatures |= StringToVkFormatFeatureFlags(feature.asString());
             }
-        } else if (name == "VkFormatProperties2") {
-            for (const auto &feature : props["formatProperties"]["linearTilingFeatures"]) {
+        } else if (name == "VkFormatProperties2" || name == "VkFormatProperties2KHR") {
+            const auto &format_properties = props["formatProperties"];
+            for (const auto &feature : format_properties["linearTilingFeatures"]) {
                 profile_properties.linearTilingFeatures |= StringToVkFormatFeatureFlags(feature.asString());
             }
-            for (const auto &feature : props["formatProperties"]["optimalTilingFeatures"]) {
+            for (const auto &feature : format_properties["optimalTilingFeatures"]) {
                 profile_properties.optimalTilingFeatures |= StringToVkFormatFeatureFlags(feature.asString());
             }
-            for (const auto &feature : props["formatProperties"]["bufferFeatures"]) {
+            for (const auto &feature : format_properties["bufferFeatures"]) {
                 profile_properties.bufferFeatures |= StringToVkFormatFeatureFlags(feature.asString());
             }
-        } else if (name == "VkFormatProperties3") {
+        } else if (name == "VkFormatProperties3" || name == "VkFormatProperties3KHR") {
             for (const auto &feature : props["linearTilingFeatures"]) {
                 profile_properties_3.linearTilingFeatures |= StringToVkFormatFeatureFlags2(feature.asString());
             }
@@ -1281,6 +1284,14 @@ bool JsonLoader::GetFormat(const Json::Value &formats, const std::string &format
             }
         }
     }
+
+    profile_properties_3.linearTilingFeatures |= profile_properties.linearTilingFeatures;
+    profile_properties_3.optimalTilingFeatures |= profile_properties.optimalTilingFeatures;
+    profile_properties_3.bufferFeatures |= profile_properties.bufferFeatures;
+
+    profile_properties.linearTilingFeatures |= static_cast<VkFormatFeatureFlags>(profile_properties_3.linearTilingFeatures);
+    profile_properties.optimalTilingFeatures |= static_cast<VkFormatFeatureFlags>(profile_properties_3.optimalTilingFeatures);
+    profile_properties.bufferFeatures |= static_cast<VkFormatFeatureFlags>(profile_properties_3.bufferFeatures);
 
     (*dest)[format] = profile_properties;
     (*dest3)[format] = profile_properties_3;
@@ -1528,7 +1539,7 @@ bool JsonLoader::GetQueueFamilyProperties(const Json::Value &qf_props, QueueFami
                 if (i > 0) {
                     priorities += ", ";
                 }
-                priorities += string_VkQueueGlobalPriorityEXT(dest->global_priority_properties_.priorities[i]);
+                priorities += string_VkQueueGlobalPriorityKHR(dest->global_priority_properties_.priorities[i]);
             }
             priorities += "]";
 
@@ -3371,13 +3382,66 @@ bool JsonLoader::GetStruct(const Json::Value &parent, VkPhysicalDeviceProperties
     }
     return valid;
 }
+'''
 
+GET_VALUE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_PROPERTIES = '''
+bool JsonLoader::GetStruct(const Json::Value &parent, VkPhysicalDevicePortabilitySubsetPropertiesKHR *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetStruct(VkPhysicalDevicePortabilitySubsetPropertiesKHR)\\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        GET_VALUE_WARN(member, minVertexInputBindingStrideAlignment, false, WarnIfLesser);
+    }
+    return valid;
+}
+'''
+
+GET_VALUE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES = '''
+bool JsonLoader::GetStruct(const Json::Value &parent, VkPhysicalDevicePortabilitySubsetFeaturesKHR *dest) {
+    LogMessage(DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetStruct(VkPhysicalDevicePortabilitySubsetFeaturesKHR)\\n");
+    bool valid = true;
+    for (const auto &member : parent.getMemberNames()) {
+        if (layer_settings->emulate_portability) {
+            dest->constantAlphaColorBlendFactors = layer_settings->constantAlphaColorBlendFactors;
+            dest->events = layer_settings->events;
+            dest->imageViewFormatReinterpretation = layer_settings->imageViewFormatReinterpretation;
+            dest->imageViewFormatSwizzle = layer_settings->imageViewFormatSwizzle;
+            dest->imageView2DOn3DImage = layer_settings->imageView2DOn3DImage;
+            dest->multisampleArrayImage = layer_settings->multisampleArrayImage;
+            dest->mutableComparisonSamplers = layer_settings->mutableComparisonSamplers;
+            dest->pointPolygons = layer_settings->pointPolygons;
+            dest->samplerMipLodBias = layer_settings->samplerMipLodBias;
+            dest->separateStencilMaskRef = layer_settings->separateStencilMaskRef;
+            dest->shaderSampleRateInterpolationFunctions = layer_settings->shaderSampleRateInterpolationFunctions;
+            dest->tessellationIsolines = layer_settings->tessellationIsolines;
+            dest->tessellationPointMode = layer_settings->tessellationPointMode;
+            dest->triangleFans = layer_settings->triangleFans;
+            dest->vertexAttributeAccessBeyondStride = layer_settings->vertexAttributeAccessBeyondStride;
+        } else {
+            GET_VALUE_WARN(member, constantAlphaColorBlendFactors, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, events, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, imageViewFormatReinterpretation, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, imageViewFormatSwizzle, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, imageView2DOn3DImage, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, multisampleArrayImage, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, mutableComparisonSamplers, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, pointPolygons, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, samplerMipLodBias, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, separateStencilMaskRef, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, shaderSampleRateInterpolationFunctions, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, tessellationIsolines, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, tessellationPointMode, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, triangleFans, false, WarnIfNotEqualBool);
+            GET_VALUE_WARN(member, vertexAttributeAccessBeyondStride, false, WarnIfNotEqualBool);
+        }
+    }
+    return valid;
+}
 '''
 
 class VulkanProfilesLayerGenerator():
     emulated_extensions = ['VK_KHR_portability_subset']
-    additional_features = ['VkPhysicalDeviceFeatures']
-    additional_properties = ['VkPhysicalDeviceProperties', 'VkPhysicalDeviceLimits', 'VkPhysicalDeviceSparseProperties', 'VkPhysicalDeviceToolProperties']
+    additional_features = ['VkPhysicalDeviceFeatures', 'VkPhysicalDevicePortabilitySubsetFeaturesKHR']
+    additional_properties = ['VkPhysicalDeviceProperties', 'VkPhysicalDeviceLimits', 'VkPhysicalDeviceSparseProperties', 'VkPhysicalDeviceToolProperties', 'VkPhysicalDevicePortabilitySubsetPropertiesKHR']
 
     def generate(self, path, registry):
         self.registry = registry
@@ -3444,7 +3508,7 @@ class VulkanProfilesLayerGenerator():
         gen += self.generate_format_to_string(registry.enums['VkFormat'].values, registry.enums['VkFormat'].aliasValues)
         gen += self.generate_string_to_format(registry.enums['VkFormat'].values)
 
-        gen += self.generate_string_to_uint(('VkToolPurposeFlagBits', 'VkSampleCountFlagBits', 'VkResolveModeFlagBits', 'VkShaderStageFlagBits', 'VkSubgroupFeatureFlagBits', 'VkShaderFloatControlsIndependence', 'VkPointClippingBehavior'), registry.enums)
+        gen += self.generate_string_to_uint(('VkToolPurposeFlagBits', 'VkSampleCountFlagBits', 'VkResolveModeFlagBits', 'VkShaderStageFlagBits', 'VkSubgroupFeatureFlagBits', 'VkShaderFloatControlsIndependence', 'VkPointClippingBehavior', 'VkOpticalFlowGridSizeFlagBitsNV', 'VkQueueFlagBits', 'VkMemoryDecompressionMethodFlagBitsNV'), registry.enums)
 
         gen += self.generate_string_to_flag_functions(('VkToolPurposeFlags', 'VkFormatFeatureFlags', 'VkQueueFlags', 'VkQueueGlobalPriorityKHR', 'VkVideoCodecOperationFlagsKHR', 'VkPipelineStageFlags', 'VkPipelineStageFlags2', 'VkFormatFeatureFlags2'))
 
@@ -3721,14 +3785,21 @@ class VulkanProfilesLayerGenerator():
             gen += self.generate_get_value_function(feature)
         for ext, properties, features in self.extension_structs:
             for property in properties:
-                gen += self.generate_get_value_function(property)
+                if property != 'VkPhysicalDevicePortabilitySubsetPropertiesKHR':
+                    gen += self.generate_get_value_function(property)
             for feature in features:
-                gen += self.generate_get_value_function(feature)
+                if feature != 'VkPhysicalDevicePortabilitySubsetFeaturesKHR':
+                    gen += self.generate_get_value_function(feature)
         for struct in self.additional_features:
-            gen += self.generate_get_value_function(struct)
+            if struct == 'VkPhysicalDevicePortabilitySubsetFeaturesKHR':
+                gen += GET_VALUE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES
+            else:
+                gen += self.generate_get_value_function(struct)
         for struct in self.additional_properties:
             if struct == 'VkPhysicalDeviceProperties':
                 gen += GET_VALUE_PHYSICAL_DEVICE_PROPERTIES
+            elif struct == 'VkPhysicalDevicePortabilitySubsetPropertiesKHR':
+                gen += GET_VALUE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_PROPERTIES
             else:
                 gen += self.generate_get_value_function(struct)
 
@@ -4089,9 +4160,11 @@ class VulkanProfilesLayerGenerator():
             gen += '    bool GetStruct(const Json::Value &parent, ' + feature + ' *dest);\n'
         for ext, properties, features in self.extension_structs:
             for property in properties:
-                gen += '    bool GetStruct(const Json::Value &parent, ' + property + ' *dest);\n'
+                if property != 'VkPhysicalDevicePortabilitySubsetPropertiesKHR':
+                    gen += '    bool GetStruct(const Json::Value &parent, ' + property + ' *dest);\n'
             for feature in features:
-                gen += '    bool GetStruct(const Json::Value &parent, ' + feature + ' *dest);\n'
+                if feature != 'VkPhysicalDevicePortabilitySubsetFeaturesKHR':
+                    gen += '    bool GetStruct(const Json::Value &parent, ' + feature + ' *dest);\n'
         for struct in self.additional_features:
             gen += '    bool GetStruct(const Json::Value &parent, ' + struct + ' *dest);\n'
         for struct in self.additional_properties:
@@ -4216,7 +4289,7 @@ class VulkanProfilesLayerGenerator():
         for list in lists:
             gen += '        // ' + list + '\n'
             for enum in enums[list].values:
-                gen += '        {\"' + enum + '\", ' + enum + '},\n'
+                gen += '        {\"' + enum + '\", static_cast<uint32_t>(' + enum + ')},\n'
         gen += '    };\n'
         gen += '    const auto it = map.find(input_value);\n'
         gen += '    if (it != map.end()) {\n'

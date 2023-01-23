@@ -13,6 +13,11 @@ project(VULKAN_PROFILES)
 # Define GNU standard installation directories.
 include(GNUInstallDirs)
 
+set(PROFILES_CPP_STANDARD 17 CACHE STRING "Set the C++ standard to build against.")
+set(CMAKE_CXX_STANDARD ${PROFILES_CPP_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # Regenerating profiles requires Python 3.7.2 or better (for typing.OrderedDict).
 # Regeneration jsoncpp requires Python 3.
 # Otherwise Python is not required, as checked-in generated code and
@@ -28,9 +33,6 @@ endif()
 
 # Third-party libraries
 include(FetchContent)
-
-# Always need C++2011 throughout the project.
-set(CMAKE_CXX_STANDARD 17)
 
 # FetchContent_MakeAvailable(jsoncpp) will set these values (which
 # affect the whole build).  Make sure they're set even if we

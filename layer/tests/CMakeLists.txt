@@ -1,6 +1,6 @@
 # ~~~
-# Copyright (c) 2021-2022 Valve Corporation
-# Copyright (c) 2021-2022 LunarG, Inc.
+# Copyright (c) 2021-2023 Valve Corporation
+# Copyright (c) 2021-2023 LunarG, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ if (NOT ANDROID)
     set(LAYER_TEST_FILES
         tests
         tests_promoted
+        tests_generated
         tests_mechanism
         tests_combine_union
         tests_combine_intersection
@@ -37,11 +38,12 @@ else()
     )
 endif()
 
-
 function(LayerTest NAME)
 	set(TEST_FILENAME ./${NAME}.cpp)
     set(TEST_NAME VkLayer_${NAME})
     
+    file(GLOB TEST_JSON_FILES ${CMAKE_SOURCE_DIR}/profiles/test/data/)
+
     add_executable(${TEST_NAME}
                    ${TEST_FILENAME}
                    profiles_test_helper.h
@@ -49,7 +51,7 @@ function(LayerTest NAME)
                    layer_tests_main.cpp
                    vktestframework.cpp
                    ${jsoncpp_generated_source})
-    add_dependencies(${TEST_NAME} VkLayer_khronos_profiles)
+    add_dependencies(${TEST_NAME} VkLayer_khronos_profiles ${TEST_JSON_FILES})
 
     target_include_directories(${TEST_NAME} PUBLIC
         "${vulkan-headers_SOURCE_DIR}/include"
