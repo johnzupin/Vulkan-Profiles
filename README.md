@@ -1,6 +1,6 @@
 <!-- markdownlint-disable MD041 -->
 <p align="left"><img src="https://vulkan.lunarg.com/img/NewLunarGLogoBlack.png" alt="LunarG" width=263 height=113 /></p>
-<p align="left">Copyright © 2021-2022 LunarG, Inc.</p>
+<p align="left">Copyright © 2021-2023 LunarG, Inc.</p>
 
 <p align="center"><img src="./images/logo.png" width=400 /></p>
 
@@ -18,6 +18,17 @@ The *Vulkan Profiles Toolset* is a collection of tools delivered with the [Vulka
 * **[Change Log](./CHANGELOG.md)**: The history of *Vulkan Profiles Toolset* releases.
 * **[Contributing](./CONTRIBUTING.md)**: How to contribute to the *Vulkan Profiles* repository.
 * **[Bug reports](https://github.com/KhronosGroup/Vulkan-Profiles)**: Open a GitHub issue when you encounter a bug.
+
+## Default branch changed to 'main' 2023-01-16
+
+As discussed in #338, the default branch of this repository is now 'main'. This change should be largely transparent to repository users, since github rewrites many references to the old 'master' branch to 'main'. However, if you have a checked-out local clone, you may wish to take the following steps as recommended by github:
+
+```sh
+git branch -m master main
+git fetch origin
+git branch -u origin/main main
+git remote set-head origin -a
+```
 
 --------------
 ## Contact Information

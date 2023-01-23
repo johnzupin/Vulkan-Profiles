@@ -325,7 +325,7 @@ class ProfileGenerator():
                         if property_size > 1:
                             gen += " ]"
                         self.i += 1
-                    elif property_type == "uint32_t" or property_type == "uint64_t" or property_type == "int64_t" or property_type == "VkDeviceSize":
+                    elif property_type == "uint32_t" or property_type == "uint64_t" or property_type == "int64_t" or property_type == "VkDeviceSize" or property_type == "size_t":
                         self.test_values[name][property] = list()
                         if property_size > 1:
                             gen += "[ "
@@ -375,6 +375,21 @@ class ProfileGenerator():
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
+                    elif property_type == "VkQueueFlags":
+                        enum = self.get_enum('VkQueueFlagBits', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkMemoryDecompressionMethodFlagsNV":
+                        enum = self.get_enum('VkMemoryDecompressionMethodFlagBitsNV', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkOpticalFlowGridSizeFlagsNV":
+                        enum = self.get_enum('VkOpticalFlowGridSizeFlagBitsNV', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
                     elif property_type == "VkShaderStageFlags":
                         enum = self.get_enum('VkShaderStageFlagBits', True)
                         gen += enum[0]
@@ -420,6 +435,11 @@ class ProfileGenerator():
                         self.i += 1
                     elif property_type == "VkPipelineRobustnessImageBehaviorEXT":
                         enum = self.get_enum('VkPipelineRobustnessImageBehaviorEXT', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkRayTracingInvocationReorderModeNV":
+                        enum = self.get_enum('VkRayTracingInvocationReorderModeNV', False)
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
