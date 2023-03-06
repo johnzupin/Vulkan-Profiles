@@ -27,4 +27,6 @@ override_dh_auto_configure:
 				-DVULKAN_VALIDATIONLAYERS_INSTALL_DIR="/usr" \
 				-DCMAKE_INSTALL_SYSCONFDIR="/usr/share" \
 				-DPROFILES_BUILD_TESTS="OFF" \
-				-DFATAL_WARNINGS="OFF"
+				-DFATAL_WARNINGS="OFF" \
+				-DVALIJSON_INSTALL_DIR="/usr" \
+				-DCMAKE_PREFIX_PATH="/usr/include/jsoncpp/json/"
