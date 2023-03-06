@@ -15,19 +15,15 @@
 # limitations under the License.
 #
 
-file(GLOB FILES_SOURCE ./*.cpp)
-file(GLOB FILES_HEADER ./*.h)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-add_library(vku STATIC ${FILES_SOURCE} ${FILES_HEADER})
+add_library(vku STATIC)
+target_sources(vku PRIVATE
+   vk_layer_settings.cpp
+   vk_layer_settings.h
+)
+target_link_Libraries(vku PRIVATE Vulkan::Headers)
 
 if(WIN32)
    target_compile_definitions(vku PUBLIC _CRT_SECURE_NO_WARNINGS)
 endif()
-install(TARGETS vku DESTINATION ${CMAKE_INSTALL_LIBDIR})
-set_target_properties(vku PROPERTIES LINKER_LANGUAGE CXX)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/generated
-                    ${vulkan-headers_SOURCE_DIR}/include)
 
+set_target_properties(vku PROPERTIES LINKER_LANGUAGE CXX)

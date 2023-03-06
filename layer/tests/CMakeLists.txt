@@ -49,16 +49,13 @@ function(LayerTest NAME)
                    profiles_test_helper.h
                    profiles_test_helper.cpp
                    layer_tests_main.cpp
-                   vktestframework.cpp
-                   ${jsoncpp_generated_source})
+                   vktestframework.cpp)
     add_dependencies(${TEST_NAME} VkLayer_khronos_profiles ${TEST_JSON_FILES})
 
     target_include_directories(${TEST_NAME} PUBLIC
-        "${vulkan-headers_SOURCE_DIR}/include"
         ${CMAKE_CURRENT_SOURCE_DIR}/../../layer-utils
         )
-    target_link_libraries(${TEST_NAME} gtest gtest_main)
-    target_link_libraries(${TEST_NAME} Vulkan::Vulkan)
+    target_link_libraries(${TEST_NAME} Vulkan::Headers Vulkan::Vulkan GTest::gtest GTest::gtest_main)
     target_compile_definitions(${TEST_NAME} PUBLIC JSON_TEST_FILES_PATH="${CMAKE_SOURCE_DIR}/profiles/test/data/")
 
     target_compile_definitions(${TEST_NAME} PUBLIC TEST_BINARY_PATH="${CMAKE_BINARY_DIR}/")
@@ -89,8 +86,7 @@ function(LayerTestAndroid NAME)
                 profiles_test_helper.h
                 profiles_test_helper.cpp
                 layer_tests_main.cpp
-                vktestframework.cpp
-                ${jsoncpp_generated_source})
+                vktestframework.cpp)
 
     add_test(NAME ${ANDROID_APK_NAME} COMMAND profiles_${NAME})
     add_dependencies(${ANDROID_APK_NAME} VkLayer_khronos_profiles VpCreateDesktopBaseline2022 VpCreateDesktopPortability2022)
@@ -138,7 +134,7 @@ function(LayerTestAndroid NAME)
     target_sources(${ANDROID_APK_NAME} PRIVATE ${_app_glue_dir}/android_native_app_glue.c)
     target_link_libraries(${ANDROID_APK_NAME} "-u ANativeActivity_onCreate")
     target_link_libraries(${ANDROID_APK_NAME} log android dl vulkan)
-    target_link_libraries(${ANDROID_APK_NAME} gtest gtest_main)
+    target_link_libraries(${ANDROID_APK_NAME} Vulkan::Headers GTest::gtest GTest::gtest_main)
 
     set(_android_jar ${ANDROID_SDK_HOME}/platforms/android-${ANDROID_PLATFORM}/android.jar)
     set(_aapt ${ANDROID_SDK_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/aapt)

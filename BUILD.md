@@ -8,9 +8,7 @@ supplementing the loader and validation layer core components found at https://g
 
 ### Windows System Requirements
 
-Windows 7+ with additional required software packages:
-
-- Microsoft Visual Studio 2015 Professional or 2017 Professional.  Note: it is possible that lesser/older versions may work, but not guaranteed.
+- Microsoft Visual Studio 2019 or higher
 - [CMake 3.14.0](https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-win64-x64.zip) is recommended.
   - Tell the installer to "Add CMake to the system `PATH`" environment variable.
 - Python 3.7.2 or later (from https://www.python.org/downloads).  Notes:
@@ -74,7 +72,7 @@ Optional software packages:
 
 ### macOS System Requirements
 
-macOS 10.11.4 have been tested with this repo.
+MacOS 10.15 have been tested with this repo.
 
 - [CMake 3.14.0](https://github.com/Kitware/CMake/releases/download/v3.14.0/cmake-3.14.0-Darwin-x86_64.tar.gz) is recommended.
 
@@ -142,44 +140,31 @@ On OSX:
 
 ### 64-bit Windows Build 
 ```
-    git clone git@github.com:KhronosGroup/Vulkan-Profiles.git
-    cd Vulkan-Profiles
-    mkdir build
-    cd build
-    cmake -A x64 ..
-    cmake --build . --parallel
-```
-
-### 32-bit Windows Build 
-```
-    git clone git@github.com:KhronosGroup/Vulkan-Profiles.git
-    cd Vulkan-Profiles
-    mkdir build
-    cd build
-    cmake -A Win32 ..
-    cmake --build . --parallel
+git clone git@github.com:KhronosGroup/Vulkan-Profiles.git
+cd Vulkan-Profiles
+cmake -S . -B build/ -D CMAKE_BUILD_TYPE=Debug -D UPDATE_DEPS=ON -A x64
+cmake --build . --config Debug
 ```
 
 ### Windows Unit Tests
 
 ```
+cd build/
 ctest -C Debug --output-on-failure --parallel 16
-ctest -C Release  --output-on-failure --parallel 16
 ```
 
 ### Linux and macOS Build
 ```
-    git clone git@github.com:KhronosGroup/Vulkan-Profiles.git
-    cd Vulkan-Profiles
-    mkdir build
-    cd build
-    cmake ..
-    cmake --build . --parallel
+git clone git@github.com:KhronosGroup/Vulkan-Profiles.git
+cd Vulkan-Profiles
+cmake -S . -B build/ -D CMAKE_BUILD_TYPE=Debug -D UPDATE_DEPS=ON
+cmake --build .
 ```
 
 ### Linux and macOS Unit Tests
 
 ```
+cd build/
 ctest --parallel 8 --output-on-failure
 ```
 
