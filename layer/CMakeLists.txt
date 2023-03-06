@@ -44,30 +44,6 @@ add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
 
 set(TARGET_NAME khronos_profiles)
 
-if (APPLE)
-    include_directories(
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
-        ${CMAKE_CURRENT_BINARY_DIR}
-        ${CMAKE_BINARY_DIR}
-        ${jsoncpp_generated_include_dir}
-        ${vulkan-headers_SOURCE_DIR}/include
-        ${vulkan-validationlayers_SOURCE_DIR}/layers
-        ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
-    )
-else ()
-    include_directories(
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/../layer-utils
-        ${CMAKE_CURRENT_BINARY_DIR}
-        ${CMAKE_BINARY_DIR}
-        ${jsoncpp_generated_include_dir}
-        ${vulkan-headers_SOURCE_DIR}/include
-        ${vulkan-validationlayers_SOURCE_DIR}/layers
-        ${vulkan-validationlayers_SOURCE_DIR}/layers/generated
-    )
-endif()
-
 if (WIN32)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
     set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
@@ -76,34 +52,31 @@ else()
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
 endif()
 
-add_vk_layer(${TARGET_NAME} profiles.cpp vk_layer_table.cpp ${jsoncpp_generated_source} ${jsoncpp_generated_header})
+add_vk_layer(${TARGET_NAME} profiles.cpp vk_layer_table.cpp)
 
-if (REGENERATE_LAYER)
-    set(LAYER_PYTHON_FILES ${CMAKE_SOURCE_DIR}/scripts/gen_profiles_layer.py)
-    source_group("Python Files" FILES ${LAYER_PYTHON_FILES})
+set(LAYER_PYTHON_FILES ${CMAKE_SOURCE_DIR}/scripts/gen_profiles_layer.py)
+source_group("Python Files" FILES ${LAYER_PYTHON_FILES})
 
-    add_custom_target(VpLayer_generate ALL
-        COMMAND ${PYTHON_EXECUTABLE} ${LAYER_PYTHON_FILES}
-            -registry ${vulkan-headers_SOURCE_DIR}/registry/vk.xml
-            -outLayer ${CMAKE_SOURCE_DIR}/layer/profiles.cpp
-        VERBATIM
-        SOURCES ${LAYER_PYTHON_FILES}
-        DEPENDS ${vulkan-headers_SOURCE_DIR}/registry/vk.xml)
-    set_target_properties(VpLayer_generate PROPERTIES FOLDER "Profiles layer")
-    add_dependencies(VkLayer_${TARGET_NAME} VpLayer_generate)
+add_custom_target(VpLayer_generate ALL
+    COMMAND ${PYTHON_EXECUTABLE} ${LAYER_PYTHON_FILES}
+        -registry ${VULKAN_HEADERS_REGISTRY_DIRECTORY}/vk.xml
+        -outLayer ${CMAKE_SOURCE_DIR}/layer/profiles.cpp
+    VERBATIM
+    SOURCES ${LAYER_PYTHON_FILES}
+    DEPENDS ${VULKAN_HEADERS_REGISTRY_DIRECTORY}/vk.xml)
+set_target_properties(VpLayer_generate PROPERTIES FOLDER "Profiles layer")
+add_dependencies(VkLayer_${TARGET_NAME} VpLayer_generate)
 	
-	source_group("Python Files" FILES ${CMAKE_SOURCE_DIR}/scripts/gen_profiles_tests.py)
-	add_custom_target(VpLayer_generate_tests ALL
-		COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_profiles_tests.py
-			-registry ${vulkan-headers_SOURCE_DIR}/registry/vk.xml
-			-outProfile ${CMAKE_SOURCE_DIR}/profiles/test/data/VP_LUNARG_test_api_generated.json
-			-outTests ${CMAKE_SOURCE_DIR}/layer/tests/tests_generated.cpp
-		VERBATIM
-		DEPENDS VkLayer_${TARGET_NAME}
-		)
-	set_target_properties(VpLayer_generate_tests PROPERTIES FOLDER "Profiles layer")
-endif()
-
+source_group("Python Files" FILES ${CMAKE_SOURCE_DIR}/scripts/gen_profiles_tests.py)
+add_custom_target(VpLayer_generate_tests ALL
+	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_profiles_tests.py
+		-registry ${VULKAN_HEADERS_REGISTRY_DIRECTORY}/vk.xml
+		-outProfile ${CMAKE_SOURCE_DIR}/profiles/test/data/VP_LUNARG_test_api_generated.json
+		-outTests ${CMAKE_SOURCE_DIR}/layer/tests/tests_generated.cpp
+	VERBATIM
+	DEPENDS VkLayer_${TARGET_NAME}
+	)
+set_target_properties(VpLayer_generate_tests PROPERTIES FOLDER "Profiles layer")
 
 # json file creation
 
