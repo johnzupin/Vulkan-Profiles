@@ -22,12 +22,9 @@ export DH_VERBOSE = 1
 # This is example for Cmake (See https://bugs.debian.org/641051 )
 override_dh_auto_configure:
 	dh_auto_configure -- 	-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) \
-				-DVULKAN_HEADERS_SOURCE_DIR="/usr/share/vulkan/" \
+				-DVULKAN_HEADERS_INSTALL_DIR="/usr" \
 				-DVULKAN_LOADER_INSTALL_DIR="/usr" \
-				-DVULKAN_VALIDATIONLAYERS_SOURCE_DIR="/usr" \
+				-DVULKAN_VALIDATIONLAYERS_INSTALL_DIR="/usr" \
 				-DCMAKE_INSTALL_SYSCONFDIR="/usr/share" \
 				-DPROFILES_BUILD_TESTS="OFF" \
-				-DREGENERATE_JSONCPP="OFF" \
-				-DREGENERATE_PROFILES="ON" \
-				-DREGENERATE_LAYER="ON" \
 				-DFATAL_WARNINGS="OFF"
