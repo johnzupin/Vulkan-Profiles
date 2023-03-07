@@ -1,0 +1,21 @@
+From: John Zupin <johnz@lunarg.com>
+Date: Mon, 6 Mar 2023 15:08:41 -0700
+Subject: packaging: patch: upate location of json.h
+
+---
+ scripts/gen_profiles_layer.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/gen_profiles_layer.py b/scripts/gen_profiles_layer.py
+index 62fd4a1..c3242d8 100644
+--- a/scripts/gen_profiles_layer.py
++++ b/scripts/gen_profiles_layer.py
+@@ -90,7 +90,7 @@ INCLUDES_HEADER = '''
+ #include <valijson/validation_results.hpp>
+ #include <valijson/validator.hpp>
+ 
+-#include <json/json.h>  // https://github.com/open-source-parsers/jsoncpp
++#include <jsconcpp/json/json.h>  // https://github.com/open-source-parsers/jsoncpp
+ 
+ #include "vulkan/vk_layer.h"
+ #include "vulkan/vulkan_beta.h"
