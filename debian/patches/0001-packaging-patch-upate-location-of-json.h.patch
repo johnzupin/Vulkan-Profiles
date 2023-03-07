@@ -7,7 +7,7 @@ Subject: packaging: patch: upate location of json.h
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/scripts/gen_profiles_layer.py b/scripts/gen_profiles_layer.py
-index 62fd4a1..c3242d8 100644
+index 62fd4a1..9b7ab0e 100644
 --- a/scripts/gen_profiles_layer.py
 +++ b/scripts/gen_profiles_layer.py
 @@ -90,7 +90,7 @@ INCLUDES_HEADER = '''
@@ -15,7 +15,7 @@ index 62fd4a1..c3242d8 100644
  #include <valijson/validator.hpp>
  
 -#include <json/json.h>  // https://github.com/open-source-parsers/jsoncpp
-+#include <jsconcpp/json/json.h>  // https://github.com/open-source-parsers/jsoncpp
++#include <jsoncpp/json/json.h>  // https://github.com/open-source-parsers/jsoncpp
  
  #include "vulkan/vk_layer.h"
  #include "vulkan/vulkan_beta.h"
