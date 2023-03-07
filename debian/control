@@ -33,7 +33,7 @@ Vcs-Browser: https://github.com/LunarG/VulkanProfiles
 
 Package: vulkan-profiles
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libjsoncpp1
 Description: Collection of tools to leverage Vulkan Profiles
  The Vulkan Profiles Tools are a collection of tools
  for Vulkan application developers to leverage Vulkan
