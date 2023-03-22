@@ -1,108 +1,29 @@
-cmake_minimum_required(VERSION 3.14.0)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+cmake_minimum_required(VERSION 3.17.2)
 
 enable_testing()
 
 project(VULKAN_PROFILES LANGUAGES CXX C)
 
-# Regenerating profiles requires Python 3.7.2 or better (for typing.OrderedDict).
-# Regeneration jsoncpp requires Python 3.
-# Otherwise Python is not required, as checked-in generated code and
-# headers will be used.
+include(GNUInstallDirs)
+
 option(PROFILES_BUILD_TESTS "Build profile tests" ON)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Archive output dir.")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Library output dir.")
-set(CMAKE_PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin" CACHE PATH "PDB (MSVC debug symbol)output dir.")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH "Executable/dll output dir.")
-
+set(PROFILES_CPP_STANDARD 17 CACHE STRING "Set the C++ standard to build against.")
+set(CMAKE_CXX_STANDARD ${PROFILES_CPP_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_VISIBILITY_PRESET "hidden")
 set(CMAKE_C_VISIBILITY_PRESET "hidden")
 set(CMAKE_VISIBILITY_INLINES_HIDDEN "YES")
 
+# Regenerating profiles requires Python 3.7.2 or better (for typing.OrderedDict).
+# Regeneration jsoncpp requires Python 3.
+# Otherwise Python is not required, as checked-in generated code and
+# headers will be used.
 find_package(PythonInterp 3.7.2 REQUIRED)
 
-if (UPDATE_DEPS)
-    if (CMAKE_GENERATOR_PLATFORM)
-        set(_target_arch ${CMAKE_GENERATOR_PLATFORM})
-    else()
-        if (MSVC_IDE)
-            message(WARNING "CMAKE_GENERATOR_PLATFORM not set. Using x64 as target architecture.")
-        endif()
-        set(_target_arch x64)
-    endif()
-
-    if (NOT CMAKE_BUILD_TYPE)
-        message(WARNING "CMAKE_BUILD_TYPE not set. Using Debug for dependency build type")
-        set(_build_type Debug)
-    else()
-        set(_build_type ${CMAKE_BUILD_TYPE})
-    endif()
-
-    message("********************************************************************************")
-    message("* NOTE: Adding target profile_update_deps to run as needed for updating        *")
-    message("*       dependencies.                                                          *")
-    message("********************************************************************************")
-
-    set(optional_args)
-    if (NOT PROFILES_BUILD_TESTS)
-        set(optional_args "--optional=tests")
-    endif()
-
-    if (UPDATE_DEPS_SKIP_EXISTING_INSTALL)
-        set(optional_args ${optional_args} "--skip-existing-install")
-    endif()
-
-    if (DEFINED CMAKE_TOOLCHAIN_FILE)
-        set(optional_args ${optional_args} "--cmake_var")
-        set(optional_args ${optional_args} "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
-    endif()
-
-    # Add a target so that update_deps.py will run when necessary
-    # NOTE: This is triggered off of the timestamps of known_good.json and helper.cmake
-    add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_LIST_DIR}/external/helper.cmake
-        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/scripts/update_deps.py 
-            --dir ${CMAKE_CURRENT_LIST_DIR}/external --arch ${_target_arch} --config ${_build_type} --generator "${CMAKE_GENERATOR}" ${optional_args}
-        DEPENDS ${CMAKE_CURRENT_LIST_DIR}/scripts/known_good.json
-    )
-
-    # Check if update_deps.py needs to be run on first cmake run
-    if (${CMAKE_CURRENT_LIST_DIR}/scripts/known_good.json IS_NEWER_THAN ${CMAKE_CURRENT_LIST_DIR}/external/helper.cmake)
-        execute_process(
-            COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/scripts/update_deps.py
-                --dir ${CMAKE_CURRENT_LIST_DIR}/external --arch ${_target_arch} --config ${_build_type} --generator "${CMAKE_GENERATOR}" ${optional_args}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-            RESULT_VARIABLE _update_deps_result
-        )
-        if (NOT (${_update_deps_result} EQUAL 0))
-            message(FATAL_ERROR "Could not run update_deps.py which is necessary to download dependencies.")
-        endif()
-    endif()
-    include(${CMAKE_CURRENT_LIST_DIR}/external/helper.cmake)
-else()
-    message("********************************************************************************")
-    message("* NOTE: Not adding target to run update_deps.py automatically.                 *")
-    message("********************************************************************************")
-    find_package(PythonInterp 3 QUIET)
-endif()
-
-if (JSONCPP_INSTALL_DIR)
-    list(APPEND CMAKE_PREFIX_PATH ${JSONCPP_INSTALL_DIR})
-endif()
-if (VALIJSON_INSTALL_DIR)
-    list(APPEND CMAKE_PREFIX_PATH ${VALIJSON_INSTALL_DIR})
-endif()
-if (GOOGLETEST_INSTALL_DIR)
-    list(APPEND CMAKE_PREFIX_PATH ${GOOGLETEST_INSTALL_DIR})
-endif()
-if (VULKAN_HEADERS_INSTALL_DIR)
-    list(APPEND CMAKE_PREFIX_PATH ${VULKAN_HEADERS_INSTALL_DIR})
-endif()
-if (VULKAN_VALIDATIONLAYERS_INSTALL_DIR)
-    list(APPEND CMAKE_INCLUDE_PATH ${VULKAN_VALIDATIONLAYERS_INSTALL_DIR}/include/vulkan)
-endif()
+add_subdirectory(scripts)
 
 find_package(VulkanHeaders REQUIRED CONFIG QUIET)
 
@@ -137,19 +58,6 @@ if (NOT ANDROID)
     find_package(Vulkan)
 endif()
 
-set(PROFILES_CPP_STANDARD 17 CACHE STRING "Set the C++ standard to build against.")
-set(CMAKE_CXX_STANDARD ${PROFILES_CPP_STANDARD})
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-# Define GNU standard installation directories.
-include(GNUInstallDirs)
-
-if(WIN32 AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    # Windows: if install locations not set by user, set install prefix to "<build_dir>\install".
-    set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "default install path" FORCE)
-endif()
-
 # Enable GUI folders
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -180,7 +88,7 @@ elseif(MSVC)
         # gtest.h provokes:
         #    warning C4389: '==': signed/unsigned mismatch
         #    warning C4018: '>=': signed/unsigned mismatch
-    # vulkan_profiles.hpp provokes: 
+    # vulkan_profiles.hpp provokes:
     #    warning C4245: '=': conversion from 'int' to 'uint64_t', signed/unsigned mismatch
     #    warning C4305: '=': truncation from 'double' to 'float'
         add_compile_options(/wd4100 /wd4505 /wd4702 /wd4389 /wd4245 /wd4305 /wd4018)
@@ -188,46 +96,11 @@ endif()
 
 set(PROFILES_SCHEMA_FILENAME "profiles-0.8-latest.json")
 
-# The scripts directory regenerates the Profiles source and headers.
-add_subdirectory(scripts)
+# The profiles directory regenerates the Profiles source and headers.
+add_subdirectory(profiles)
 
 add_subdirectory(library)
 
 add_subdirectory(layer-utils)
 
-# add_vk_layer macro is used by layer/.
-if (WIN32)
-    macro(add_vk_layer target)
-        FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_${target}.def DEF_FILE)
-        add_custom_target(VkLayer_copy-${target}-def-file ALL
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DEF_FILE} VkLayer_${target}.def
-            VERBATIM
-        )
-        set_target_properties(VkLayer_copy-${target}-def-file PROPERTIES FOLDER "Profiles layer")
-
-        add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
-        target_link_Libraries(VkLayer_${target} vku Vulkan::Headers jsoncpp_static valijson vku)
-        set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
-    endmacro()
-else()
-    macro(add_vk_layer target)
-        add_library(VkLayer_${target} SHARED ${ARGN})
-        target_link_Libraries(VkLayer_${target} vku Vulkan::Headers jsoncpp_static valijson vku)
-        if(ANDROID)
-            # Android needs -llog for __android_print_log()
-            target_link_Libraries(VkLayer_${target} log)
-        endif()
-        if (NOT APPLE)
-            set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
-        endif ()
-        set_target_properties(VkLayer_${target} PROPERTIES FOLDER "Profiles layer")
-        install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    endmacro()
-endif()
 add_subdirectory(layer)
-
-if (PROFILES_BUILD_TESTS AND NOT ANDROID)
-    add_subdirectory(profiles/test)
-endif()
-
-
