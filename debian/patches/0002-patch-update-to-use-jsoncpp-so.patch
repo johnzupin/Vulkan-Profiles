@@ -1,0 +1,21 @@
+From: John Zupin <johnz@lunarg.com>
+Date: Thu, 23 Mar 2023 15:29:57 -0600
+Subject: patch: update to use jsoncpp so
+
+---
+ layer/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/layer/CMakeLists.txt b/layer/CMakeLists.txt
+index c718e21..087f579 100644
+--- a/layer/CMakeLists.txt
++++ b/layer/CMakeLists.txt
+@@ -68,7 +68,7 @@ target_sources(VkLayer_khronos_profiles PRIVATE
+ target_link_libraries(VkLayer_khronos_profiles PRIVATE
+     vku
+     Vulkan::Headers
+-    jsoncpp_static
++    jsoncpp_lib
+     valijson
+ )
+ 
