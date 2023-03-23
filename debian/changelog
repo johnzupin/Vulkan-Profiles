@@ -1,3 +1,96 @@
+vulkan-profiles (1.3.243.0~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ Juan Ramos ]
+  * profiles: Remove reference to vk_sdk_platform.h
+
+  [ Christophe ]
+  * profile: desktop baseline 2022 v2 for MoltenVk with vk1.2
+  * profile: add VP_LUNARG_desktop_baseline_2023 vk 1.2 profile
+  * profile: set the min Vulkan API version for desktop 2023
+  * cmake: remove FetchContent
+  * Fix Android C.I. tests
+  * profile: clean up
+  * Clean up ANDROID defines
+  * Removed unused external
+  * cmake: remove explicit reference to external directory
+  * cmake: remove Google Tests external reference
+  * cmake: more use of CMake find_package
+  * cmake: clean up of unnecessary compiler flags
+  * fixing Linux build
+  * trying to fix Android C.I.
+  * Update CMakeLists.txt
+  * cmake: use VULKAN_HEADERS_REGISTRY_DIRECTORY from Vulkan Headers repository
+  * Update CMakeLists.txt
+  * cmake: clean up vku dependence
+  * cmake: clean up unused include_directories
+  * cmake: clean up not find_package usage stuff
+  * cmake: clean up unused variable
+  * Remove unused file
+  * cmake: Using find_package for ValidationLayer
+  * Fix Android build
+
+  [ Juan Ramos ]
+  * cmake: Treat VVL includes as part of Vulkan::Headers
+  * ci: Test MacOS build
+
+  [ Christophe ]
+  * cmake: remove unused variable
+  * cmake: remove unuesed variables
+
+  [ Juan Ramos ]
+  * Remove .vscode/launch.json
+  * Remove external/ dir
+  * Remove generator/ directory
+  * Don't install vku
+  * vku: Don't export functions
+  * Update build instructions
+  * Update Win/MacOS System Requirements
+
+  [ ziga-lunarg ]
+  * Update to header 241
+
+  [ Juan Ramos ]
+  * cmake: Move GNUInstallDirs right after project call
+  * cmake: Remove outdated install logic
+  * cmake: Fix profiles installation
+
+  [ John Zupin ]
+  * packaging: debian: update to include valijson
+  * packaging: debian: remove patch
+  * packaging: debian: update to point to valijson and jsoncpp
+  * merge: update to remove unused files
+  * packaging: debian: update rules
+  * packaging: patch: update patches
+  * packaging: debian: update runtime deps
+
+  [ Juan Ramos ]
+  * cmake: Install json/python files
+  * cmake: Install vulkan_profiles.hpp
+  * cmake: Raise minimum to 3.17.2
+  * ci: Test cmake_minimum_required with github action
+  * cmake: Remove append to module path
+
+  [ John Zupin ]
+  * packaging: debian: remove installing .h/.hpp/.cpp files
+
+  [ Juan Ramos ]
+  * cmake: Use generator expression instead of hardcoded paths
+  * scripts: Only grab loader if we are building tests
+  * scripts: Move vulkan-loader next to gtest
+  * ci: Speed up MacOS build
+  * cmake: Move UPDATE_DEPS logic to scripts/CMakeLists.txt
+  * cmake: Set CMAKE_* variables consistently
+
+  [ Christophe ]
+  * Update to header 243
+
+  [ John Zupin ]
+  * remove unused files
+  * packaging: debian: udpate patches
+  * packaging: debian: patch to use jsoncpp so
+
+ -- john <john@odin>  Thu, 23 Mar 2023 15:31:55 -0600
+
 vulkan-profiles (1.3.239.0~rc2-1lunarg20.04-1) focal; urgency=medium
 
   [ Christophe ]
