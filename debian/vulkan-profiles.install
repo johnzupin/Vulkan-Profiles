@@ -1,3 +1,6 @@
+library/include/vulkan/vulkan_profiles.hpp usr/include/vulkan/
+library/include/vulkan/debug/vulkan_profiles.h usr/include/vulkan/
+library/source/debug/vulkan_profiles.cpp usr/share/vulkan/vulkan-profiles-source/
 profiles/*.json usr/share/vulkan/config/VK_LAYER_KHRONOS_profiles/
 scripts/gen_profiles_file.py usr/share/vulkan/registry/
 scripts/gen_profiles_solution.py usr/share/vulkan/registry/
