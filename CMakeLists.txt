@@ -27,7 +27,10 @@ add_subdirectory(scripts)
 
 find_package(VulkanHeaders REQUIRED CONFIG QUIET)
 
-find_file(VVL_INCLUDE_DIR vk_dispatch_table_helper.h REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
+find_package(VulkanUtilityLibraries REQUIRED CONFIG QUIET)
+
+# Search the VVL include directory using the VVL vk_layer_config.h file
+find_file(VVL_INCLUDE_DIR vk_layer_config.h REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 get_filename_component(VVL_INCLUDE_DIR ${VVL_INCLUDE_DIR} DIRECTORY)
 
 # Effectively the header files installed by VVL are part of Vulkan::Headers
@@ -75,6 +78,14 @@ endif()
 if(${CMAKE_C_COMPILER_ID} MATCHES "(GNU|Clang)")
     add_compile_options(-Werror)
 elseif(MSVC)
+    # PDBs aren't generated on Release builds by default.
+    add_compile_options("$<$<CONFIG:Release>:/Zi>")
+    add_link_options("$<$<CONFIG:Release>:/DEBUG:FULL>")
+    # Remove unreferenced code/data.
+    add_link_options("$<$<CONFIG:Release>:/OPT:REF>")
+    # Merge duplicate data/functions
+    add_link_options("$<$<CONFIG:Release>:/OPT:ICF>")
+
         add_compile_options(/W4 /WX)
         add_link_options(/WX)
         # Ignore some warnings that we know we'll generate.  In the future the
@@ -100,7 +111,5 @@ set(PROFILES_SCHEMA_FILENAME "profiles-0.8-latest.json")
 add_subdirectory(profiles)
 
 add_subdirectory(library)
-
-add_subdirectory(layer-utils)
 
 add_subdirectory(layer)
