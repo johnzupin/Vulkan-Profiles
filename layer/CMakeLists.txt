@@ -2,7 +2,7 @@ if(PROFILES_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-execute_process(COMMAND ${CMAKE_COMMAND} -E touch  ${CMAKE_SOURCE_DIR}/layer/profiles.cpp)
+execute_process(COMMAND ${CMAKE_COMMAND} -E touch  ${CMAKE_SOURCE_DIR}/layer/profiles_generated.cpp)
 execute_process(COMMAND ${CMAKE_COMMAND} -E touch  ${CMAKE_SOURCE_DIR}/layer/tests/tests_generated.cpp)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -50,23 +50,44 @@ else()
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
 endif()
 
-add_library(VkLayer_khronos_profiles SHARED)
+source_group("JSON Manifest" FILES VkLayer_khronos_profiles.json.in)
+source_group("Export Files" FILES VkLayer_khronos_profiles.def VkLayer_khronos_profiles.map)
+
+add_library(VkLayer_khronos_profiles MODULE)
+set_target_properties(VkLayer_khronos_profiles PROPERTIES FOLDER "Profiles layer")
 
 if (MSVC)
     target_link_options(VkLayer_khronos_profiles PRIVATE /DEF:${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_khronos_profiles.def)
-elseif(MINGW OR ANDROID OR APPLE)
+elseif(MINGW)
+    target_sources(VkLayer_khronos_profiles PRIVATE VkLayer_khronos_profiles.def)
+elseif(APPLE)
+    message(DEBUG "Functions are exported via PROFILES_EXPORT")
+    set_target_properties(VkLayer_khronos_profiles PROPERTIES SUFFIX ".dylib")
+elseif(ANDROID)
     message(DEBUG "Functions are exported via PROFILES_EXPORT")
 else()
     target_link_options(VkLayer_khronos_profiles PRIVATE LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_khronos_profiles.map,-Bsymbolic,--exclude-libs,ALL)
 endif()
 
 target_sources(VkLayer_khronos_profiles PRIVATE
-    profiles.cpp
+    profiles_interface.cpp
+    profiles_interface.h
+    profiles_settings.cpp
+    profiles_settings.h
+    profiles_json.cpp
+    profiles_json.h
+    profiles_util.cpp
+    profiles_util.h
+    profiles_generated.cpp
+    profiles.h
     vk_layer_table.cpp
+    VkLayer_khronos_profiles.json.in
+    VkLayer_khronos_profiles.def
+    VkLayer_khronos_profiles.map
 )
 
 target_link_libraries(VkLayer_khronos_profiles PRIVATE
-    vku
+    Vulkan::LayerUtils
     Vulkan::Headers
     jsoncpp_static
     valijson
@@ -83,7 +104,7 @@ source_group("Python Files" FILES ${LAYER_PYTHON_FILES})
 add_custom_target(VpLayer_generate ALL
     COMMAND ${PYTHON_EXECUTABLE} ${LAYER_PYTHON_FILES}
         -registry ${VULKAN_HEADERS_REGISTRY_DIRECTORY}/vk.xml
-        -outLayer ${CMAKE_SOURCE_DIR}/layer/profiles.cpp
+        -outLayer ${CMAKE_SOURCE_DIR}/layer/profiles_generated.cpp
     VERBATIM
     SOURCES ${LAYER_PYTHON_FILES}
     DEPENDS ${VULKAN_HEADERS_REGISTRY_DIRECTORY}/vk.xml)
@@ -144,6 +165,9 @@ endif()
 
 if (WIN32)
     install(FILES ${INTERMEDIATE_FILE} DESTINATION ${LAYER_INSTALL_DIR} RENAME ${OUTPUT_FILE_FINAL_NAME})
+endif()
+if (MSVC)
+    install(FILES $<TARGET_PDB_FILE:VkLayer_khronos_profiles> DESTINATION ${LAYER_INSTALL_DIR})
 endif()
 
 install(TARGETS VkLayer_khronos_profiles DESTINATION ${LAYER_INSTALL_DIR})

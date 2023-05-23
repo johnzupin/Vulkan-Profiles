@@ -11,6 +11,15 @@
 
 # Release Notes
 
+## [Vulkan Profiles Toolset 1.3.XXX](https://github.com/KhronosGroup/Vulkan-Profiles/tree/main) - XXX 2023
+
+### Features:
+- Add a setting to control how layer features are initialized when a feature is not specified in a selected profile.
+- Add Profiles layer loading of profiles with multiple variants. All variants are emulated.
+
+### Bugfixes:
+- Fix invalid message when trying to override a supported capability to unsupported #393
+
 ## [Vulkan Profiles Toolset 1.3.243](https://github.com/KhronosGroup/Vulkan-Profiles/tree/sdk-1.3.243.0) - April 2023
 
 ### Features:
