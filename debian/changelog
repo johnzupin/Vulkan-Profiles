@@ -1,3 +1,97 @@
+vulkan-profiles (1.3.250.0~rc1-1lunarg22.04-1) jammy; urgency=medium
+
+  [ Christophe ]
+  * Updated to header 244
+  * profile: add portability 2023 preset
+  * layer: fix message typo
+  * profile: hotfix for current MoltenVK driver
+  * profile: updated changelog
+  * profile: MoltenVK fixed its exposed capababilities
+  * profile: workaround GPUinfo.org
+  * profile: add workaround for GPUinfo export
+
+  [ spencer-lunarg ]
+  * profile: Fix VkFormatProperties3 setting wrong sType
+
+  [ Juan Ramos ]
+  * cmake: Fix json installation
+
+  [ Christophe ]
+  * Fix invalid message when trying to override a supported capability to unsupported #393
+  * layer: add setting to control vulkan feature init
+  * doc: fix schema link
+
+  [ Juan Ramos ]
+  * cmake: Use VulkanUtilityLibrary
+
+  [ Charles Giessen ]
+  * layer: Combine LogMessage and format()
+  * layer: Use Reference in EnumerateAll
+  * layer: Use maps instead of arrays
+  * layer: Use statics storage in a function
+  * layer: Fixup PhysicalDeviceData
+  * layer: Fixup JsonLoader::Store
+  * layer: Make ReadProfile pass by reference
+  * test: Fix layer test to handle random extension order
+
+  [ Nathaniel Cesario ]
+  * build: Update includes based on VVL refactor
+
+  [ Christophe ]
+  * layer: add support of multiple variants
+
+  [ Juan Ramos ]
+  * cmake: Fix WIN32 installation
+
+  [ Christophe ]
+  * layer: initial split of generated code and written
+
+  [ ziga-lunarg ]
+  * layer: Update to header 247
+
+  [ Juan Ramos ]
+  * cmake: Generate PDBs on Release builds
+  * cmake: Install VkLayer_khronos_profiles.pdb
+
+  [ Christophe ]
+  * layer: add missing files to the VS solution
+  * layer: add force physical device
+  * layer: fix invalid message when using multiple GPUs
+  * layer: notify disabled force gpu on system with 1 GPU
+  * layer: Add force device preset
+
+  [ ziga-lunarg ]
+  * Update to header 249
+
+  [ juan-lunarg ]
+  * Update VVL to 1.3.249
+  * build: Copy update_deps.py enhancements from VVL
+  * ci: Use Ninja on Windows
+  * ci: Add ccache to unix builds
+  * Fix Jenkins build
+
+  [ ziga-lunarg ]
+  * layer: Update to header 250
+
+  [ Christophe ]
+  * layer: clean up manifest
+  * layer: use layer settings librarie
+
+  [ juan-lunarg ]
+  * scripts: Fix known_good.json
+  * cmake: Fix installation of json files
+
+  [ Christophe ]
+  * layer: add log for kLayerSettingsDefaultFeatureValues
+  * Revert "layer: use layer settings librarie"
+
+  [ John Zupin ]
+  * packaging: debian: update rules to point to Vulkan-Utility-Library
+  * packaging: debian: update control to include vulkan-utility-library
+  * packagin: debian: update patches
+
+ -- john <john@odin>  Wed, 24 May 2023 09:46:14 -0600
+
 vulkan-profiles (1.3.243.0~rc5-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
