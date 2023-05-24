@@ -7,12 +7,12 @@ Subject: patch: update to use jsoncpp so
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/layer/CMakeLists.txt b/layer/CMakeLists.txt
-index c718e21..087f579 100644
+index 616f24b..3701cd1 100644
 --- a/layer/CMakeLists.txt
 +++ b/layer/CMakeLists.txt
-@@ -68,7 +68,7 @@ target_sources(VkLayer_khronos_profiles PRIVATE
+@@ -89,7 +89,7 @@ target_sources(VkLayer_khronos_profiles PRIVATE
  target_link_libraries(VkLayer_khronos_profiles PRIVATE
-     vku
+     Vulkan::LayerUtils
      Vulkan::Headers
 -    jsoncpp_static
 +    jsoncpp_lib
