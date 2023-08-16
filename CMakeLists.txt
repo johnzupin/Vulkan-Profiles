@@ -1,12 +1,8 @@
 cmake_minimum_required(VERSION 3.17.2)
 
-enable_testing()
-
 project(VULKAN_PROFILES LANGUAGES CXX C)
 
 include(GNUInstallDirs)
-
-option(PROFILES_BUILD_TESTS "Build profile tests" ON)
 
 set(PROFILES_CPP_STANDARD 17 CACHE STRING "Set the C++ standard to build against.")
 set(CMAKE_CXX_STANDARD ${PROFILES_CPP_STANDARD})
@@ -16,12 +12,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_VISIBILITY_PRESET "hidden")
 set(CMAKE_C_VISIBILITY_PRESET "hidden")
 set(CMAKE_VISIBILITY_INLINES_HIDDEN "YES")
-
-# Regenerating profiles requires Python 3.7.2 or better (for typing.OrderedDict).
-# Regeneration jsoncpp requires Python 3.
-# Otherwise Python is not required, as checked-in generated code and
-# headers will be used.
-find_package(PythonInterp 3.7.2 REQUIRED)
 
 add_subdirectory(scripts)
 
@@ -41,7 +31,9 @@ find_package(valijson REQUIRED CONFIG)
 
 find_package(jsoncpp REQUIRED CONFIG)
 
-if(PROFILES_BUILD_TESTS)
+option(BUILD_TESTS "Build the tests")
+if (BUILD_TESTS)
+    enable_testing()
     find_package(GTest REQUIRED CONFIG)
 endif()
 
@@ -86,26 +78,28 @@ elseif(MSVC)
     # Merge duplicate data/functions
     add_link_options("$<$<CONFIG:Release>:/OPT:ICF>")
 
-        add_compile_options(/W4 /WX)
-        add_link_options(/WX)
-        # Ignore some warnings that we know we'll generate.  In the future the
-        # code that generates these warnings should be fixed properly.
-        # vk_layer_logging.h provokes:
-        #    warning C4100: 'default_flag_is_spec': unreferenced formal parameter
-        # vk_loader_platform.h provokes:
-        #    warning C4505: unreferenced local function has been removed
-        # jsoncpp.cpp provokes:
-        #    warning C4702: unreachable code
-        # gtest.h provokes:
-        #    warning C4389: '==': signed/unsigned mismatch
-        #    warning C4018: '>=': signed/unsigned mismatch
+    add_compile_options(/W4 /WX)
+    add_link_options(/WX)
+    # Ignore some warnings that we know we'll generate.  In the future the
+    # code that generates these warnings should be fixed properly.
+    # vk_layer_logging.h provokes:
+    #    warning C4100: 'default_flag_is_spec': unreferenced formal parameter
+    # vk_loader_platform.h provokes:
+    #    warning C4505: unreferenced local function has been removed
+    # jsoncpp.cpp provokes:
+    #    warning C4702: unreachable code
+    # gtest.h provokes:
+    #    warning C4389: '==': signed/unsigned mismatch
+    #    warning C4018: '>=': signed/unsigned mismatch
     # vulkan_profiles.hpp provokes:
     #    warning C4245: '=': conversion from 'int' to 'uint64_t', signed/unsigned mismatch
     #    warning C4305: '=': truncation from 'double' to 'float'
-        add_compile_options(/wd4100 /wd4505 /wd4702 /wd4389 /wd4245 /wd4305 /wd4018)
+    add_compile_options(/wd4100 /wd4505 /wd4702 /wd4389 /wd4245 /wd4305 /wd4018)
 endif()
 
 set(PROFILES_SCHEMA_FILENAME "profiles-0.8-latest.json")
+
+find_package(Python3 REQUIRED)
 
 # The profiles directory regenerates the Profiles source and headers.
 add_subdirectory(profiles)

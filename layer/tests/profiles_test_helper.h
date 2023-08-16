@@ -20,9 +20,10 @@
  */
 
 #include <string>
-#include <cmath>
 #include <vector>
 #include <array>
+#include <cmath>
+#include <cstdarg>
 
 #include <vulkan/vulkan.h>
 #include "../profiles.h"
@@ -31,12 +32,30 @@
 
 namespace profiles_test {
 
+inline std::string format(const char* message, ...) {
+    std::size_t const STRING_BUFFER(4096);
+
+    assert(message != nullptr);
+    assert(strlen(message) >= 0 && strlen(message) < STRING_BUFFER);
+
+    char buffer[STRING_BUFFER];
+    va_list list;
+
+    va_start(list, message);
+    vsnprintf(buffer, STRING_BUFFER, message, list);
+    va_end(list);
+
+    return buffer;
+}
+
 void setEnvironmentSetting(std::string setting, const char* val);
 void unsetEnvironmentSetting(std::string setting);
 
 std::string getAbsolutePath(std::string filepath);
 
 VkApplicationInfo GetDefaultApplicationInfo();
+
+bool IsExtensionSupported(VkPhysicalDevice physical_device, const char* extension_name);
 
 enum Mode {
     MODE_NATIVE = 0,
@@ -55,9 +74,9 @@ class VulkanInstanceBuilder {
     void addExtension(const char* extension_name) { _extension_names.push_back(extension_name); }
 
     VkResult init();
-    VkResult init(void* pnext);
+    VkResult init(const std::vector<VkLayerSettingEXT>& settings);
     VkResult init(uint32_t apiVersion);
-    VkResult init(uint32_t apiVersion, void* pnext);
+    VkResult init(uint32_t apiVersion, const std::vector<VkLayerSettingEXT>& settings);
     VkResult getPhysicalDevice(Mode mode, VkPhysicalDevice* phys_dev);
 
     void reset();
@@ -70,4 +89,5 @@ class VulkanInstanceBuilder {
     std::vector<const char*> _layer_names;
     std::vector<const char*> _extension_names;
 };
+
 }  // namespace profiles_test

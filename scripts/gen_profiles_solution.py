@@ -66,8 +66,10 @@ def stripNonmatchingAPIs(tree, apiName, actuallyDelete = True):
                 if actuallyDelete:
                     parent.remove(child)
 
-COPYRIGHT_HEADER = '''/**
- * Copyright (c) 2021-2023 LunarG, Inc.
+COPYRIGHT_HEADER = '''
+/*
+ * Copyright (C) 2021-2023 Valve Corporation
+ * Copyright (C) 2021-2023 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -81,7 +83,8 @@ COPYRIGHT_HEADER = '''/**
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * DO NOT EDIT: This file is generated.
+ * This file is ***GENERATED***.  Do Not Edit.
+ * See scripts/gen_profiles_solution.py for modifications.
  */
 '''
 
@@ -2203,7 +2206,7 @@ class VulkanProfileCapabilities():
             # When we have multiple possible capabilities blocks, we load them all but effectively the API library can't effectively implement this behavior.
             if type(capName).__name__ == 'list':
                 for capNameCase in capName:
-                    self.mergeCaps(registry, caps[capNameElement])
+                    self.mergeCaps(registry, caps[capNameCase])
             elif capName in caps:
                 self.mergeCaps(registry, caps[capName])
             else:
@@ -4015,10 +4018,11 @@ class VulkanProfilesDocGenerator():
                 if wrapperStruct in profile.capabilities.properties:
                     propertyStructName = wrapperStruct
                     propertyStruct = profile.capabilities.properties[wrapperStruct]['properties']
-            if propertyStruct != None and memberStruct != 'sparseProperties':
-                limitStruct = propertyStruct[memberStruct]
-                if member in limitStruct:
-                    return self.formatProperty(limitStruct[member], propertyStructName, section)
+            if propertyStruct != None: # and memberStruct != 'sparseProperties':
+                if memberStruct in propertyStruct:
+                    limitStruct = propertyStruct[memberStruct]
+                    if member in limitStruct:
+                        return self.formatProperty(limitStruct[member], propertyStructName, section)
 
         # If the struct has aliases and the limit/property struct member is defined in the profile
         # in one of those then include it
@@ -4064,7 +4068,9 @@ class VulkanProfilesDocGenerator():
                 if propertyStructName == 'VkPhysicalDeviceProperties':
                     for member, struct in { 'limits': 'VkPhysicalDeviceLimits', 'sparseProperties': 'VkPhysicalDeviceSparseProperties' }.items():
                         if member in properties:
-                            definedLimits[struct] = properties[member].keys()
+                            if not struct in definedLimits:
+                                definedLimits[struct] = []
+                            definedLimits[struct].extend(properties[member].keys())
                     continue
 
                 # If this is an alias structure then find the non-alias one and use that
