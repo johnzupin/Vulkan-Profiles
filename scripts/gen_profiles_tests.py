@@ -57,9 +57,10 @@ PROFILES = '''
     }
  '''
 
-TESTS_HEADER = '''/*
- * Copyright (C) 2021-2022 Valve Corporation
- * Copyright (C) 2021-2022 LunarG, Inc.
+TESTS_HEADER = '''
+/*
+ * Copyright (C) 2021-2023 Valve Corporation
+ * Copyright (C) 2021-2023 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +77,9 @@ TESTS_HEADER = '''/*
  * Author: Ziga Markus <ziga@lunarg.com>
  * Author: Christophe Riccio <christophe@lunarg.com>
  * Author: Mark Lobodzinski <mark@lunarg.com>
+ *
+ * This file is ***GENERATED***.  Do Not Edit.
+ * See scripts/gen_profiles_tests.py for modifications.
  */
 
 #include <vulkan/vulkan_core.h>
@@ -95,14 +99,23 @@ class TestsCapabilitiesGenerated : public VkTestFramework {
     static void SetUpTestSuite() {
         VkResult err = VK_SUCCESS;
 
-        VkProfileLayerSettingsEXT settings;
-        settings.profile_file = JSON_TEST_FILES_PATH "VP_LUNARG_test_api_generated.json";
-        settings.emulate_portability = true;
-        settings.profile_name = "VP_LUNARG_test_api";
-        settings.simulate_capabilities = SIMULATE_MAX_ENUM;
-        settings.debug_reports = DEBUG_REPORT_ERROR_BIT;
+        const char* profile_file_data = JSON_TEST_FILES_PATH "VP_LUNARG_test_api_generated.json";
+        const char* profile_name_data = "VP_LUNARG_test_api";
+        VkBool32 emulate_portability_data = VK_TRUE;
+        const std::vector<const char*> simulate_capabilities = {
+            "SIMULATE_API_VERSION_BIT", "SIMULATE_FEATURES_BIT", "SIMULATE_PROPERTIES_BIT", "SIMULATE_EXTENSIONS_BIT", "SIMULATE_FORMATS_BIT", "SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT"};
+        const std::vector<const char*> debug_reports = {
+            "DEBUG_REPORT_ERROR_BIT"};
 
-        err = inst_builder.init(&settings);
+        std::vector<VkLayerSettingEXT> settings = {
+            {kLayerName, kLayerSettingsProfileFile, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, &profile_file_data},
+            {kLayerName, kLayerSettingsProfileName, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, &profile_name_data},
+            {kLayerName, kLayerSettingsEmulatePortability, VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &emulate_portability_data},
+            {kLayerName, kLayerSettingsSimulateCapabilities, VK_LAYER_SETTING_TYPE_STRING_EXT, static_cast<uint32_t>(simulate_capabilities.size()), &simulate_capabilities[0]},
+            {kLayerName, kLayerSettingsDebugReports, VK_LAYER_SETTING_TYPE_STRING_EXT, static_cast<uint32_t>(debug_reports.size()), &debug_reports[0]}
+        };
+
+        err = inst_builder.init(settings);
         ASSERT_EQ(err, VK_SUCCESS);
 
         err = inst_builder.getPhysicalDevice(profiles_test::MODE_PROFILE, &gpu_profile);
@@ -137,9 +150,9 @@ bool IsSupported(VkPhysicalDevice device, const char* extension_name){
 
 class ProfileGenerator():
     i = 1
-    # Currently a bug in vk.xml, can be removed once pNext is no longer const
-    skipped_features = ["VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM"]
+    skipped_features = []
     skipped_members = ["sType", "pNext", "physicalDevices", "driverID"]
+    skipped_properties_structs = ["VkPhysicalDeviceHostImageCopyPropertiesEXT"]
 
     def generate_profile(self, outProfile, registry):
         with open(outProfile, 'w') as f:
@@ -271,6 +284,8 @@ class ProfileGenerator():
         for name, value  in registry.structs.items():
             if ('VkPhysicalDeviceProperties2' in value.extends and value.definedByExtensions):
                 self.test_values[name] = dict()
+                if (name in self.skipped_properties_structs):
+                    continue
                 if first:
                     first = False
                 else:
@@ -306,7 +321,7 @@ class ProfileGenerator():
                     gen += property_name
                     gen += '\": '
                     #if member.limittype == "":
-                    #    self.test_values[name][property] = 
+                    #    self.test_values[name][property] =
                     if property_type == "VkBool32":
                         gen += "true"
                         self.test_values[name][property] = 'VK_TRUE'
@@ -606,7 +621,7 @@ class ProfileGenerator():
                         # VkConformanceVersion is noauto and unmodified
                         if 'VkConformanceVersion' in member_type:
                             continue
-                        
+
                         gen += '    if (supported) {\n'
                         if type(property_value) is list:
                             if (len(property_value) > 1):
@@ -673,7 +688,7 @@ class ProfileGenerator():
         gen += '    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;\n'
         gen += '    features.pNext = &' + var_name + ';\n'
         gen += '    vkGetPhysicalDeviceFeatures2(gpu_profile, &features);\n\n'
-        
+
         for member in value.members:
             gen += '    EXPECT_EQ(' + var_name + '.' + member + ', VK_TRUE);\n'
 
@@ -699,7 +714,7 @@ class ProfileGenerator():
         if first:
             gen += '0'
         gen += ';\n'
-        
+
         gen += '    VkFormatFeatureFlags optimal_tiling_features = '
         first = True
         for feature in values[1]:
@@ -711,7 +726,7 @@ class ProfileGenerator():
         if first:
             gen += '0'
         gen += ';\n'
-        
+
         gen += '    VkFormatFeatureFlags buffer_features = '
         first = True
         for feature in values[2]:
