@@ -1,3 +1,74 @@
+vulkan-profiles (1.3.261.0~rc1-1lunarg22.04-1) jammy; urgency=medium
+
+  [ Christophe ]
+  * profiles: fix desktop baseline 2022, workaround AMD inconsistency
+  * profile: fix desktop baseline 2023 lineWidthGranularity
+  * layer: improve log messages with device name
+  * profile: fix desktop 2023 linewidth
+  * layer: fix loading of sparseProperties
+  * layer: use layer settings librarie including VK_EXT_layer_settings
+  * profile: update to Vulkan Header 1.3.251
+
+  [ juan-lunarg ]
+  * profiles: Update utility libraries to v1.3.251
+
+  [ Christophe ]
+  * layer: using LayerSettings library that support multiple instances
+  * Fix copyrights and missing generated file edit
+  * doc gen: Fix missing sparseProperties values when the struct is empty in a profile
+  * layer: split unit tests
+  * layer: add unsupported features test
+  * layer: add unsupported features test
+  * layer: add test to check fully supported format
+
+  [ spencer-lunarg ]
+  * scripts: Fix rasterization_order_attachment_access exception
+
+  [ Juan Ramos ]
+  * cmake: Fix minor indentation issue
+  * docs: Remove outdated info about master to main change
+  * cmake: Update update_deps.py files
+  * scripts: Update Vulkan Dependencies to 1.3.254
+  * cmake: Use modern Python3 CMake support
+  * cmake: Fix usage of enable_testing
+  * ci: Fix concurrency and permissions
+  * ci: Add Android Build to CI
+  * scripts: Fix Android build
+
+  [ Christophe ]
+  * docs: fix build instructions
+  * Vulkan Header update 255
+  * Use vlFindLayerSettingsCreateInfo API
+  * layer: Using layer settings cpp API
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 256
+  * profiles: Update to header 257
+
+  [ Christophe ]
+  * Use tag
+
+  [ Juan Ramos ]
+  * cmake: Use BUILD_TESTS
+
+  [ ziga-lunarg ]
+  * profiles: Fix win32 lean and mean define
+  * profiles: Update to header 260
+
+  [ Christophe ]
+  * layer: fix error message typo
+  * layer: fix layer settings tests
+  * layer: Fix query of capabilities of aliased extensions
+  * library: Fix library generation when using profiles with multiple variants #464
+
+  [ ziga-lunarg ]
+  * profiles: Update header to 261
+
+  [ John Zupin ]
+  * packaging: debian: update patches
+
+ -- john <john@odin>  Wed, 16 Aug 2023 11:40:54 -0600
+
 vulkan-profiles (1.3.250.0~rc3-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
