@@ -109,7 +109,7 @@ target_link_libraries(ProfilesLayer PRIVATE
     Vulkan::LayerSettings
     Vulkan::Headers
     Vulkan::UtilityHeaders
-    jsoncpp_static
+    jsoncpp_lib
     valijson
 )
 
