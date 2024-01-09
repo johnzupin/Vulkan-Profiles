@@ -1,3 +1,5 @@
+set(LAYER_PYTHON_FILES ${PROJECT_SOURCE_DIR}/scripts/gen_profiles_solution.py)
+
 set(TEST_FILE test_validate.cpp)
 set(TEST_NAME VpProfile_test_schema_validation)
 
@@ -22,4 +24,4 @@ add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME} --gtest_catch_exceptions=0)
 
 set_target_properties(${TEST_NAME} PROPERTIES FOLDER "Profiles schema")
 
-add_dependencies(VpProfile_test_schema_validation VpCreateDesktopBaseline2022 VpCreateDesktopPortability2022 VpCreateDesktopMax2022)
+add_dependencies(VpProfile_test_schema_validation VpGenerated)

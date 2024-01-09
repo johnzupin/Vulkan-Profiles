@@ -51,6 +51,15 @@ struct VulkanStructData {
 #define VK_STRUCT(STRUCT) VulkanStructData(STRUCT.sType, sizeof(STRUCT), static_cast<uint8_t*>(static_cast<void*>(&STRUCT)))
 #define VK_EXT(NAME) VkExtensionProperties{ NAME##_EXTENSION_NAME, NAME##_SPEC_VERSION }
 
+enum {
+    PROFILE_AREA_EXTENSIONS_BIT = 1 << 0,
+    PROFILE_AREA_FEATURES_BIT = 1 << 1,
+    PROFILE_AREA_PROPERTIES_BIT = 1 << 2,
+    PROFILE_AREA_FORMATS_BIT = 1 << 3,
+    PROFILE_AREA_ALL_BITS = PROFILE_AREA_EXTENSIONS_BIT | PROFILE_AREA_FEATURES_BIT | PROFILE_AREA_PROPERTIES_BIT |
+                            PROFILE_AREA_FORMATS_BIT
+};
+
 class MockVulkanAPI final
 {
 private:
@@ -75,7 +84,7 @@ private:
 
     static MockVulkanAPI*   sInstance;
 
-    const void* GetStructure(const void* pNext, VkStructureType type)
+    const VkBaseOutStructure* GetStructure(const void* pNext, VkStructureType type)
     {
         const VkBaseOutStructure *p = static_cast<const VkBaseOutStructure*>(pNext);
         while (p != nullptr) {
@@ -88,11 +97,11 @@ private:
     void CheckChainedStructs(const void* pNext, const std::vector<VulkanStructData>& expectedStructs)
     {
         for (auto& VulkanStructData : expectedStructs) {
-            const void* pActualStructData = GetStructure(pNext, VulkanStructData.sType);
+            const VkBaseOutStructure* pActualStructData = GetStructure(pNext, VulkanStructData.sType);
             EXPECT_NE(pActualStructData, nullptr) << "Chained struct is missing";
             if (pActualStructData != nullptr) {
                 EXPECT_TRUE(memcmp(VulkanStructData.contents.data(),
-                                   static_cast<const uint8_t*>(pActualStructData) + sizeof(VkBaseInStructure),
+                                   reinterpret_cast<const uint8_t*>(pActualStructData) + sizeof(VkBaseInStructure),
                                    VulkanStructData.contents.size()) == 0) << "Chained struct data mismatch";
             }
         }
@@ -140,6 +149,25 @@ public:
     ~MockVulkanAPI()
     {
         sInstance = nullptr;
+    }
+
+    void ClearProfileAreas(int profileAreas) {
+        if (profileAreas & PROFILE_AREA_EXTENSIONS_BIT) {
+            this->m_instanceExtensions.clear();
+            this->m_deviceExtensions.clear();
+        }
+
+        if (profileAreas & PROFILE_AREA_FEATURES_BIT) {
+            this->m_mockedFeatures.clear();
+        }
+
+        if (profileAreas & PROFILE_AREA_PROPERTIES_BIT) {
+            this->m_mockedProperties.clear();
+        }
+
+        if (profileAreas & PROFILE_AREA_FORMATS_BIT) {
+            this->m_mockedFormats.clear();
+        }
     }
 
     static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
@@ -291,7 +319,11 @@ public:
             EXPECT_EQ(pAllocator, &sInstance->vkAllocator) << "Unexpected allocator callbacks";
 
             EXPECT_EQ(pCreateInfo->sType, VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
-            EXPECT_EQ(pCreateInfo->flags, sInstance->m_pInstanceCreateInfo->flags);
+            VkInstanceCreateFlags flags = sInstance->m_pInstanceCreateInfo->flags;
+#ifdef __APPLE__
+            flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+            EXPECT_EQ(pCreateInfo->flags, flags);
 
             EXPECT_EQ(pCreateInfo->pApplicationInfo != nullptr, sInstance->m_pInstanceCreateInfo->pApplicationInfo != nullptr) << "Presence of pApplicationInfo must match";
             if (pCreateInfo->pApplicationInfo != nullptr && sInstance->m_pInstanceCreateInfo->pApplicationInfo != nullptr) {
@@ -308,7 +340,8 @@ public:
                 uint32_t matches = 0;
                 for (uint32_t i = 0; i < sInstance->m_pInstanceCreateInfo->enabledLayerCount; ++i) {
                     for (uint32_t j = 0; j < pCreateInfo->enabledLayerCount; ++j) {
-                        if (strcmp(sInstance->m_pInstanceCreateInfo->ppEnabledLayerNames[i], pCreateInfo->ppEnabledLayerNames[j]) == 0) {
+                        if (strcmp(sInstance->m_pInstanceCreateInfo->ppEnabledLayerNames[i], pCreateInfo->ppEnabledLayerNames[j]) ==
+                            0) {
                             matches++;
                         }
                     }
@@ -316,17 +349,25 @@ public:
                 EXPECT_EQ(matches, sInstance->m_pInstanceCreateInfo->enabledLayerCount) << "Layer list does not match";
             }
 
-            EXPECT_EQ(pCreateInfo->enabledExtensionCount, sInstance->m_pInstanceCreateInfo->enabledExtensionCount);
+            std::vector<const char*> extensions;
+            for (uint32_t i = 0; i < sInstance->m_pInstanceCreateInfo->enabledExtensionCount; ++i) {
+                extensions.push_back(sInstance->m_pInstanceCreateInfo->ppEnabledExtensionNames[i]);
+            }
+#ifdef __APPLE__
+            extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
+
+            EXPECT_EQ(pCreateInfo->enabledExtensionCount, static_cast<uint32_t>(extensions.size()));
             {
                 uint32_t matches = 0;
-                for (uint32_t i = 0; i < sInstance->m_pInstanceCreateInfo->enabledExtensionCount; ++i) {
+                for (uint32_t i = 0; i < static_cast<uint32_t>(extensions.size()); ++i) {
                     for (uint32_t j = 0; j < pCreateInfo->enabledExtensionCount; ++j) {
-                        if (strcmp(sInstance->m_pInstanceCreateInfo->ppEnabledExtensionNames[i], pCreateInfo->ppEnabledExtensionNames[j]) == 0) {
+                        if (strcmp(extensions[i], pCreateInfo->ppEnabledExtensionNames[j]) == 0) {
                             matches++;
                         }
                     }
                 }
-                EXPECT_EQ(matches, sInstance->m_pInstanceCreateInfo->enabledExtensionCount) << "Extension list does not match";
+                EXPECT_EQ(matches, static_cast<uint32_t>(extensions.size())) << "Extension list does not match";
             }
 
             sInstance->CheckChainedStructs(pCreateInfo->pNext, sInstance->m_instanceCreateStructs);
