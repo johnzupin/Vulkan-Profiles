@@ -1,3 +1,239 @@
+vulkan-profiles (1.3.275.0~rc1-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * build: Use utility libraries vk_enum_string_helper.h
+
+  [ Daniel Rakos ]
+  * layer: Fix KHR GPDP2 dependency
+  * layer: Fix invalid feature warning
+  * layer: Fix EnumerateDeviceExtensionProperties segfault
+  * layer: Fix dispatch table memory leak
+  * scripts: Improve handling of API variants
+
+  [ Christophe ]
+  * layer: Fix API stype naming
+
+  [ Juan Ramos ]
+  * ci: Cleanup CI script
+
+  [ Charles Giessen ]
+  * layer: Use Vulkan-Utility-Libraries for dispatch tables
+
+  [ Christophe ]
+  * layer: Fix Windows C.I. build
+
+  [ unknown ]
+  * deps: Update to fixed Vulkan-Utility-Libraries commit
+  * layer: Use <> instead of "" for including vul_dispatch_table.h
+  * layer: Include <android/log.h> in profiles_settings.cpp
+
+  [ Juan Ramos ]
+  * docs: Update BUILD.md
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 262
+
+  [ Daniel Rakos ]
+  * layer: Handle platform protect defines
+  * build: Add support for API parameterization
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 263
+
+  [ Daniel Rakos ]
+  * layer: Fix video queue family structure name
+
+  [ Christophe ]
+  * cmake: Use common LunarG build configuration
+  * cmake: Remove resolved disabled warnings
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 264
+
+  [ Christophe ]
+  * cmake: Fix warning as error issues
+  * profiles: Fix VK_MSFT_layered_driver
+  * layer: Implement vlGetUnknownSettings
+  * utility: Update to use vku namespace instead of vul
+  * layer: Use CPP vlGetUnknownSettings to simplify code
+
+  [ Juan Ramos ]
+  * ci: Fix Windows CI
+
+  [ Christophe ]
+  * layer: Expose EXT_layer_settings
+  * scripts: Fix argument consistency
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 265
+
+  [ Juan Ramos ]
+  * cmake: Use find_package(VulkanLoader)
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 266
+
+  [ Juan Ramos ]
+  * docs: New SDK branch convention
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 267
+
+  [ spencer-lunarg ]
+  * cmake: Add MockAHB support
+
+  [ Juan Ramos ]
+  * tests: Update googletest to v1.14.0
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 268
+  * profiles: Update to header 269
+  * profiles: Fix removing element from dict
+
+  [ Christophe ]
+  * profiles: Updated build inscruction to match developer needs
+  * library: Add support checking of profiles with multiple variants
+
+  [ Daniel Rakos ]
+  * layer: Fix more GPDP2 dependencies
+
+  [ Christophe ]
+  * profiles: Leverage for Android baseline 2022 the new capability to require a profile
+  * profiles: Add Desktop Baseline 2024 profile and clean up
+  * profile: Add VP_LUNARG_desktop_baseline_2024 profile
+  * profiles: Upgraded max profile for testing
+  * profile: Add Get API version API
+  * library: Updated changelog
+
+  [ Juan Ramos ]
+  * scripts: Update UPDATE_DEPS
+
+  [ Christophe ]
+  * library: Add tests for profiled requiring profiles
+
+  [ Juan Ramos ]
+  * ci: Add dependabot
+
+  [ dependabot[bot] ]
+  * build(deps): bump actions/checkout from 3 to 4
+
+  [ Christophe ]
+  * library: Fix nullptr warning #523
+  * library: Split loading and parsing phases
+  * profiles: Desktop Baseline 2023 is not necesarily supported on C.I.
+  * library: Add devices and instances for profiles requiring profiles
+
+  [ Richard S. Wright Jr ]
+  * tests: Added portability enumeration flag to instance creation
+
+  [ Christophe ]
+  * library: macOS add portability enumeration
+  * profiles: Refactored profile files
+  * Added Vulkan 1.0 properties minimum requirements
+  * Added Vulkan 1.1 properties minimum requirements
+  * Added Vulkan 1.2 properties minimum requirements
+  * Added Vulkan 1.3 properties minimum requirements
+  * profiles: Add VkPhysicalDeviceSparseProperties missing properties
+
+  [ kocdemir ]
+  * Fix logging on Android to correctly print formatted input values
+
+  [ Christophe ]
+  * layer: Remove explicit env variables that are gen for setting keys
+  * generation: Add custom library filename
+  * library: Add profile support check with reported variants
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 270
+
+  [ Juan Ramos ]
+  * ci: Add iOS build to CI
+
+  [ Christophe ]
+  * gen: Add -input-filenames to list the specific files loaded
+  * library: Add API library generation tests
+  * layer: Optimize vpGetPhysicalDeviceProfileVariantsSupport execution time
+  * library: Fix properties checks
+  * library: Add tests for feature based profile variants
+  * library: Improved ext-based variants tests
+  * library: Add format-based variants tests
+  * doc: Cleanup tmp files
+  * merge: Add workaround for 'not' limitype #435
+  * profiles: Add back Android baseline profiles
+  * tests: Disable failing macOS test for C.I. setup
+  * library: Clean up untested code
+  * library: Fix vpGetProfileProperties with multiple variants
+  * library: Add variant reflexion implementation
+  * library: Add variant format reflexion tests
+  * library: Remove duplicated code in vpGetInstanceProfileSupport
+  * library: Deleted duplicated code
+
+  [ kocdemir ]
+  * Avoid crashes when generating intersection profiles with different format features
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 271
+
+  [ Christophe ]
+  * test: Fixed macOS tests
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 272
+
+  [ Christophe ]
+  * library: Add vpCreate* using profiles variants
+  * library: Got merge mode working
+  * library: initial vpCreate generated code
+  * library: Fix extension merge on device create
+  * library: Fix build and tests on Android, macOS and Linux
+  * library: Update documentation for Profiles API library
+
+  [ Juan Ramos ]
+  * ci: Remove MacOS from CI
+  * ci: Remove iOS from CI
+
+  [ Christophe ]
+  * library: Update documentation for Profiles API library
+  * profiles: Fix invalid profile file name
+  * merge: Add required profiles argument
+  * library: Add changelog for version 2.0 of the library
+
+  [ ziga-lunarg ]
+  * layer: Ignore host image copy structs in layer
+  * profiles: Update to header 273
+
+  [ dependabot[bot] ]
+  * build(deps): bump actions/setup-python from 4 to 5
+
+  [ Christophe ]
+  * profiles: Add Android 15 profile
+  * layer: Update manifest
+  * doc: Fix python warning on macOS
+  * build: Make jsonschema installation optional
+  * build: Fix jsonschema is optional
+
+  [ Ian Elliott ]
+  * Update VPA15 description
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 274
+  * profiles: Update to header 275
+
+  [ Christophe ]
+  * layer: Add required profiles support
+  * Implement profile_dirs setting
+  * Fix required profile file
+  * Add support for  setting
+  * Fix manifest file
+  * layer: Add profile mode
+  * layer: Load required profiles by a profile
+
+  [ John Zupin ]
+  * packaging: debian: update patches
+  * packaging: debian: update build deps
+
+ -- john <john@odin>  Tue, 09 Jan 2024 14:54:49 -0700
+
 vulkan-profiles (1.3.261.0~rc1-1lunarg20.04-1) focal; urgency=medium
 
   [ Christophe ]
