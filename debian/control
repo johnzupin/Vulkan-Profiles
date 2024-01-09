@@ -20,13 +20,12 @@ Build-Depends: debhelper (>= 10),
  libjsoncpp-dev,
  vulkan-headers,
  libvulkan-dev,
- vulkan-validationlayers-dev,
  python3-jsonschema,
  libtinyxml2-dev,
  python3-pip,
  python3,
  valijson,
- vulkan-utility-libraries
+ vulkan-utility-libraries-dev
 Standards-Version: 4.1.2
 Homepage: https://github.com/LunarG/VulkanProfiles
 Vcs-Git: https://github.com/LunarG/VulkanProfiles.git
