@@ -1,19 +1,19 @@
 From: John Zupin <johnz@lunarg.com>
-Date: Thu, 23 Mar 2023 15:29:57 -0600
-Subject: patch: update to use jsoncpp so
+Date: Wed, 4 Oct 2023 14:11:49 -0600
+Subject: patch: update to use json lib instead of static
 
 ---
  layer/CMakeLists.txt | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/layer/CMakeLists.txt b/layer/CMakeLists.txt
-index 5f66b9d..1abc219 100644
+index f0e5969..a3f4b86 100644
 --- a/layer/CMakeLists.txt
 +++ b/layer/CMakeLists.txt
-@@ -89,7 +89,7 @@ target_sources(VkLayer_khronos_profiles PRIVATE
- target_link_libraries(VkLayer_khronos_profiles PRIVATE
+@@ -109,7 +109,7 @@ target_link_libraries(ProfilesLayer PRIVATE
      Vulkan::LayerSettings
      Vulkan::Headers
+     Vulkan::UtilityHeaders
 -    jsoncpp_static
 +    jsoncpp_lib
      valijson
