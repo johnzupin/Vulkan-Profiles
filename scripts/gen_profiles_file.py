@@ -28,7 +28,7 @@ class ProfileMerger():
     def __init__(self, registry):
         self.registry = registry
 
-    def merge(self, jsons, profiles, profile_names, merged_path, merged_profile, profile_label, profile_description, profile_api_version, profile_stage, profile_date, mode):
+    def merge(self, jsons, profiles, profile_names, merged_path, merged_profile, profile_label, profile_description, profile_api_version, profile_stage, profile_date, required_profiles, mode):
         self.mode = mode
 
         # Find the api version to use
@@ -43,7 +43,7 @@ class ProfileMerger():
         merged = dict()
         merged['$schema'] = 'https://schema.khronos.org/vulkan/profiles-0.8.0-' + self.api_version[2] + '.json#'
         merged['capabilities'] = self.merge_capabilities(jsons, profile_names, self.api_version)
-        merged['profiles'] = self.get_profiles(merged_profile, self.api_version, profile_label, profile_description, profile_stage, profile_date)
+        merged['profiles'] = self.get_profiles(merged_profile, self.api_version, profile_label, profile_description, profile_stage, profile_date, required_profiles)
 
         # Wite new merged profile
         with open(merged_path, 'w') as file:
@@ -290,8 +290,8 @@ class ProfileMerger():
 
             # Remove format features not in intersect
             for feature in list(merged_formats[format][prop_name]):
-                if feature not in capability['formats'][format][prop_name]:
-                    merged_formats[format][prop_name].remove(feature)
+                if prop_name not in capability['formats'][format] or feature not in capability['formats'][format][prop_name]:
+                    del merged_formats[format][prop_name][feature]
 
         # Iterate all format features in current json
         if prop_name in capability['formats'][format]:
@@ -484,6 +484,12 @@ class ProfileMerger():
                         merged[member] = merged[member] or smember
                     else:
                         merged[member].append(smember)
+            elif xmlmember.limittype == 'not':
+                for smember in entry[member]:
+                    if smember in merged[member]:
+                        merged[member] = merged[member] and smember
+                    else:
+                        merged[member].append(smember)
             elif xmlmember.limittype == 'range':
                 if entry[member][0] < merged[member][0]:
                     merged[member][0] = entry[member][0]
@@ -568,6 +574,18 @@ class ProfileMerger():
                     for value in merged[member]:
                         if value not in entry[member]:
                             merged[member].remove(value)
+            elif xmlmember.limittype == 'not':
+                if xmlmember.type == 'VkBool32':
+                    if member in entry:
+                        merged[member] = merged[member] or entry[member]
+                        if (not merged[member]):
+                            del merged[member]
+                    else:
+                        merged.remove(member)
+                else:
+                    for value in merged[member]:
+                        if value not in entry[member]:
+                            merged[member].remove(value)
             elif xmlmember.limittype == 'range':
                 if entry[member][0] > merged[member][0]:
                     merged[member][0] = entry[member][0]
@@ -620,7 +638,7 @@ class ProfileMerger():
         minor = version[underscore+1:]
         return [major, minor]
 
-    def get_profiles(self, profile_name, api_version, label, description, stage, date):
+    def get_profiles(self, profile_name, api_version, label, description, stage, date, required_profiles):
         profiles = dict()
         profiles[profile_name] = dict()
         profiles[profile_name]['version'] = 1
@@ -637,6 +655,8 @@ class ProfileMerger():
         revision['author'] = 'LunarG Profiles Generation'
         revision['comment'] = 'Generated profile'
         profiles[profile_name]['history'].append(revision)
+        if required_profiles:
+            profiles[profile_name]['profiles'] = required_profiles
         profiles[profile_name]['capabilities'] = list()
         profiles[profile_name]['capabilities'].append('baseline')
         return profiles
@@ -701,6 +721,8 @@ if __name__ == '__main__':
                         help='Override the Vulkan API version of the generated profile. If the argument is not set, the value is generated.')
     parser.add_argument('--profile-stage', action='store', choices=['ALPHA', 'BETA', 'STABLE'], default='STABLE',
                         help='Override the development stage of the generated profile. If the argument is not set, the value is set to "stable".')
+    parser.add_argument('--profile-required-profiles', action='store',
+                        help='Comma separated list of required profiles by the generated profile.')
     parser.add_argument('--mode', '-m', action='store', choices=['union', 'intersection'], default='intersection',
                         help='Mode of profile combination. If the argument is not set, the value is set to "intersection".')
           
@@ -728,6 +750,11 @@ if __name__ == '__main__':
         profile_names = args.input_profiles.split(',')
     else:
         profile_names = list()
+
+    if args.profile_required_profiles is not None:
+        required_profiles = args.profile_required_profiles.split(',')
+    else:
+        required_profiles = list()
 
     if args.profile_label is not None:
         profile_label = args.profile_label
@@ -790,5 +817,5 @@ if __name__ == '__main__':
         now = datetime.now()
         profile_date = str(now.year) + '-' + str(now.month).zfill(2) + '-' + str(now.day).zfill(2)
 
-    profile_merger.merge(jsons, profiles, profile_names, args.output_path, args.output_profile, args.profile_label, args.profile_desc, args.profile_api_version, profile_stage, profile_date, args.mode)
+    profile_merger.merge(jsons, profiles, profile_names, args.output_path, args.output_profile, args.profile_label, args.profile_desc, args.profile_api_version, profile_stage, profile_date, required_profiles, args.mode)
     

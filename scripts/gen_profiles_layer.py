@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
 # Copyright (c) 2021-2023 LunarG, Inc.
+# Copyright (c) 2023-2023 RasterGrid Kft.
 #
 # Licensed under the Apache License, Version 2.0 (the "License")
 # you may not use this file except in compliance with the License.
@@ -14,7 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author: Ziga Markus <ziga@lunarg.com>
+# Authors:
+# - Ziga Markus <ziga@lunarg.com>
+# - Christophe Riccio <christophe@lunarg.com>
 
 import gen_profiles_solution
 import argparse
@@ -72,6 +75,10 @@ INCLUDES_HEADER = '''
 #include "profiles_util.h"
 #include "profiles_json.h"
 #include "profiles_settings.h"
+#include <algorithm>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 '''
 
 GLOBAL_CONSTANTS = '''
@@ -100,8 +107,9 @@ const VkLayerProperties kLayerProperties[] = {{
 const uint32_t kLayerPropertiesCount = (sizeof(kLayerProperties) / sizeof(kLayerProperties[0]));
 
 // Instance extensions that this layer provides:
-const std::array<VkExtensionProperties, 0> kInstanceExtensionProperties = {};
-const uint32_t kInstanceExtensionPropertiesCount = static_cast<uint32_t>(kInstanceExtensionProperties.size());
+const VkExtensionProperties kInstanceExtensionProperties[] = {
+    VkExtensionProperties{VK_EXT_LAYER_SETTINGS_EXTENSION_NAME, VK_EXT_LAYER_SETTINGS_SPEC_VERSION}};
+const uint32_t kInstanceExtensionPropertiesCount = static_cast<uint32_t>(std::size(kInstanceExtensionProperties));
 
 // Device extensions that this layer provides:
 const std::array<VkExtensionProperties, 2> kDeviceExtensionProperties = {
@@ -243,8 +251,6 @@ class JsonLoader {
     JsonLoader()
         : layer_settings{},
           pdd_(nullptr),
-          profile_filename_(),
-          root_(Json::nullValue),
           profile_api_version_(0),
           excluded_extensions_(),
           excluded_formats_()
@@ -276,19 +282,21 @@ class JsonLoader {
         profile_map().erase(instance);
     }
 
-    VkResult LoadFile(std::string filename);
+    const Json::Value& FindRootFromProfileName(const std::string& profile_name) const;
+    VkResult LoadProfilesDatabase();
+    VkResult LoadFile(const std::string& filename);
     void ReadProfileApiVersion();
     VkResult LoadDevice(const char* device_name, PhysicalDeviceData *pdd);
     VkResult ReadProfile(const char* device_name, const Json::Value& root, const std::vector<std::vector<std::string>> &capabilities);
     uint32_t GetProfileApiVersion() const { return profile_api_version_; }
+    void CollectProfiles(const std::string& profile_name, std::vector<std::string>& results) const;
 
     ProfileLayerSettings layer_settings;
 
    private:
     PhysicalDeviceData *pdd_;
 
-    std::string profile_filename_;
-    Json::Value root_;
+    std::map<std::string, Json::Value> profiles_file_roots_;
 
     std::uint32_t profile_api_version_;
     std::vector<std::string> excluded_extensions_;
@@ -348,7 +356,7 @@ WARN_FUNCTIONS = '''
             if (not_modifiable) {
                 LogMessage(layer_settings, DEBUG_REPORT_WARNING_BIT,
                     "'%s' is not modifiable but the profile value (%s) is different from the device (%s) value (%s)\\n", cap_name, new_value ? "true" : "false", device_name, old_value ? "true" : "false");
-            } else {
+            } else if (new_value) {
                 LogMessage(layer_settings, DEBUG_REPORT_WARNING_BIT,
                     "'%s' profile value is enabled in the profile, but the device (%s) does not support it.\\n", cap_name, device_name);
             }
@@ -1146,7 +1154,7 @@ bool JsonLoader::GetQueueFamilyProperties(const char* device_name, const Json::V
                 dest->global_priority_properties_.priorities[i++] = StringToVkQueueGlobalPriorityKHR(feature.asString());
             }
             dest->global_priority_properties_.priorityCount = props["priorityCount"].asUInt();
-        } else if (name == "VkVideoQueueFamilyProperties2KHR") {
+        } else if (name == "VkQueueFamilyVideoPropertiesKHR") {
             for (const auto &feature : props["videoCodecOperations"]) {
                 dest->video_properties_.videoCodecOperations |= StringToVkVideoCodecOperationFlagsKHR(feature.asString());
             }
@@ -1216,7 +1224,7 @@ bool JsonLoader::GetQueueFamilyProperties(const char* device_name, const Json::V
                               dest->global_priority_properties_.priorityCount, priorities.c_str());
         }
         if (dest->video_properties_.videoCodecOperations > 0) {
-            message += format(", VkVideoQueueFamilyProperties2KHR [videoCodecOperations: %s]",
+            message += format(", VkQueueFamilyVideoPropertiesKHR [videoCodecOperations: %s]",
                               string_VkVideoCodecOperationFlagsKHR(dest->video_properties_.videoCodecOperations).c_str());
         }
         if (dest->checkpoint_properties_.checkpointExecutionStageMask > 0) {
@@ -1495,17 +1503,17 @@ VkResult JsonLoader::ReadProfile(const char *device_name, const Json::Value& roo
 
     if (properties_api_version != 0) {
         LogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT,
-            "VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32 ". Using the API version specified by the profile VkPhysicalDeviceProperties structure.\\n",
+            "- VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32 ". Using the API version specified by the profile VkPhysicalDeviceProperties structure.\\n",
             VK_API_VERSION_MAJOR(properties_api_version), VK_API_VERSION_MINOR(properties_api_version), VK_API_VERSION_PATCH(properties_api_version));
     } else if (layer_settings.simulate.capabilities & SIMULATE_API_VERSION_BIT) {
         LogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT,
-            "VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32". Using the API version specified by the profile.\\n",
+            "- VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32". Using the API version specified by the profile.\\n",
             VK_API_VERSION_MAJOR(this->profile_api_version_), VK_API_VERSION_MINOR(this->profile_api_version_), VK_API_VERSION_PATCH(this->profile_api_version_));
 
         pdd_->physical_device_properties_.apiVersion = this->profile_api_version_;
     } else {
         LogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT,
-            "VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32 ". Using the device version.\\n",
+            "- VkPhysicalDeviceProperties API version: %" PRIu32 ".%" PRIu32 ".%" PRIu32 ". Using the device version.\\n",
                 VK_API_VERSION_MAJOR(pdd_->physical_device_properties_.apiVersion),
                 VK_API_VERSION_MINOR(pdd_->physical_device_properties_.apiVersion),
                 VK_API_VERSION_PATCH(pdd_->physical_device_properties_.apiVersion));
@@ -1518,16 +1526,10 @@ VkResult JsonLoader::ReadProfile(const char *device_name, const Json::Value& roo
     return VK_SUCCESS;
 }
 
-VkResult JsonLoader::LoadFile(std::string filename) {
+VkResult JsonLoader::LoadFile(const std::string& filename) {
     LogMessage(&layer_settings, DEBUG_REPORT_DEBUG_BIT, "JsonLoader::LoadFile(\\"%s\\")\\n", filename.c_str());
 
-    profile_filename_ = filename;
     if (filename.empty()) {
-        if (!layer_settings.simulate.profile_name.empty()) {
-            LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
-                "Profile name is set to \\"%s\\", but profile_file is unset. The profile will not be loaded.\\n",
-                layer_settings.simulate.profile_name.c_str());
-        }
         return VK_SUCCESS;
     }
     std::ifstream json_file(filename);
@@ -1539,16 +1541,57 @@ VkResult JsonLoader::LoadFile(std::string filename) {
     Json::Value root = Json::nullValue;
     Json::CharReaderBuilder builder;
     std::string errs;
-    bool success = Json::parseFromStream(builder, json_file, &root_, &errs);
+    bool success = Json::parseFromStream(builder, json_file, &root, &errs);
     if (!success) {
         LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "Fail to parse file \\"%s\\" {\\n%s}\\n", filename.c_str(), errs.c_str());
         return layer_settings.log.debug_fail_on_error ? VK_ERROR_INITIALIZATION_FAILED : VK_SUCCESS;
     }
     json_file.close();
 
-    if (root_.type() != Json::objectValue) {
+    if (root.type() != Json::objectValue) {
         LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "Json document root is not an object in file \\"%s\\"\\n", filename.c_str());
         return layer_settings.log.debug_fail_on_error ? VK_ERROR_INITIALIZATION_FAILED : VK_SUCCESS;
+    }
+
+    if (layer_settings.simulate.profile_validation) {
+        JsonValidator validator;
+        if (!validator.Init()) {
+            LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
+                "%s could not find the profile schema file to validate filename. This operation requires the Vulkan SDK to be installed. Skipping profile file validation.",
+                kLayerName, filename.c_str());
+        } else if (!validator.Check(root)) {
+            LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT,
+                "%s is not a valid JSON profile file.", filename.c_str());
+            if (layer_settings.log.debug_fail_on_error) {
+                return VK_ERROR_INITIALIZATION_FAILED;
+            } else {
+                return VK_SUCCESS;
+            }
+        }
+    }
+
+    this->profiles_file_roots_.insert(std::pair(filename, root));
+
+    return VK_SUCCESS;
+}
+
+VkResult JsonLoader::LoadProfilesDatabase() {
+    if (!layer_settings.simulate.profile_file.empty()) {
+        VkResult result = this->LoadFile(layer_settings.simulate.profile_file);
+        if (result != VK_SUCCESS) {
+            return result;
+        }
+    }
+
+    for (std::size_t i = 0, n = layer_settings.simulate.profile_dirs.size(); i < n; ++i) {
+        const std::string& path = layer_settings.simulate.profile_dirs[i];
+
+      for (const auto& entry : fs::directory_iterator(path)) {
+          VkResult result = this->LoadFile(entry.path().generic_string());
+          if (result != VK_SUCCESS) {
+              continue;
+          }
+      }
     }
 
     ReadProfileApiVersion();
@@ -1556,9 +1599,24 @@ VkResult JsonLoader::LoadFile(std::string filename) {
     return VK_SUCCESS;
 }
 
+const Json::Value& JsonLoader::FindRootFromProfileName(const std::string& profile_name) const {
+    for (const auto& root : this->profiles_file_roots_) {
+        const Json::Value &profiles = root.second["profiles"];
+
+        bool found_profile = false;
+        for (const auto &profile : profiles.getMemberNames()) {
+            if (profile_name.empty() || profile_name == "${VP_DEFAULT}" || profile == profile_name) {
+                return root.second;
+            }
+        }
+    }
+
+    return Json::Value::nullSingleton();
+}
+
 void JsonLoader::ReadProfileApiVersion() {
     const std::string &profile_name = layer_settings.simulate.profile_name;
-    const Json::Value &profiles = root_["profiles"];
+    const Json::Value &profiles = FindRootFromProfileName(profile_name)["profiles"];
     bool found_profile = false;
     for (const auto &profile : profiles.getMemberNames()) {
         if (profile_name.empty() || profile_name == "${VP_DEFAULT}" || profile == profile_name) {
@@ -1596,113 +1654,146 @@ void JsonLoader::ReadProfileApiVersion() {
     }
 }
 
+void JsonLoader::CollectProfiles(const std::string& profile_name, std::vector<std::string>& results) const {
+    const auto &root = FindRootFromProfileName(profile_name);
+
+    if (root != Json::Value::nullSingleton()) {
+        const Json::Value &profiles = root["profiles"];
+        std::vector<std::vector<std::string>> capabilities;
+
+        bool found_profile = false;
+        for (const auto &profile : profiles.getMemberNames()) {
+            if (profile == profile_name) {
+                const auto &required_profiles = profiles[profile]["profiles"];
+
+                for (const auto &required_profile : required_profiles) {
+                    this->CollectProfiles(required_profile.asString().c_str(), results);
+                }
+
+                break;  // load a single profile
+            }
+        }
+    }
+
+    results.push_back(profile_name);
+}
+
 VkResult JsonLoader::LoadDevice(const char* device_name, PhysicalDeviceData *pdd) {
     pdd_ = pdd;
 
-    const std::string &profile_name = layer_settings.simulate.profile_name;
-    const Json::Value &profiles = root_["profiles"];
-    std::vector<std::vector<std::string>> capabilities;
+    const std::string &requested_profile_name = layer_settings.simulate.profile_name;
 
-    bool found_profile = false;
-    for (const auto &profile : profiles.getMemberNames()) {
-        if (profile_name.empty() || profile_name == "${VP_DEFAULT}" || profile == profile_name) {
-            const auto &caps = profiles[profile]["capabilities"];
-
-            for (const auto &cap : caps) {
-                std::vector<std::string> cap_variants;
-                if (cap.isArray()) {
-                    for (const auto &cap_variant : cap) {
-                        cap_variants.push_back(cap_variant.asString());
-                    }
-                } else {
-                    cap_variants.push_back(cap.asString());
-                }
-                capabilities.push_back(cap_variants);
-            }
-
-            found_profile = true;
-            LogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT, "Overriding device capabilities with \\"%s\\" profile capabilities.\\n", profile.c_str());
-            break;  // load a single profile
-        }
-    }
-    if (!found_profile) {
-        for (const auto &profile : profiles.getMemberNames()) {
-            const auto &caps = profiles[profile]["capabilities"];
-
-            for (const auto &cap : caps) {
-                std::vector<std::string> cap_variants;
-                if (cap.isArray()) {
-                    for (const auto &cap_variant : cap) {
-                        cap_variants.push_back(cap_variant.asString());
-                    }
-                } else {
-                    cap_variants.push_back(cap.asString());
-                }
-                capabilities.push_back(cap_variants);
-            }
-
-            LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
-                "\\"%s\\" profile could not be found in \\"%s\\" file. Loading the default \\"%s\\" profile of the file.\\n",
-                    layer_settings.simulate.profile_name.c_str(), layer_settings.simulate.profile_file.c_str(), profile.c_str());
-
-            break; // Systematically load the first and default profile
-        }
-    }
-
-    if (capabilities.empty()) {
+    if (this->profiles_file_roots_.empty() && (requested_profile_name.empty() || requested_profile_name == "${VP_DEFAULT}")) {
         return VK_SUCCESS;
     }
 
-    const Json::Value schema_value = root_["$schema"];
-    if (!schema_value.isString()) {
-        LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "JSON element \\"$schema\\" is not a string\\n");
-        return layer_settings.log.debug_fail_on_error ? VK_ERROR_INITIALIZATION_FAILED : VK_SUCCESS;
-    }
+    VkResult result = VK_SUCCESS;
 
-    const std::string schema = schema_value.asCString();
-    if (schema.find(SCHEMA_URI_BASE) == std::string::npos) {
-        LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "Document schema \\"%s\\" not supported by %s\\n", schema.c_str(), kLayerName);
-        return layer_settings.log.debug_fail_on_error ? VK_ERROR_INITIALIZATION_FAILED : VK_SUCCESS;
-    }
+    std::vector<std::string> required_profiles;
+    CollectProfiles(requested_profile_name, required_profiles);
 
-    const std::size_t size_schema = schema.size();
-    const std::size_t size_base = std::strlen(SCHEMA_URI_BASE);
-    const std::size_t size_version = std::strlen(".json#");
-    const std::string version = schema.substr(size_base, size_schema - size_base - size_version);
+    for (const std::string& profile_name : required_profiles) {
+        const auto& root = FindRootFromProfileName(profile_name);
 
-    uint32_t version_major = 0;
-    uint32_t version_minor = 0;
-    uint32_t version_patch = 0;
-    std::sscanf(version.c_str(), "%d.%d.%d", &version_major, &version_minor, &version_patch);
-    if (VK_HEADER_VERSION < version_patch) {
-        LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
-                   "%s is built against Vulkan Header %d but the profile is written against Vulkan "
-                          "Header %d.\\n\\t- All newer capabilities in the "
-                          "profile will be ignored by the layer.\\n",
-                          kLayerName, VK_HEADER_VERSION, version_patch);
-    } else if (layer_settings.simulate.profile_validation) {
-        JsonValidator validator;
-        if (!validator.Init()) {
-            LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
-                       "%s could not find the profile schema file to validate filename.\\n\\t- This "
-                              "operation requires the Vulkan SDK to be installed.\\n\\t- Skipping profile file validation.",
-                              kLayerName, profile_filename_.c_str());
-        } else if (!validator.Check(root_)) {
-            LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "%s is not a valid JSON profile file.\\n", profile_filename_.c_str());
-            if (layer_settings.log.debug_fail_on_error) {
-                return VK_ERROR_INITIALIZATION_FAILED;
-            } else {
+        if (root == Json::Value::nullSingleton()) {
+            result = VK_ERROR_UNKNOWN;
+        } else {
+            const Json::Value &profiles = root["profiles"];
+            std::vector<std::vector<std::string>> capabilities;
+
+            bool found_profile = false;
+            for (const auto &profile : profiles.getMemberNames()) {
+                if (profile_name.empty() || profile_name == "${VP_DEFAULT}" || profile == profile_name) {
+                    const auto &caps = profiles[profile]["capabilities"];
+
+                    for (const auto &cap : caps) {
+                        std::vector<std::string> cap_variants;
+                        if (cap.isArray()) {
+                            for (const auto &cap_variant : cap) {
+                                cap_variants.push_back(cap_variant.asString());
+                            }
+                        } else {
+                            cap_variants.push_back(cap.asString());
+                        }
+                        capabilities.push_back(cap_variants);
+                    }
+
+                    found_profile = true;
+                    LogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT,
+                        "- Overriding device capabilities with \'%s\' profile capabilities.\\n", profile.c_str());
+                    break;  // load a single profile
+                }
+            }
+            if (!found_profile) {
+                for (const auto &profile : profiles.getMemberNames()) {
+                    const auto &caps = profiles[profile]["capabilities"];
+
+                    for (const auto &cap : caps) {
+                        std::vector<std::string> cap_variants;
+                        if (cap.isArray()) {
+                            for (const auto &cap_variant : cap) {
+                                cap_variants.push_back(cap_variant.asString());
+                            }
+                        } else {
+                            cap_variants.push_back(cap.asString());
+                        }
+                        capabilities.push_back(cap_variants);
+                    }
+
+                    LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
+                        "\\"%s\\" profile could not be found in \\"%s\\" file. Loading the default \\"%s\\" profile of the file.\\n",
+                            layer_settings.simulate.profile_name.c_str(), layer_settings.simulate.profile_file.c_str(), profile.c_str());
+
+                    break; // Systematically load the first and default profile
+                }
+            }
+
+            if (capabilities.empty()) {
                 return VK_SUCCESS;
             }
+
+            const Json::Value schema_value = root["$schema"];
+            if (!schema_value.isString()) {
+                LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "JSON element \\"$schema\\" is not a string\\n");
+                return layer_settings.log.debug_fail_on_error ? VK_ERROR_INITIALIZATION_FAILED : VK_SUCCESS;
+            }
+
+            const std::string schema = schema_value.asCString();
+            if (schema.find(SCHEMA_URI_BASE) == std::string::npos) {
+                LogMessage(&layer_settings, DEBUG_REPORT_ERROR_BIT, "Document schema \\"%s\\" not supported by %s\\n", schema.c_str(), kLayerName);
+                return layer_settings.log.debug_fail_on_error ? VK_ERROR_INITIALIZATION_FAILED : VK_SUCCESS;
+            }
+
+            const std::size_t size_schema = schema.size();
+            const std::size_t size_base = std::strlen(SCHEMA_URI_BASE);
+            const std::size_t size_version = std::strlen(".json#");
+            const std::string version = schema.substr(size_base, size_schema - size_base - size_version);
+
+            uint32_t version_major = 0;
+            uint32_t version_minor = 0;
+            uint32_t version_patch = 0;
+            std::sscanf(version.c_str(), "%d.%d.%d", &version_major, &version_minor, &version_patch);
+            if (VK_HEADER_VERSION < version_patch) {
+                LogMessage(&layer_settings, DEBUG_REPORT_WARNING_BIT,
+                    "%s is built against Vulkan Header %d but the profile is written against Vulkan Header %d.\\n\\t- All newer capabilities in the profile will be ignored by the layer.\\n",
+                    kLayerName, VK_HEADER_VERSION, version_patch);
+            }
+
+            VkResult tmp_result = VK_SUCCESS;
+            if (layer_settings.simulate.capabilities & SIMULATE_EXTENSIONS_BIT) {
+                pdd_->simulation_extensions_.clear();
+            }
+
+            tmp_result = ReadProfile(device_name, root, capabilities);
+            if (tmp_result != VK_SUCCESS) {
+                result = tmp_result;
+            }
+        }
+
+        if (result != VK_SUCCESS) {
+            break;
         }
     }
-
-    VkResult result = VK_SUCCESS;
-    if (layer_settings.simulate.capabilities & SIMULATE_EXTENSIONS_BIT) {
-        pdd_->simulation_extensions_.clear();
-    }
-
-    result = ReadProfile(device_name, root_, capabilities);
 
     return result;
 }
@@ -1771,7 +1862,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     LogMessage(layer_settings, DEBUG_REPORT_NOTIFICATION_BIT, "%s version %d.%d.%d\\n", kLayerName, kVersionProfilesMajor,
                                                        kVersionProfilesMinor, kVersionProfilesPatch);
 
-    VkResult result = json_loader.LoadFile(layer_settings->simulate.profile_file);
+    VkResult result = json_loader.LoadProfilesDatabase();
     if (result != VK_SUCCESS) {
         return result;
     }
@@ -1790,7 +1881,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     }
 
     bool changed_version = false;
-    if (!layer_settings->simulate.profile_file.empty()) {
+    if (!layer_settings->simulate.profile_file.empty() || layer_settings->simulate.profile_dirs.empty()) {
         const uint32_t profile_api_version = json_loader.GetProfileApiVersion();
         if (VK_API_VERSION_MAJOR(requested_version) < VK_API_VERSION_MAJOR(profile_api_version) ||
             VK_API_VERSION_MINOR(requested_version) < VK_API_VERSION_MINOR(profile_api_version)) {
@@ -2034,7 +2125,7 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceLayerProperties(uint32_t *pCount
 VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,
                                                                     VkExtensionProperties *pProperties) {
     if (pLayerName && !strcmp(pLayerName, kLayerName)) {
-        return EnumerateProperties(kInstanceExtensionPropertiesCount, kInstanceExtensionProperties.data(), pCount, pProperties);
+        return EnumerateProperties(kInstanceExtensionPropertiesCount, kInstanceExtensionProperties, pCount, pProperties);
     }
     return VK_ERROR_LAYER_NOT_PRESENT;
 }
@@ -2066,11 +2157,11 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevi
     if (result == VK_SUCCESS && !pLayerName && layer_settings->simulate.emulate_portability &&
         !PhysicalDeviceData::HasSimulatedOrRealExtension(physicalDevice, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)) {
         if (pProperties) {
-            if (pCount_copy == *pCount + 1) {
-                *pCount = pCount_copy;
+            if (pCount_copy >= *pCount + 1) {
+                strncpy(pProperties[*pCount].extensionName, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, VK_MAX_EXTENSION_NAME_SIZE);
+                pProperties[*pCount].specVersion = VK_KHR_PORTABILITY_SUBSET_SPEC_VERSION;
+                *pCount += 1;
             }
-            strncpy(pProperties[(*pCount) - 1].extensionName, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, VK_MAX_EXTENSION_NAME_SIZE);
-            pProperties[(*pCount) - 1].specVersion = VK_KHR_PORTABILITY_SUBSET_SPEC_VERSION;
         } else {
             *pCount += 1;
         }
@@ -2118,7 +2209,7 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysical
     PhysicalDeviceData *pdd = PhysicalDeviceData::Find(physicalDevice);
     const uint32_t src_count = (pdd) ? static_cast<uint32_t>(pdd->arrayof_queue_family_properties_.size()) : 0;
     if (src_count == 0) {
-        dt->GetPhysicalDeviceQueueFamilyProperties2KHR(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties2);
+        dt->GetPhysicalDeviceQueueFamilyProperties2(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties2);
         return;
     }
 
@@ -2248,7 +2339,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceImageFormatProperties2KHR(
     VkImageFormatProperties2KHR *pImageFormatProperties) {
     std::lock_guard<std::recursive_mutex> lock(global_lock);
     const auto dt = instance_dispatch_table(physicalDevice);
-    dt->GetPhysicalDeviceImageFormatProperties2KHR(physicalDevice, pImageFormatInfo, pImageFormatProperties);
+    dt->GetPhysicalDeviceImageFormatProperties2(physicalDevice, pImageFormatInfo, pImageFormatProperties);
     return GetPhysicalDeviceImageFormatProperties(physicalDevice, pImageFormatInfo->format, pImageFormatInfo->type,
                                                   pImageFormatInfo->tiling, pImageFormatInfo->usage, pImageFormatInfo->flags,
                                                   &pImageFormatProperties->imageFormatProperties);
@@ -2284,7 +2375,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceToolPropertiesEXT(VkPhysicalDevi
         (*pToolCount)--;
     }
 
-    VkLayerInstanceDispatchTable *pInstanceTable = instance_dispatch_table(physicalDevice);
+    VkuInstanceDispatchTable *pInstanceTable = instance_dispatch_table(physicalDevice);
     VkResult result = pInstanceTable->GetPhysicalDeviceToolPropertiesEXT(physicalDevice, pToolCount, pToolProperties);
 
     if (original_pToolProperties != nullptr) {
@@ -2329,7 +2420,11 @@ LOAD_QUEUE_FAMILY_PROPERTIES = '''
 void LoadQueueFamilyProperties(VkInstance instance, VkPhysicalDevice pd, PhysicalDeviceData *pdd) {
     const auto dt = instance_dispatch_table(instance);
     uint32_t count = 0;
-    dt->GetPhysicalDeviceQueueFamilyProperties2KHR(pd, &count, nullptr);
+    if (pdd->GetEffectiveVersion() >= VK_API_VERSION_1_1) {
+        dt->GetPhysicalDeviceQueueFamilyProperties2(pd, &count, nullptr);
+    } else {
+        dt->GetPhysicalDeviceQueueFamilyProperties2KHR(pd, &count, nullptr);
+    }
     if (count > 0) {
         pdd->device_queue_family_properties_.resize(count);
         std::vector<void *> pNext(count);
@@ -2363,7 +2458,11 @@ void LoadQueueFamilyProperties(VkInstance instance, VkPhysicalDevice pd, Physica
             pdd->device_queue_family_properties_[i].properties_2.pNext = pNext[i];
             props[i] = pdd->device_queue_family_properties_[i].properties_2;
         }
-        dt->GetPhysicalDeviceQueueFamilyProperties2KHR(pd, &count, props.data());
+        if (pdd->GetEffectiveVersion() >= VK_API_VERSION_1_1) {
+            dt->GetPhysicalDeviceQueueFamilyProperties2(pd, &count, props.data());
+        } else {
+            dt->GetPhysicalDeviceQueueFamilyProperties2KHR(pd, &count, props.data());
+        }
         for (uint32_t i = 0; i < count; ++i) {
             pdd->device_queue_family_properties_[i].properties_2 = props[i];
         }
@@ -2548,18 +2647,18 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
 '''
 
 ENUMERATE_PHYSICAL_DEVICES_MIDDLE = '''
-                if (VK_API_VERSION_MINOR(pdd.GetEffectiveVersion())) {
+                if (pdd.GetEffectiveVersion() >= VK_API_VERSION_1_1) {
                     dt->GetPhysicalDeviceProperties2(physical_device, &property_chain);
                     if (layer_settings->simulate.default_feature_values == DEFAULT_FEATURE_VALUES_DEVICE) {
                         dt->GetPhysicalDeviceFeatures2(physical_device, &feature_chain);
                     }
                     dt->GetPhysicalDeviceMemoryProperties2(physical_device, &memory_chain);
                 } else {
-                    dt->GetPhysicalDeviceProperties2KHR(physical_device, &property_chain);
+                    dt->GetPhysicalDeviceProperties2(physical_device, &property_chain);
                     if (layer_settings->simulate.default_feature_values == DEFAULT_FEATURE_VALUES_DEVICE) {
-                        dt->GetPhysicalDeviceFeatures2KHR(physical_device, &feature_chain);
+                        dt->GetPhysicalDeviceFeatures2(physical_device, &feature_chain);
                     }
-                    dt->GetPhysicalDeviceMemoryProperties2KHR(physical_device, &memory_chain);
+                    dt->GetPhysicalDeviceMemoryProperties2(physical_device, &memory_chain);
                 }
 
                 pdd.physical_device_properties_ = property_chain.properties;
@@ -2780,6 +2879,32 @@ class VulkanProfilesLayerGenerator():
             f.write(self.generate_enumerate_physical_device())
             f.write(GET_INSTANCE_PROC_ADDR)
 
+    def struct_or_extension_platform(self, struct_or_ext_name):
+        if struct_or_ext_name is None:
+            return None
+        if struct_or_ext_name in self.registry.structs:
+            if self.registry.structs[struct_or_ext_name].definedByVersion:
+                # Structure defined by a core version, not platform-specific
+                return None
+            else:
+                # Structure defined by an extension, use extension name to continue the search
+                struct_or_ext_name = self.registry.structs[struct_or_ext_name].definedByExtensions[0]
+        return self.registry.extensions[struct_or_ext_name].platform
+
+    def generate_platform_protect_begin(self, struct_or_ext_name):
+        platform = self.struct_or_extension_platform(struct_or_ext_name)
+        if platform:
+            return '#ifdef ' + self.registry.platforms[platform].protect + '\n'
+        else:
+            return ''
+
+    def generate_platform_protect_end(self, struct_or_ext_name):
+        platform = self.struct_or_extension_platform(struct_or_ext_name)
+        if platform:
+            return '#endif // ' + self.registry.platforms[platform].protect + '\n'
+        else:
+            return ''
+
     def generate_helpers(self):
         gen = self.generate_string_to_enum('SimulateCapabilityFlags', ('SIMULATE_API_VERSION_BIT', 'SIMULATE_FEATURES_BIT', 'SIMULATE_PROPERTIES_BIT', 'SIMULATE_EXTENSIONS_BIT', 'SIMULATE_FORMATS_BIT', 'SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT', 'SIMULATE_MAX_ENUM'))
         gen += self.generate_enum_to_string('SimulateCapabilityFlags', ('SIMULATE_API_VERSION_BIT', 'SIMULATE_FEATURES_BIT', 'SIMULATE_PROPERTIES_BIT', 'SIMULATE_EXTENSIONS_BIT', 'SIMULATE_FORMATS_BIT', 'SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT'), 'GetSimulateCapabilitiesLog')
@@ -2794,7 +2919,7 @@ class VulkanProfilesLayerGenerator():
 
         gen += self.generate_string_to_image_layout(registry.enums['VkImageLayout'].values)
 
-        gen += self.generate_string_to_uint(('VkToolPurposeFlagBits', 'VkSampleCountFlagBits', 'VkResolveModeFlagBits', 'VkShaderStageFlagBits', 'VkSubgroupFeatureFlagBits', 'VkShaderFloatControlsIndependence', 'VkPointClippingBehavior', 'VkOpticalFlowGridSizeFlagBitsNV', 'VkQueueFlagBits', 'VkMemoryDecompressionMethodFlagBitsNV'), registry.enums)
+        gen += self.generate_string_to_uint(('VkToolPurposeFlagBits', 'VkSampleCountFlagBits', 'VkResolveModeFlagBits', 'VkShaderStageFlagBits', 'VkSubgroupFeatureFlagBits', 'VkShaderFloatControlsIndependence', 'VkPointClippingBehavior', 'VkOpticalFlowGridSizeFlagBitsNV', 'VkQueueFlagBits', 'VkMemoryDecompressionMethodFlagBitsNV', 'VkLayeredDriverUnderlyingApiMSFT', 'VkImageUsageFlagBits', 'VkBufferUsageFlagBits', 'VkPhysicalDeviceSchedulingControlsFlagBitsARM'), registry.enums)
 
         gen += self.generate_string_to_flag_functions(('VkToolPurposeFlags', 'VkFormatFeatureFlags', 'VkQueueFlags', 'VkQueueGlobalPriorityKHR', 'VkVideoCodecOperationFlagsKHR', 'VkPipelineStageFlags', 'VkPipelineStageFlags2', 'VkFormatFeatureFlags2'))
 
@@ -2804,33 +2929,41 @@ class VulkanProfilesLayerGenerator():
         gen = PHYSICAL_DEVICE_DATA_BEGIN
         gen += '\n    // Core properties\n'
         for property in self.non_extension_properties:
-            gen += '    ' + property + ' ' + self.create_var_name(property) + ';\n'
+            typename = self.registry.getNonAliasTypeName(property, self.registry.structs)
+            gen += '    ' + typename + ' ' + self.create_var_name(property) + ';\n'
 
         gen += '\n    // Core features\n'
         for feature in self.non_extension_features:
-            gen += '    ' + feature + ' ' + self.create_var_name(feature) + ';\n'
+            typename = self.registry.getNonAliasTypeName(feature, self.registry.structs)
+            gen += '    ' + typename + ' ' + self.create_var_name(feature) + ';\n'
 
         for ext, properties, features in self.extension_structs:
             gen += '\n    // ' + ext + ' structs\n'
+            gen += self.generate_platform_protect_begin(ext)
             for property in properties:
                 gen += '    ' + property + ' ' + self.create_var_name(property) + ';\n'
             for feature in features:
                 gen += '    ' + feature + ' ' + self.create_var_name(feature) + ';\n'
+            gen += self.generate_platform_protect_end(ext)
 
         gen += PHYSICAL_DEVICE_DATA_CONSTRUCTOR_BEGIN
 
         gen += '\n        // Core properties\n'
         for property in self.non_extension_properties:
-            gen += '        ' + self.create_var_name(property) + ' = { ' + registry.structs[property].sType +  ' };\n'
+            stype = self.registry.structs[self.registry.getNonAliasTypeName(property, self.registry.structs)].sType
+            gen += '        ' + self.create_var_name(property) + ' = { ' + stype +  ' };\n'
         gen += '\n        // Core features\n'
         for feature in self.non_extension_features:
-            gen += '        ' + self.create_var_name(feature) + ' = { ' + registry.structs[feature].sType +  ' };\n'
+            stype = self.registry.structs[self.registry.getNonAliasTypeName(feature, self.registry.structs)].sType
+            gen += '        ' + self.create_var_name(feature) + ' = { ' + stype +  ' };\n'
         for ext, properties, features in self.extension_structs:
             gen += '\n        // ' + ext + ' structs\n'
+            gen += self.generate_platform_protect_begin(ext)
             for property in properties:
                 gen += '        ' + self.create_var_name(property) + ' = {' + registry.structs[property].sType +  '};\n'
             for feature in features:
                 gen += '        ' + self.create_var_name(feature) + ' = {' + registry.structs[feature].sType +  '};\n'
+            gen += self.generate_platform_protect_end(ext)
 
         gen += PHYSICAL_DEVICE_DATA_END
 
@@ -2938,6 +3071,8 @@ class VulkanProfilesLayerGenerator():
         first = True
         count = 0
         for name, value  in registry.structs.items():
+            if name == 'VkPhysicalDeviceHostImageCopyPropertiesEXT' or name == 'VkPhysicalDeviceHostImageCopyFeaturesEXT':
+                continue
             if (extends in value.extends and value.isAlias == False) or (name in additional):
                 aliases = value.aliases.copy()
                 count += 1
@@ -2966,9 +3101,10 @@ class VulkanProfilesLayerGenerator():
                     version = registry.structs[current].definedByVersion
                     if version:
                         if version and (version.major != 1 or version.minor != 0):
-                            gen += '        if (!CheckVersionSupport(' + registry.structs[current].definedByVersion.get_api_version_string() + ', name)) return false;\n'
+                            gen += '        if (!CheckVersionSupport(' + registry.structs[current].definedByVersion.versionMacro + ', name)) return false;\n'
                     else:
                         ext = registry.extensions[registry.structs[current].definedByExtensions[0]]
+                        gen += self.generate_platform_protect_begin(ext.name)
                         if not ext.name in self.emulated_extensions:
                             ext_name = ext.upperCaseName + '_EXTENSION_NAME'
                             gen += '        auto support = CheckExtensionSupport(' + ext_name + ', name);\n'
@@ -2980,6 +3116,10 @@ class VulkanProfilesLayerGenerator():
                         gen += '        return GetStruct(device_name, ' + struct + ', &pdd_->physical_device_properties_.sparseProperties);\n'
                     else:
                         gen += '        return GetStruct(device_name, ' + struct + ', &pdd_->' + self.create_var_name(current) + ');\n'
+
+                    if self.struct_or_extension_platform(current):
+                        gen += '#else\n        return false;\n'
+                        gen += self.generate_platform_protect_end(ext.name)
 
                     gen += '    }'
         return gen
@@ -3034,7 +3174,7 @@ class VulkanProfilesLayerGenerator():
         gen += '\tconst uint32_t minor = VK_API_VERSION_MINOR(api_version);\n'
         gen += '\tconst uint32_t major = VK_API_VERSION_MAJOR(api_version);\n'
         gen += '\tLogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT,\n'
-        gen += '\t\"Adding promoted extensions to core in Vulkan (%" PRIu32 ".%" PRIu32 ").\\n", major, minor);\n\n'
+        gen += '\t\"- Adding promoted extensions to core in Vulkan (%" PRIu32 ".%" PRIu32 ").\\n", major, minor);\n\n'
 
         for i in range(registry.headerVersionNumber.major):
             major = str(i + 1)
@@ -3043,7 +3183,7 @@ class VulkanProfilesLayerGenerator():
                 gen += '    static const std::vector<const char *> promoted_' + major + '_' + minor + ' = {\n'
                 for ext in registry.extensions:
                     extension = registry.extensions[ext]
-                    if extension.promotedTo == 'VK_VERSION_' + major + '_' + minor:
+                    if 'VK_VERSION_' + major + '_' + minor in extension.promotedTo:
                         gen += '        ' + extension.upperCaseName + '_EXTENSION_NAME,\n'
                 gen += '    };\n'
                 gen += '    if (api_version >= VK_API_VERSION_' + major + '_' + minor + ') {\n'
@@ -3091,7 +3231,7 @@ class VulkanProfilesLayerGenerator():
 
     def generate_fill_physical_device_pnext_chain(self):
         gen = '\nvoid FillPNextChain(PhysicalDeviceData *physicalDeviceData, void *place) {\n'
-        gen += '    ProfileLayerSettings *layer_settings = &JsonLoader::Find(physicalDeviceData->instance())->layer_settings;'
+        gen += '    ProfileLayerSettings *layer_settings = &JsonLoader::Find(physicalDeviceData->instance())->layer_settings;\n'
         gen += '    while (place) {\n'
         gen += '        VkBaseOutStructure *structure = (VkBaseOutStructure *)place;\n\n'
         gen += '        // These switch statements check which struct is in the pNext chain and, if the physical device has the proper extension,\n'
@@ -3116,6 +3256,7 @@ class VulkanProfilesLayerGenerator():
         for feature in self.non_extension_features:
             gen += self.generate_fill_case(feature)
         for ext, properties, features in self.extension_structs:
+            gen += self.generate_platform_protect_begin(ext)
             for property in properties:
                 # exception, already handled above
                 if property == 'VkPhysicalDevicePortabilitySubsetPropertiesKHR':
@@ -3123,6 +3264,7 @@ class VulkanProfilesLayerGenerator():
                 gen += self.generate_fill_case(property)
             for feature in features:
                 gen += self.generate_fill_case(feature)
+            gen += self.generate_platform_protect_end(ext)
 
         gen += '            default:\n'
         gen += '                break;\n'
@@ -3283,11 +3425,12 @@ class VulkanProfilesLayerGenerator():
         return gen
 
     def generate_physical_device_chain_case(self, ext, version, property_names, feature_names):
+        gen = self.generate_platform_protect_begin(ext)
         if ext:
             ext_name = registry.extensions[ext].upperCaseName
-            gen = '\n                if (PhysicalDeviceData::HasExtension(&pdd, ' + ext_name + '_EXTENSION_NAME)) {\n'
+            gen += '\n                if (PhysicalDeviceData::HasExtension(&pdd, ' + ext_name + '_EXTENSION_NAME)) {\n'
         else:
-            gen = '\n                if (api_version_above_' + str(version.major) + '_' + str(version.minor) + ') {\n'
+            gen += '\n                if (api_version_above_' + str(version.major) + '_' + str(version.minor) + ') {\n'
         for property_name in property_names:
             name = self.create_var_name(property_name)
             gen += '                    pdd.' + name + '.pNext = property_chain.pNext;\n\n'
@@ -3297,6 +3440,7 @@ class VulkanProfilesLayerGenerator():
             gen += '                    pdd.' + name + '.pNext = feature_chain.pNext;\n\n'
             gen += '                    feature_chain.pNext = &(pdd.' + name + ');\n'
         gen += '                }\n'
+        gen += self.generate_platform_protect_end(ext)
         return gen
 
     def generate_transfer_function(self, major, minor, type, name):
@@ -3323,8 +3467,7 @@ class VulkanProfilesLayerGenerator():
                     first = False
                 else:
                     gen += ' && '
-                promotedTo = ext
-                while promotedTo != None and promotedTo in registry.extensions:
+                for promotedTo in [ext] + registry.getExtensionPromotedToExtensionList(ext):
                     if promotedTo != ext:
                         gen += ' || '
                     else:
@@ -3332,11 +3475,10 @@ class VulkanProfilesLayerGenerator():
                     gen += 'PhysicalDeviceData::HasSimulatedExtension(physicalDeviceData, '
                     gen += registry.extensions[promotedTo].upperCaseName + '_EXTENSION_NAME'
                     gen += ')'
-                    promotedTo = registry.extensions[promotedTo].promotedTo
                 gen += ')'
             gen += ') '
         elif structure.definedByVersion and (structure.definedByVersion.major != 1 or structure.definedByVersion.minor != 0):
-            gen += 'if (physicalDeviceData->GetEffectiveVersion() >= ' + structure.definedByVersion.get_api_version_string() + ') '
+            gen += 'if (physicalDeviceData->GetEffectiveVersion() >= ' + structure.definedByVersion.versionMacro + ') '
         gen += '{\n'
         gen += '                    ' + structure.name + ' *data = (' + structure.name + ' *)place;\n'
         gen += '                    void *pNext = data->pNext;\n'
@@ -3347,7 +3489,8 @@ class VulkanProfilesLayerGenerator():
         return gen
 
     def generate_get_value_function(self, structure):
-        gen = 'bool JsonLoader::GetStruct(const char* device_name, const Json::Value &parent, ' + structure + ' *dest) {\n'
+        gen = self.generate_platform_protect_begin(structure)
+        gen += 'bool JsonLoader::GetStruct(const char* device_name, const Json::Value &parent, ' + structure + ' *dest) {\n'
         gen += '    (void)dest;\n'
         gen += '    LogMessage(&layer_settings, DEBUG_REPORT_DEBUG_BIT, \"\\tJsonLoader::GetStruct(' + structure + ')\\n\");\n'
         gen += '    bool valid = true;\n'
@@ -3418,6 +3561,7 @@ class VulkanProfilesLayerGenerator():
         gen += '    }\n'
         gen += '    return valid;\n'
         gen += '}\n\n'
+        gen += self.generate_platform_protect_end(structure)
         return gen
 
     def get_read_from_type(self, type):
@@ -3432,7 +3576,7 @@ class VulkanProfilesLayerGenerator():
             if value.name[len('VkPhysicalDeviceVulkan'):][:2].isdigit():
                 return None
         if value.definedByVersion:
-            promoted = 'VkPhysicalDeviceVulkan' + value.definedByVersion.define[11:].replace('_', '')
+            promoted = 'VkPhysicalDeviceVulkan' + value.definedByVersion.versionStructSuffic
             if (('VkPhysicalDeviceProperties2' in value.extends)):
                 promoted += 'Properties'
             else:
@@ -3448,12 +3592,14 @@ class VulkanProfilesLayerGenerator():
         for feature in self.non_extension_features:
             gen += '    bool GetStruct(const char* device_name, const Json::Value &parent, ' + feature + ' *dest);\n'
         for ext, properties, features in self.extension_structs:
+            gen += self.generate_platform_protect_begin(ext)
             for property in properties:
                 if property != 'VkPhysicalDevicePortabilitySubsetPropertiesKHR':
                     gen += '    bool GetStruct(const char* device_name, const Json::Value &parent, ' + property + ' *dest);\n'
             for feature in features:
                 if feature != 'VkPhysicalDevicePortabilitySubsetFeaturesKHR':
                     gen += '    bool GetStruct(const char* device_name, const Json::Value &parent, ' + feature + ' *dest);\n'
+            gen += self.generate_platform_protect_end(ext)
         for struct in self.additional_features:
             gen += '    bool GetStruct(const char* device_name, const Json::Value &parent, ' + struct + ' *dest);\n'
         for struct in self.additional_properties:
@@ -3540,6 +3686,7 @@ class VulkanProfilesLayerGenerator():
     def create_var_name(self, struct):
         nv = struct.endswith("NV")
         arm = struct.endswith("ARM")
+        ext = struct.endswith("EXT")
         var_name = ''
         while struct[-1].isupper():
             struct = struct[:-1]
@@ -3568,6 +3715,8 @@ class VulkanProfilesLayerGenerator():
             var_name += 'nv_'
         if (var_name == 'physical_device_shader_core_properties_' and arm):
             var_name += 'arm_'
+        if (var_name == 'physical_device_vertex_attribute_divisor_properties_' and ext):
+            var_name += 'ext_'
         return var_name
 
     def get_non_aliased_list(self, list, aliases):
@@ -3581,6 +3730,8 @@ class VulkanProfilesLayerGenerator():
         gen = '\nstatic uint32_t VkStringToUint(const std::string &input_value) {\n'
         gen += '    static const std::unordered_map<std::string, uint32_t> map = {\n'
         for list in lists:
+            if list not in enums:
+                continue
             gen += '        // ' + list + '\n'
             for enum in enums[list].values:
                 gen += '        {\"' + enum + '\", static_cast<uint32_t>(' + enum + ')},\n'
@@ -3698,20 +3849,24 @@ class VulkanProfilesLayerGenerator():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-registry', action='store', help='Use specified registry file instead of vk.xml')
-    parser.add_argument('-outLayer', action='store', help='Output the layer source file')
+    parser.add_argument('--api', action='store',
+                        default='vulkan',
+                        choices=['vulkan'],
+                        help="Target API")
+    parser.add_argument('--registry', '-r', action='store', help='Use specified registry file instead of vk.xml')
+    parser.add_argument('--out-layer', action='store', help='Output the layer source file')
 
     args = parser.parse_args()
 
-    registryPath  = './external/Vulkan-Headers/build/install/share/vulkan/registry/vk.xml'
+    registryPath  = '../external/Debug/Vulkan-Headers/build/install/share/vulkan/registry/vk.xml'
     if args.registry is not None:
         registryPath = args.registry
 
-    outputPath = "./layer/profiles.cpp"
-    if args.outLayer is not None:
-        outputPath = args.outLayer
+    outputPath = "../layer/profiles_generated.cpp"
+    if args.out_layer is not None:
+        outputPath = args.out_layer
 
-    registry = gen_profiles_solution.VulkanRegistry(registryPath)
+    registry = gen_profiles_solution.VulkanRegistry(registryPath, args.api)
 
     generator = VulkanProfilesLayerGenerator()
     generator.generate(outputPath, registry)

@@ -58,8 +58,8 @@ TEST(mocked_api_get_instance_profile_support, vulkan10_no_gpdp2) {
 
 #if WITH_DEBUG_MESSAGES
     MockDebugMessageCallback cb({
-        "Unsupported extension: VK_KHR_get_physical_device_properties2",
-        "Unsupported mandatory extension VK_KHR_get_physical_device_properties2 on Vulkan 1.0"
+        "Unsupported mandatory extension VK_KHR_get_physical_device_properties2 on Vulkan 1.0",
+        "Unsupported extension: VK_KHR_get_physical_device_properties2"
     });
 #endif
 
@@ -89,9 +89,11 @@ TEST(mocked_api_get_instance_profile_support, vulkan10_unsupported_version) {
 
 #if WITH_DEBUG_MESSAGES
     MockDebugMessageCallback cb({
-        "Unsupported API version: 1.1.139"
+        "Unsupported Profile API version 1.2.148 on a Vulkan system with version 1.0.0"
     });
 #endif
+
+    mock.SetInstanceAPIVersion(VK_API_VERSION_1_0);
 
     mock.SetInstanceExtensions(nullptr, {
         VK_EXT(VK_KHR_SURFACE),
@@ -102,7 +104,7 @@ TEST(mocked_api_get_instance_profile_support, vulkan10_unsupported_version) {
         VK_EXT(VK_KHR_EXTERNAL_FENCE_CAPABILITIES),
     });
 
-    const VpProfileProperties profile{VP_LUNARG_DESKTOP_BASELINE_2022_NAME, VP_LUNARG_DESKTOP_BASELINE_2022_SPEC_VERSION};
+    const VpProfileProperties profile{VP_LUNARG_DESKTOP_BASELINE_2023_NAME, VP_LUNARG_DESKTOP_BASELINE_2023_SPEC_VERSION};
 
     VkBool32 supported = VK_TRUE;
     VkResult result = vpGetInstanceProfileSupport(nullptr, &profile, &supported);
@@ -173,7 +175,7 @@ TEST(mocked_api_get_instance_profile_support, vulkan11_unsupported_version) {
 
 #if WITH_DEBUG_MESSAGES
     MockDebugMessageCallback cb({
-        "Unsupported API version: 1.3.204"
+        "Unsupported Profile API version 1.3.204 on a Vulkan system with version 1.0.0"
     });
 #endif
 
@@ -261,14 +263,14 @@ TEST(mocked_api_get_instance_profile_support, layer_unsupported) {
 
 #if WITH_DEBUG_MESSAGES
     MockDebugMessageCallback cb({
+        "Unsupported mandatory extension VK_KHR_get_physical_device_properties2 on Vulkan 1.0",
         "Unsupported extension: VK_EXT_swapchain_colorspace",
         "Unsupported extension: VK_KHR_android_surface",
         "Unsupported extension: VK_KHR_external_fence_capabilities",
         "Unsupported extension: VK_KHR_external_memory_capabilities",
         "Unsupported extension: VK_KHR_external_semaphore_capabilities",
         "Unsupported extension: VK_KHR_get_physical_device_properties2",
-        "Unsupported extension: VK_KHR_get_surface_capabilities2",
-        "Unsupported mandatory extension VK_KHR_get_physical_device_properties2 on Vulkan 1.0"
+        "Unsupported extension: VK_KHR_get_surface_capabilities2"
     });
 #endif
 

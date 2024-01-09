@@ -458,6 +458,31 @@ class ProfileGenerator():
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
+                    elif property_type == "VkLayeredDriverUnderlyingApiMSFT":
+                        enum = self.get_enum('VkLayeredDriverUnderlyingApiMSFT', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkChromaLocation":
+                        enum = self.get_enum('VkChromaLocation', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkImageUsageFlags":
+                        enum = self.get_enum('VkImageUsageFlagBits', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkBufferUsageFlags":
+                        enum = self.get_enum('VkBufferUsageFlagBits', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkPhysicalDeviceSchedulingControlsFlagsARM":
+                        enum = self.get_enum('VkPhysicalDeviceSchedulingControlsFlagBitsARM', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
                     elif property_type == "char":
                         gen += "\""
                         gen += property_name
@@ -770,20 +795,24 @@ class ProfileGenerator():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-registry', action='store',
+    parser.add_argument('--api', action='store',
+                        default='vulkan',
+                        choices=['vulkan'],
+                        help="Target API")
+    parser.add_argument('--registry', action='store',
                         help='Use specified registry file instead of vk.xml')
-    parser.add_argument('-outProfile', action='store',
+    parser.add_argument('--out-profile', action='store',
                         help='Output profiles file')
-    parser.add_argument('-outTests', action='store',
+    parser.add_argument('--out-tests', action='store',
                         help='Output tests file')
 
     args = parser.parse_args()
 
-    if args.registry is None or args.outProfile is None:
+    if args.registry is None or args.out_profile is None:
         parser.print_help()
         exit()
 
-    registry = gen_profiles_solution.VulkanRegistry(args.registry)
+    registry = gen_profiles_solution.VulkanRegistry(args.registry, args.api)
     generator = ProfileGenerator()
-    generator.generate_profile(args.outProfile, registry)
-    generator.generate_tests(args.outTests, registry)
+    generator.generate_profile(args.out_profile, registry)
+    generator.generate_tests(args.out_tests, registry)
