@@ -1,3 +1,21 @@
+vulkan-profiles (1.3.275.0~rc2-1lunarg22.04-1) jammy; urgency=medium
+
+  [ Christophe ]
+  * Android 15 part of the generated Profiles API library by default
+
+  [ Daniel Rakos ]
+  * layer: Fix query result status props struct name
+
+  [ Christophe ]
+  * fix merge script handling of unsupported VkPhysicalDeviceHostImageCopyPropertiesEXT
+  * layer: Fix warning that should be a notification
+  * Revert "layer: Fix warning that should be a notification"
+  * script: Add --strip-duplicate-structs option
+  * profiles: restore VP_LUNARG_desktop_baseline_2022 profile
+  * layer: profile_file setting is not deprecated afterall
+
+ -- john <john@odin>  Tue, 16 Jan 2024 14:14:52 -0700
+
 vulkan-profiles (1.3.275.0~rc1-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
