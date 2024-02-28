@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2021-2023 Valve Corporation
- * Copyright (C) 2021-2023 LunarG, Inc.
+ * Copyright (C) 2021-2024 Valve Corporation
+ * Copyright (C) 2021-2024 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Author: Ziga Markus <ziga@lunarg.com>
- * Author: Christophe Riccio <christophe@lunarg.com>
- * Author: Mark Lobodzinski <mark@lunarg.com>
+ * Authors:
+ * - Ziga Markus <ziga@lunarg.com>
+ * - Christophe Riccio <christophe@lunarg.com>
+ * - Mark Lobodzinski <mark@lunarg.com>
  */
 
 #include <vulkan/vulkan_core.h>
@@ -41,7 +42,7 @@ class LayerTests : public VkTestFramework {
 TEST_F(LayerTests, TestDesktop2023) {
     TEST_DESCRIPTION("Test specifying device extensions to be excluded from being reported by the device");
 
-    static const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline_2023.json";
+    static const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline.json";
     static const char* profile_name_data = "VP_LUNARG_desktop_baseline_2023";
     VkBool32 emulate_portability_data = VK_TRUE;
     VkBool32 debug_fail_on_error = VK_FALSE;
@@ -266,7 +267,7 @@ TEST_F(LayerTests, TestExcludingDeviceExtensions) {
 
     VkResult err = VK_SUCCESS;
 
-    const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline_2023.json";
+    const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline.json";
     const char* profile_name_data = "VP_LUNARG_desktop_baseline_2023";
     VkBool32 emulate_portability_data = VK_TRUE;
     VkBool32 debug_fail_on_error = VK_FALSE;
@@ -331,7 +332,7 @@ TEST_F(LayerTests, TestExcludingDeviceExtensions) {
 TEST_F(LayerTests, TestExcludingFormats) {
     TEST_DESCRIPTION("Test specifying image formats to be excluded from being reported by the device");
 
-    const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline_2023.json";
+    const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline.json";
     VkBool32 emulate_portability_data = VK_TRUE;
     VkBool32 debug_fail_on_error = VK_TRUE;
     const std::vector<const char*> exclude_formats = {"VK_FORMAT_R8G8B8A8_UNORM"};

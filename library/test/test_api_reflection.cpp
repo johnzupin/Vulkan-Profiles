@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2021-2023 Valve Corporation
- * Copyright (c) 2021-2023 LunarG, Inc.
+ * Copyright (c) 2021-2024 Valve Corporation
+ * Copyright (c) 2021-2024 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,13 +64,14 @@ TEST(api_get_profile_required_profiles, empty) {
     uint32_t count = 0;
     VkResult result0 = vpGetProfileRequiredProfiles(&profile, &count, nullptr);
     EXPECT_EQ(VK_SUCCESS, result0);
-    EXPECT_EQ(1, count);
+    EXPECT_EQ(2, count);
 
     std::vector<VpProfileProperties> data(count);
     VkResult result1 = vpGetProfileRequiredProfiles(&profile, &count, &data[0]);
-    EXPECT_STREQ(VP_LUNARG_MINIMUM_REQUIREMENTS_1_2_NAME, data[0].profileName);
+    EXPECT_STREQ(VP_LUNARG_MINIMUM_REQUIREMENTS_1_1_NAME, data[0].profileName);
+    EXPECT_STREQ(VP_LUNARG_MINIMUM_REQUIREMENTS_1_2_NAME, data[1].profileName);
     EXPECT_EQ(VK_SUCCESS, result1);
-    EXPECT_EQ(1, count);
+    EXPECT_EQ(2, count);
 }
 
 TEST(api_get_profile_api_version, get) {

@@ -11,7 +11,35 @@
 
 # Release Notes
 
-## [Vulkan Profiles Toolset 1.3.XXX](https://github.com/KhronosGroup/Vulkan-Profiles/tree/main) - January 2024
+## [Vulkan Profiles Toolset 1.3.XXX](https://github.com/KhronosGroup/Vulkan-Profiles/tree/main) - March 2024
+
+### Features:
+- Force device selection is not BETA anymore
+- Add Khronos Roadmap 2024 profile
+- Add merge script JSON config file using the new `--config` argument
+
+### Improvements:
+- Split generated documentation in three differents files:
+  - `PROFILES.md` for profiles in Vulkan-Headers
+  - `PROFILES_ANDROID.md` for profiles for Android platform
+  - `PROFILES_ALL.md` for all profiles in the repository
+- Add `--config` to `gen_profiles_solution.py` to select the API library generation configuration `Debug` (with debug message) or `Release`
+- Make `--output-library-src` optional, when missing only the header-only library will be generated
+- Store all Desktop Baseline profiles in `VP_LUNARG_desktop_baseline.json`
+- Update `VP_LUNARG_desktop_baseline_2022` and `VP_LUNARG_desktop_baseline_2023` to version 2 with support of ARC GPUs
+
+### Bugfixes:
+- Fix features, properties and formats not listed in generated profiles table documentation
+- Fix merge script change of behavior with limit outputed when all profiles don't support a capability
+- Fix 'not' limitype not handle correctly by merge script
+- Fix `VP_LUNARG_desktop_baseline_2024` profile, tweaked incorrect input files, add latest drivers input profiles
+- Fix merge script `sparseProperties` support
+- Fix `VP_DEBUG_MESSAGE_CALLBACK`
+
+### Deprecation:
+- Remove `VP_LUNARG_desktop_baseline_2024.json`, `VP_LUNARG_desktop_baseline_2023.json` and `VP_LUNARG_desktop_baseline_2022.json`
+
+## [Vulkan Profiles Toolset 1.3.275](https://github.com/KhronosGroup/Vulkan-Profiles/tree/sdk-1.3.275.0) - January 2024
 
 ### Features:
 - Add API library merging of additional application features and extensions

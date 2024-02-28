@@ -1,6 +1,6 @@
 # ~~~
-# Copyright (c) 2021-2023 Valve Corporation
-# Copyright (c) 2021-2023 LunarG, Inc.
+# Copyright (c) 2021-2024 Valve Corporation
+# Copyright (c) 2021-2024 LunarG, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Authors:
+# - Christophe Riccio <christophe@lunarg.com>
 # ~~~
 execute_process(COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_SOURCE_DIR}/layer/profiles.cpp)
 
@@ -22,6 +25,13 @@ if (ANDROID)
     )
 elseif(APPLE)
     set(LAYER_TEST_FILES
+        tests
+        tests_promoted
+        tests_generated
+        tests_mechanism
+        tests_mechanism_format
+        tests_mechanism_check_values
+        tests_mechanism_physical_device_selection
         tests_util
     )
 else()
@@ -83,7 +93,7 @@ function(LayerTestAndroid NAME)
     lunarg_target_compiler_configurations(${ANDROID_APK_NAME} ${BUILD_TESTS})
 
     add_test(NAME ${ANDROID_APK_NAME} COMMAND profiles_${NAME})
-    add_dependencies(${ANDROID_APK_NAME} ProfilesLayer VpCreateDesktopBaseline2022 VpCreateDesktopBaseline2023 VpCreateDesktopBaseline2024)
+    add_dependencies(${ANDROID_APK_NAME} ProfilesLayer VpCreateDesktopBaseline)
 
     if (NOT ANDROID_SDK_HOME)
         set(ANDROID_SDK_HOME $ENV{ANDROID_SDK_HOME})
