@@ -1,3 +1,63 @@
+vulkan-profiles (1.3.278.0~rc2-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * layer: Load required profiles by a profile
+  * Android 15 part of the generated Profiles API library by default
+
+  [ Daniel Rakos ]
+  * layer: Fix query result status props struct name
+
+  [ Christophe ]
+  * fix merge script handling of unsupported VkPhysicalDeviceHostImageCopyPropertiesEXT
+  * layer: Fix warning that should be a notification
+  * Revert "layer: Fix warning that should be a notification"
+  * script: Remove duplicated properties with merge script
+  * script: Ignore generated file
+  * script: Add --strip-duplicate-structs option
+  * profiles: restore VP_LUNARG_desktop_baseline_2022 profile
+  * layer: profile_file setting is not deprecated afterall
+  * profiles: Update to header 276
+  * script: Fix international incident
+  * profiles: Clean up
+  * layer: Fix and Test EXT_layer_settings exposed by manifest
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 277
+
+  [ Christophe ]
+  * profiles: Fix release API library warnings
+  * doc: Profiles doc generation fixes
+  * doc: Fix unexpected change done for testing...
+  * doc: Fix multiple capabilities blocks profiles doc generation
+  * script: Fix members written as int in a profile which member type is float
+  * library: Test min requirements profiles without mock
+  * profiles: The way the profiles were written, the capabilities had to be unsupported for the profiles to be supported
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 278
+
+  [ Christophe ]
+  * library: Fix extra whitespace #619
+  * merge: Fix 'not' limitype merge
+  * merge: Fix invalid values outputted in generated profile
+  * Update CHANGELOG.md
+  * Update CHANGELOG.md
+  * profiles: Add Intel Arc support to Desktop Baseline profiles, v2
+  * script: Add library --config and refactor merge front-end
+  * Make  optional, when missing only the header-only library will be generated
+  * build: Split profile solution generation into multiple commands
+  * script: Make API library config case insensitive
+  * script: No idea how that got here, fix C.I.
+  * Add merge script JSON config file using the new `--config` argument
+  * library: Cleanup, reorder tests
+  * test: Add extra tests for Roadmap 2024 and 2022
+  * profiles: Fix desktop 2024 with newer drivers
+  * library: Fix unnecessary warnings
+  * layer: Add macOS layer tests
+  * library: Fix VP_DEBUG_MESSAGE_CALLBACK
+
+ -- john <john@odin>  Wed, 28 Feb 2024 11:30:54 -0700
+
 vulkan-profiles (1.3.275.0~rc2-1lunarg20.04-1) focal; urgency=medium
 
   [ Christophe ]
