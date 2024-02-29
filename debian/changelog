@@ -1,3 +1,10 @@
+vulkan-profiles (1.3.278.0~rc3-1lunarg22.04-1) jammy; urgency=medium
+
+  [ John Zupin ]
+  * packaging: debian: update to use cmake targets to install json files
+
+ -- john <john@odin>  Thu, 29 Feb 2024 09:32:19 -0700
+
 vulkan-profiles (1.3.278.0~rc2-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
