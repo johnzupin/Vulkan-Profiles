@@ -1,3 +1,34 @@
+vulkan-profiles (1.3.280.0~rc3-1lunarg20.04-1) focal; urgency=medium
+
+  [ Christophe ]
+  * Fix regression on SubgroupSize limittype
+  * library: Fix warnings
+  * library: Add external Vulkan functions
+
+  [ Bob Ellison ]
+  * sdk: fix install of gen_profiles_file.py
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 279
+
+  [ Christophe ]
+  * library: Simplify and refactor usage of the capabilities object and doc
+
+  [ Daniel Rakos ]
+  * layer: Remove unused variables
+  * script: Fix structure alias dependency handling
+
+  [ Christophe ]
+  * library: Fix warnings
+
+  [ Richard S. Wright Jr ]
+  * ios: Build layer as valid appstore framework
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 280
+
+ -- john <john@odin>  Tue, 12 Mar 2024 13:41:42 -0600
+
 vulkan-profiles (1.3.278.0~rc3-1lunarg20.04-1) focal; urgency=medium
 
   [ John Zupin ]
