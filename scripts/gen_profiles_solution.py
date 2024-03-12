@@ -113,24 +113,6 @@ void VP_DEBUG_MESSAGE_CALLBACK(const char*);
 #define VP_DEBUG_COND_MSGF(COND, MSGFMT, ...) if ((COND)) { VP_DEBUG_MSGF((MSGFMT), __VA_ARGS__); }
 '''
 
-DEBUG_MSG_UTIL_IMPL = '''
-#include <string>
-
-namespace detail {
-
-VPAPI_ATTR std::string vpGetDeviceAndDriverInfoString(VkPhysicalDevice physicalDevice,
-                                                      PFN_vkGetPhysicalDeviceProperties2KHR pfnGetPhysicalDeviceProperties2) {
-    VkPhysicalDeviceDriverPropertiesKHR driverProps{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES_KHR };
-    VkPhysicalDeviceProperties2KHR deviceProps{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR, &driverProps };
-    pfnGetPhysicalDeviceProperties2(physicalDevice, &deviceProps);
-    return std::string("deviceName=") + std::string(&deviceProps.properties.deviceName[0])
-                    + ", driverName=" + std::string(&driverProps.driverName[0])
-                    + ", driverInfo=" + std::string(&driverProps.driverInfo[0]);
-}
-
-}
-'''
-
 H_HEADER = '''
 #ifndef VULKAN_PROFILES_H_
 #define VULKAN_PROFILES_H_ 1
@@ -224,65 +206,243 @@ typedef struct VpDeviceCreateInfo {
     const VpBlockProperties*    pEnabledProfileBlocks;
 } VpDeviceCreateInfo;
 
+VK_DEFINE_HANDLE(VpCapabilities)
+
+typedef enum VpCapabilitiesCreateFlagBits {
+    VP_PROFILE_CREATE_STATIC_BIT = (1 << 0),
+    //VP_PROFILE_CREATE_DYNAMIC_BIT = (1 << 1),
+    VP_PROFILE_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VpCapabilitiesCreateFlagBits;
+
+typedef VkFlags VpCapabilitiesCreateFlags;
+
+// Pointers to some Vulkan functions - a subset used by the library.
+// Used in VpCapabilitiesCreateInfo::pVulkanFunctions.
+
+typedef struct VpVulkanFunctions {
+    /// Required when using VP_DYNAMIC_VULKAN_FUNCTIONS.
+    PFN_vkGetInstanceProcAddr GetInstanceProcAddr;
+    /// Required when using VP_DYNAMIC_VULKAN_FUNCTIONS.
+    PFN_vkGetDeviceProcAddr GetDeviceProcAddr;
+    PFN_vkEnumerateInstanceVersion EnumerateInstanceVersion;
+    PFN_vkEnumerateInstanceExtensionProperties EnumerateInstanceExtensionProperties;
+    PFN_vkEnumerateDeviceExtensionProperties EnumerateDeviceExtensionProperties;
+    PFN_vkGetPhysicalDeviceFeatures2 GetPhysicalDeviceFeatures2;
+    PFN_vkGetPhysicalDeviceProperties2 GetPhysicalDeviceProperties2;
+    PFN_vkGetPhysicalDeviceFormatProperties2 GetPhysicalDeviceFormatProperties2;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties2 GetPhysicalDeviceQueueFamilyProperties2;
+    PFN_vkCreateInstance CreateInstance;
+    PFN_vkCreateDevice CreateDevice;
+} VpVulkanFunctions;
+
+/// Description of a Allocator to be created.
+typedef struct VpCapabilitiesCreateInfo
+{
+    /// Flags for created allocator. Use #VpInstanceCreateFlagBits enum.
+    VpCapabilitiesCreateFlags       flags;
+    uint32_t                        apiVersion;
+    const VpVulkanFunctions*        pVulkanFunctions;
+} VpCapabilitiesCreateInfo;
+
+VPAPI_ATTR VkResult vpCreateCapabilities(
+    const VpCapabilitiesCreateInfo*             pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VpCapabilities*                             pCapabilities);
+
+/// Destroys allocator object.
+VPAPI_ATTR void vpDestroyCapabilities(
+    VpCapabilities                              capabilities,
+    const VkAllocationCallbacks*                pAllocator);
+
 // Query the list of available profiles in the library
-VPAPI_ATTR VkResult vpGetProfiles(uint32_t *pPropertyCount, VpProfileProperties *pProperties);
+VPAPI_ATTR VkResult vpGetProfiles(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    uint32_t*                                   pPropertyCount,
+    VpProfileProperties*                        pProperties);
 
 // List the required profiles of a profile
-VPAPI_ATTR VkResult vpGetProfileRequiredProfiles(const VpProfileProperties* pProfile, uint32_t* pPropertyCount, VpProfileProperties* pProperties);
+VPAPI_ATTR VkResult vpGetProfileRequiredProfiles(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    uint32_t*                                   pPropertyCount,
+    VpProfileProperties*                        pProperties);
 
 // Query the profile required Vulkan API version
-VPAPI_ATTR uint32_t vpGetProfileAPIVersion(const VpProfileProperties* pProfile);
+VPAPI_ATTR uint32_t vpGetProfileAPIVersion(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile);
 
 // List the recommended fallback profiles of a profile
-VPAPI_ATTR VkResult vpGetProfileFallbacks(const VpProfileProperties *pProfile, uint32_t *pPropertyCount, VpProfileProperties *pProperties);
+VPAPI_ATTR VkResult vpGetProfileFallbacks(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    uint32_t*                                   pPropertyCount,
+    VpProfileProperties*                        pProperties);
 
 // Query whether the profile has multiple variants. Profiles with multiple variants can only use vpGetInstanceProfileSupport and vpGetPhysicalDeviceProfileSupport capabilities of the library. Other function will return a VK_ERROR_UNKNOWN error
-VPAPI_ATTR VkResult vpHasMultipleVariantsProfile(const VpProfileProperties *pProfile, VkBool32 *pHasMultipleVariants);
+VPAPI_ATTR VkResult vpHasMultipleVariantsProfile(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pHasMultipleVariants);
 
 // Check whether a profile is supported at the instance level
-VPAPI_ATTR VkResult vpGetInstanceProfileSupport(const char *pLayerName, const VpProfileProperties *pProfile, VkBool32 *pSupported);
+VPAPI_ATTR VkResult vpGetInstanceProfileSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const char*                                 pLayerName,
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pSupported);
 
 // Check whether a variant of a profile is supported at the instance level and report this list of blocks used to validate the profiles
-VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, const VpProfileProperties *pProfile, VkBool32 *pSupported, uint32_t *pPropertyCount, VpBlockProperties* pProperties);
+VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const char*                                 pLayerName,
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pSupported,
+    uint32_t*                                   pPropertyCount,
+    VpBlockProperties*                          pProperties);
 
 // Create a VkInstance with the profile instance extensions enabled
-VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkInstance *pInstance);
+VPAPI_ATTR VkResult vpCreateInstance(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpInstanceCreateInfo*                 pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkInstance*                                 pInstance);
 
 // Check whether a profile is supported by the physical device
-VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(VkInstance instance, VkPhysicalDevice physicalDevice, const VpProfileProperties *pProfile, VkBool32 *pSupported);
+VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    VkInstance                                  instance,
+    VkPhysicalDevice                            physicalDevice,
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pSupported);
 
 // Check whether a variant of a profile is supported by the physical device and report this list of blocks used to validate the profiles
-VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instance, VkPhysicalDevice physicalDevice, const VpProfileProperties *pProfile, VkBool32 *pSupported, uint32_t *pPropertyCount, VpBlockProperties* pProperties);
+VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    VkInstance                                  instance,
+    VkPhysicalDevice                            physicalDevice,
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pSupported,
+    uint32_t*                                   pPropertyCount,
+    VpBlockProperties*                          pProperties);
 
 // Create a VkDevice with the profile features and device extensions enabled
-VPAPI_ATTR VkResult vpCreateDevice(VkPhysicalDevice physicalDevice, const VpDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDevice *pDevice);
+VPAPI_ATTR VkResult vpCreateDevice(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    VkPhysicalDevice                            physicalDevice,
+    const VpDeviceCreateInfo*                   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDevice*                                   pDevice);
 
 // Query the list of instance extensions of a profile
-VPAPI_ATTR VkResult vpGetProfileInstanceExtensionProperties(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pPropertyCount, VkExtensionProperties *pProperties);
+VPAPI_ATTR VkResult vpGetProfileInstanceExtensionProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pPropertyCount,
+    VkExtensionProperties*                      pProperties);
 
 // Query the list of device extensions of a profile
-VPAPI_ATTR VkResult vpGetProfileDeviceExtensionProperties(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pPropertyCount, VkExtensionProperties *pProperties);
+VPAPI_ATTR VkResult vpGetProfileDeviceExtensionProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pPropertyCount,
+    VkExtensionProperties*                      pProperties);
 
 // Fill the feature structures with the requirements of a profile
-VPAPI_ATTR VkResult vpGetProfileFeatures(const VpProfileProperties *pProfile, const char* pBlockName, void *pNext);
+VPAPI_ATTR VkResult vpGetProfileFeatures(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    void*                                       pNext);
 
 // Query the list of feature structure types specified by the profile
-VPAPI_ATTR VkResult vpGetProfileFeatureStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes);
+VPAPI_ATTR VkResult vpGetProfileFeatureStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes);
 
 // Fill the property structures with the requirements of a profile
-VPAPI_ATTR VkResult vpGetProfileProperties(const VpProfileProperties *pProfile, const char* pBlockName, void *pNext);
+VPAPI_ATTR VkResult vpGetProfileProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    void*                                       pNext);
 
 // Query the list of property structure types specified by the profile
-VPAPI_ATTR VkResult vpGetProfilePropertyStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes);
+VPAPI_ATTR VkResult vpGetProfilePropertyStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes);
 
 // Query the list of formats with specified requirements by a profile
-VPAPI_ATTR VkResult vpGetProfileFormats(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pFormatCount, VkFormat *pFormats);
+VPAPI_ATTR VkResult vpGetProfileFormats(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pFormatCount,
+    VkFormat*                                   pFormats);
 
 // Query the requirements of a format for a profile
-VPAPI_ATTR VkResult vpGetProfileFormatProperties(const VpProfileProperties *pProfile, const char* pBlockName, VkFormat format, void *pNext);
+VPAPI_ATTR VkResult vpGetProfileFormatProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    VkFormat                                    format,
+    void*                                       pNext);
 
 // Query the list of format structure types specified by the profile
-VPAPI_ATTR VkResult vpGetProfileFormatStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes);
+VPAPI_ATTR VkResult vpGetProfileFormatStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes);
 '''
 
 PRIVATE_DEFS = '''
@@ -465,27 +625,29 @@ VPAPI_ATTR bool vpCheckFlags(const T& actual, const uint64_t expected) {
 
 PRIVATE_IMPL_BODY = '''
 VPAPI_ATTR const VpProfileDesc* vpGetProfileDesc(const char profileName[VP_MAX_PROFILE_NAME_SIZE]) {
-    for (uint32_t i = 0; i < profileCount; ++i) {
-        if (strncmp(profiles[i].props.profileName, profileName, VP_MAX_PROFILE_NAME_SIZE) == 0) return &profiles[i];
+    for (uint32_t profileIndex = 0; profileIndex < profileCount; ++profileIndex) {
+        if (strncmp(profiles[profileIndex].props.profileName, profileName, VP_MAX_PROFILE_NAME_SIZE) == 0) {
+            return &profiles[profileIndex];
+        }
     }
     return nullptr;
 }
 
 VPAPI_ATTR std::vector<VpProfileProperties> GatherProfiles(const VpProfileProperties& profile, const char* pBlockName = nullptr) {
-    std::vector<VpProfileProperties> profiles;
+    std::vector<VpProfileProperties> gatheredProfiles;
 
     if (pBlockName == nullptr) {
-        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profile.profileName);
-        if (profile_desc != nullptr) {
-            for (uint32_t profile_index = 0; profile_index < profile_desc->requiredProfileCount; ++profile_index) {
-                profiles.push_back(profile_desc->pRequiredProfiles[profile_index]);
+        const detail::VpProfileDesc* profileDesc = detail::vpGetProfileDesc(profile.profileName);
+        if (profileDesc != nullptr) {
+            for (uint32_t profileIndex = 0; profileIndex < profileDesc->requiredProfileCount; ++profileIndex) {
+                gatheredProfiles.push_back(profileDesc->pRequiredProfiles[profileIndex]);
             }
         }
     }
 
-    profiles.push_back(profile);
+    gatheredProfiles.push_back(profile);
 
-    return profiles;
+    return gatheredProfiles;
 }
 
 VPAPI_ATTR bool vpCheckVersion(uint32_t actual, uint32_t expected) {
@@ -530,11 +692,11 @@ VPAPI_ATTR bool CheckExtension(const std::vector<const char*>& extensions, const
 }
 
 VPAPI_ATTR void GetExtensions(uint32_t extensionCount, const VkExtensionProperties *pExtensions, std::vector<const char *> &extensions) {
-    for (uint32_t i = 0; i < extensionCount; ++i) {
-        if (CheckExtension(extensions, pExtensions[i].extensionName)) {
+    for (uint32_t ext_index = 0; ext_index < extensionCount; ++ext_index) {
+        if (CheckExtension(extensions, pExtensions[ext_index].extensionName)) {
             continue;
         }
-        extensions.push_back(pExtensions[i].extensionName);
+        extensions.push_back(pExtensions[ext_index].extensionName);
     }
 }
 
@@ -543,25 +705,29 @@ VPAPI_ATTR std::vector<VpBlockProperties> GatherBlocks(
     uint32_t enabledProfileBlockCount, const VpBlockProperties* pEnabledProfileBlocks) {
     std::vector<VpBlockProperties> results;
 
-    for (std::size_t i = 0; i < enabledFullProfileCount; ++i) {
-        const std::vector<VpProfileProperties>& profiles = GatherProfiles(pEnabledFullProfiles[i]);
+    for (std::size_t profile_index = 0; profile_index < enabledFullProfileCount; ++profile_index) {
+        const std::vector<VpProfileProperties>& gathered_profiles = GatherProfiles(pEnabledFullProfiles[profile_index]);
 
-        for (std::size_t j = 0; j < profiles.size(); ++j) {
-            VpBlockProperties block{profiles[j], 0, ""};
+        for (std::size_t gathered_index = 0; gathered_index < gathered_profiles.size(); ++gathered_index) {
+            VpBlockProperties block{gathered_profiles[gathered_index], 0, ""};
             results.push_back(block);
         }
     }
 
-    for (std::size_t i = 0; i < enabledProfileBlockCount; ++i) {
-        results.push_back(pEnabledProfileBlocks[i]);
+    for (std::size_t block_index = 0; block_index < enabledProfileBlockCount; ++block_index) {
+        results.push_back(pEnabledProfileBlocks[block_index]);
     }
 
     return results;
 }
 
 VPAPI_ATTR VkResult vpGetInstanceProfileSupportSingleProfile(
-    uint32_t api_version, const std::vector<VkExtensionProperties>& supported_extensions,
-    const VpProfileProperties* pProfile, VkBool32* pSupported, std::vector<VpBlockProperties>& supportedBlocks, std::vector<VpBlockProperties>& unsupportedBlocks) {
+    uint32_t                                    api_version,
+    const std::vector<VkExtensionProperties>&   supported_extensions,
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pSupported,
+    std::vector<VpBlockProperties>&             supportedBlocks,
+    std::vector<VpBlockProperties>&             unsupportedBlocks) {
     assert(pProfile != nullptr);
 
     const detail::VpProfileDesc* pProfileDesc = vpGetProfileDesc(pProfile->profileName);
@@ -626,15 +792,27 @@ enum structure_type {
     STRUCTURE_FORMAT
 };
 
-VPAPI_ATTR VkResult vpGetProfileStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, structure_type type, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes) {
+VPAPI_ATTR VkResult vpGetProfileStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    structure_type                              type,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = pBlockName == nullptr ? VK_SUCCESS : VK_INCOMPLETE;
 
     std::vector<VkStructureType> results;
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile);
 
-    for (std::size_t profile_index = 0, profile_count = profiles.size(); profile_index < profile_count; ++profile_index) {
-        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profiles[profile_index].profileName);
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
         if (profile_desc == nullptr) return VK_ERROR_UNKNOWN;
 
         for (uint32_t capability_index = 0; capability_index < profile_desc->requiredCapabilityCount; ++capability_index) {
@@ -668,10 +846,10 @@ VPAPI_ATTR VkResult vpGetProfileStructureTypes(const VpProfileProperties *pProfi
                         break;
                 }
 
-                for (uint32_t i = 0; i < count; ++i) {
-                    const VkStructureType type = data[i];
-                    if (std::find(results.begin(), results.end(), type) == std::end(results)) {
-                        results.push_back(type);
+                for (uint32_t type_index = 0; type_index < count; ++type_index) {
+                    const VkStructureType dataType = data[type_index];
+                    if (std::find(results.begin(), results.end(), dataType) == std::end(results)) {
+                        results.push_back(dataType);
                     }
                 }
             }
@@ -703,16 +881,30 @@ enum ExtensionType {
     EXTENSION_DEVICE,
 };
 
-VPAPI_ATTR VkResult vpGetProfileExtensionProperties(const VpProfileProperties *pProfile, const char* pBlockName, ExtensionType type, uint32_t *pPropertyCount, VkExtensionProperties *pProperties) {
+VPAPI_ATTR VkResult vpGetProfileExtensionProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    ExtensionType                               type,
+    uint32_t*                                   pPropertyCount,
+    VkExtensionProperties*                      pProperties) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = pBlockName == nullptr ? VK_SUCCESS : VK_INCOMPLETE;
 
     std::vector<VkExtensionProperties> results;
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile, pBlockName);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile, pBlockName);
 
-    for (std::size_t profile_index = 0, profile_count = profiles.size(); profile_index < profile_count; ++profile_index) {
-        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profiles[profile_index].profileName);
-        if (profile_desc == nullptr) return VK_ERROR_UNKNOWN;
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
+        if (profile_desc == nullptr) {
+            return VK_ERROR_UNKNOWN;
+        }
 
         for (uint32_t capability_index = 0; capability_index < profile_desc->requiredCapabilityCount; ++capability_index) {
             const detail::VpCapabilitiesDesc& capabilities = profile_desc->pRequiredCapabilities[capability_index];
@@ -729,19 +921,19 @@ VPAPI_ATTR VkResult vpGetProfileExtensionProperties(const VpProfileProperties *p
                 switch (type) {
                     default:
                     case EXTENSION_INSTANCE:
-                        for (uint32_t i = 0; i < variant.instanceExtensionCount; ++i) {
-                            if (detail::HasExtension(results, variant.pInstanceExtensions[i])) {
+                        for (uint32_t ext_index = 0; ext_index < variant.instanceExtensionCount; ++ext_index) {
+                            if (detail::HasExtension(results, variant.pInstanceExtensions[ext_index])) {
                                 continue;
                             }
-                            results.push_back(variant.pInstanceExtensions[i]);
+                            results.push_back(variant.pInstanceExtensions[ext_index]);
                         }
                         break;
                     case EXTENSION_DEVICE:
-                        for (uint32_t i = 0; i < variant.deviceExtensionCount; ++i) {
-                            if (detail::HasExtension(results, variant.pDeviceExtensions[i])) {
+                        for (uint32_t ext_index = 0; ext_index < variant.deviceExtensionCount; ++ext_index) {
+                            if (detail::HasExtension(results, variant.pDeviceExtensions[ext_index])) {
                                 continue;
                             }
-                            results.push_back(variant.pDeviceExtensions[i]);
+                            results.push_back(variant.pDeviceExtensions[ext_index]);
                         }
                         break;
                 }
@@ -769,7 +961,204 @@ VPAPI_ATTR VkResult vpGetProfileExtensionProperties(const VpProfileProperties *p
 '''
 
 PUBLIC_IMPL_BODY = '''
-VPAPI_ATTR VkResult vpGetProfiles(uint32_t *pPropertyCount, VpProfileProperties *pProperties) {
+struct VpCapabilities_T : public VpVulkanFunctions {
+    bool singleton = false;
+    uint32_t apiVersion = VK_API_VERSION_1_0;
+
+    static VpCapabilities_T& Get() {
+        static VpCapabilities_T instance;
+        VpCapabilitiesCreateInfo createInfo{};
+        createInfo.flags = VP_PROFILE_CREATE_STATIC_BIT;
+        instance.init(&createInfo);
+        instance.singleton = true;
+        return instance;
+    }
+
+    VpCapabilities_T() {
+        this->GetInstanceProcAddr = nullptr;
+        this->GetDeviceProcAddr = nullptr;
+        this->EnumerateInstanceVersion = nullptr;
+        this->EnumerateInstanceExtensionProperties = nullptr;
+        this->EnumerateDeviceExtensionProperties = nullptr;
+        this->GetPhysicalDeviceFeatures2 = nullptr;
+        this->GetPhysicalDeviceProperties2 = nullptr;
+        this->GetPhysicalDeviceFormatProperties2 = nullptr;
+        this->GetPhysicalDeviceQueueFamilyProperties2 = nullptr;
+        this->CreateInstance = nullptr;
+        this->CreateDevice = nullptr;
+    }
+
+    VkResult init(const VpCapabilitiesCreateInfo* pCreateInfo) {
+        assert(pCreateInfo != nullptr);
+
+        return ImportVulkanFunctions(pCreateInfo);
+    }
+
+    VkResult ImportVulkanFunctions(const VpCapabilitiesCreateInfo* pCreateInfo) {
+        if (pCreateInfo->flags & VP_PROFILE_CREATE_STATIC_BIT) {
+            ImportVulkanFunctions_Static();
+        }
+
+        if (pCreateInfo->pVulkanFunctions != nullptr) {
+            ImportVulkanFunctions_Custom((VpVulkanFunctions*)pCreateInfo->pVulkanFunctions);
+        }
+/*
+        if (pCreateInfo->flags & VP_PROFILE_CREATE_DYNAMIC_BIT) {
+            ImportVulkanFunctions_Dynamic();
+        }
+*/
+        return ValidateVulkanFunctions();
+    }
+
+    void ImportVulkanFunctions_Static() {
+        // Vulkan 1.1
+        this->GetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)vkGetInstanceProcAddr;
+        this->GetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)vkGetDeviceProcAddr;
+
+        this->EnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)vkEnumerateInstanceVersion;
+        this->EnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)vkEnumerateInstanceExtensionProperties;
+        this->EnumerateDeviceExtensionProperties = (PFN_vkEnumerateDeviceExtensionProperties)vkEnumerateDeviceExtensionProperties;
+
+        this->GetPhysicalDeviceFeatures2 = (PFN_vkGetPhysicalDeviceFeatures2)vkGetPhysicalDeviceFeatures2;
+        this->GetPhysicalDeviceProperties2 = (PFN_vkGetPhysicalDeviceProperties2)vkGetPhysicalDeviceProperties2;
+        this->GetPhysicalDeviceFormatProperties2 = (PFN_vkGetPhysicalDeviceFormatProperties2)vkGetPhysicalDeviceFormatProperties2;
+        this->GetPhysicalDeviceQueueFamilyProperties2 = (PFN_vkGetPhysicalDeviceQueueFamilyProperties2)vkGetPhysicalDeviceQueueFamilyProperties2;
+
+        this->CreateInstance = (PFN_vkCreateInstance)vkCreateInstance;
+        this->CreateDevice = (PFN_vkCreateDevice)vkCreateDevice;
+    }
+
+    void ImportVulkanFunctions_Custom(VpVulkanFunctions* pFunctions) {
+    #define VP_COPY_IF_NOT_NULL(funcName) \
+        if(pFunctions->funcName != nullptr) this->funcName = pFunctions->funcName;
+
+        VP_COPY_IF_NOT_NULL(GetInstanceProcAddr);
+        VP_COPY_IF_NOT_NULL(GetDeviceProcAddr);
+
+        VP_COPY_IF_NOT_NULL(EnumerateInstanceVersion);
+        VP_COPY_IF_NOT_NULL(EnumerateInstanceExtensionProperties);
+        VP_COPY_IF_NOT_NULL(EnumerateDeviceExtensionProperties);
+
+        VP_COPY_IF_NOT_NULL(GetPhysicalDeviceFeatures2);
+        VP_COPY_IF_NOT_NULL(GetPhysicalDeviceProperties2);
+        VP_COPY_IF_NOT_NULL(GetPhysicalDeviceFormatProperties2);
+        VP_COPY_IF_NOT_NULL(GetPhysicalDeviceQueueFamilyProperties2);
+
+        VP_COPY_IF_NOT_NULL(CreateInstance);
+        VP_COPY_IF_NOT_NULL(CreateDevice);
+    #undef VP_COPY_IF_NOT_NULL
+    }
+/*
+    VkResult ImportVulkanFunctions_Dynamic() {
+        // To use VP_PROFILE_CREATE_DYNAMIC_BIT you have to pass VpVulkanFunctions::vkGetInstanceProcAddr and vkGetDeviceProcAddr as VpCapabilitiesCreateInfo::pVulkanFunctions. Other members can be null.
+        if (this->GetInstanceProcAddr == nullptr || this->GetDeviceProcAddr == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+    #define VP_FETCH_INSTANCE_FUNC(memberName, functionNameString) \
+        if(this->memberName == nullptr) \
+           this->memberName = (PFN_vk##memberName)this->GetInstanceProcAddr(m_hInstance, functionNameString);
+    #define VP_FETCH_DEVICE_FUNC(memberName, functionNameString) \
+        if(this->memberName == nullptr) \
+            this->memberName = (PFN_vk##memberName)this->GetDeviceProcAddr(m_hDevice, functionNameString);
+
+        VP_FETCH_INSTANCE_FUNC(GetInstanceProcAddr, "vkGetInstanceProcAddr");
+        VP_FETCH_DEVICE_FUNC(GetDeviceProcAddr, "vkGetDeviceProcAddr");
+
+        VP_FETCH_INSTANCE_FUNC(EnumerateInstanceVersion, "vkEnumerateInstanceVersion");
+        VP_FETCH_INSTANCE_FUNC(EnumerateInstanceExtensionProperties, "vkEnumerateInstanceExtensionProperties");
+        VP_FETCH_DEVICE_FUNC(EnumerateDeviceExtensionProperties, "vkEnumerateDeviceExtensionProperties");
+
+        VP_FETCH_DEVICE_FUNC(GetPhysicalDeviceFeatures2, "vkGetPhysicalDeviceFeatures2");
+        VP_FETCH_DEVICE_FUNC(GetPhysicalDeviceProperties2, "vkGetPhysicalDeviceProperties2");
+        VP_FETCH_DEVICE_FUNC(GetPhysicalDeviceFormatProperties2, "vkGetPhysicalDeviceFormatProperties2");
+        VP_FETCH_DEVICE_FUNC(GetPhysicalDeviceQueueFamilyProperties2, "vkGetPhysicalDeviceQueueFamilyProperties2");
+
+        VP_FETCH_INSTANCE_FUNC(CreateInstance, "vkCreateInstance");
+        VP_FETCH_DEVICE_FUNC(CreateDevice, "vkCreateDevice");
+    #undef VP_FETCH_DEVICE_FUNC
+    #undef VP_FETCH_INSTANCE_FUNC
+    }
+*/
+    VkResult ValidateVulkanFunctions() {
+        if (this->GetInstanceProcAddr == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        if (this->GetDeviceProcAddr == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        if (this->EnumerateInstanceVersion == nullptr && apiVersion >= VK_API_VERSION_1_1) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        if (this->EnumerateInstanceExtensionProperties == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        if (this->EnumerateDeviceExtensionProperties == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        if (this->GetPhysicalDeviceFeatures2 == nullptr) {
+            return apiVersion >= VK_API_VERSION_1_1 ? VK_ERROR_INITIALIZATION_FAILED : VK_ERROR_EXTENSION_NOT_PRESENT;
+        }
+
+        if (this->GetPhysicalDeviceProperties2 == nullptr) {
+            return apiVersion >= VK_API_VERSION_1_1 ? VK_ERROR_INITIALIZATION_FAILED : VK_ERROR_EXTENSION_NOT_PRESENT;
+        }
+
+        if (this->GetPhysicalDeviceFormatProperties2 == nullptr) {
+            return apiVersion >= VK_API_VERSION_1_1 ? VK_ERROR_INITIALIZATION_FAILED : VK_ERROR_EXTENSION_NOT_PRESENT;
+        }
+
+        if (this->GetPhysicalDeviceQueueFamilyProperties2 == nullptr) {
+            return apiVersion >= VK_API_VERSION_1_1 ? VK_ERROR_INITIALIZATION_FAILED : VK_ERROR_EXTENSION_NOT_PRESENT;
+        }
+
+        if (this->CreateInstance == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        if (this->CreateDevice == nullptr) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        return VK_SUCCESS;
+    }
+};
+
+VPAPI_ATTR VkResult vpCreateCapabilities(
+    const VpCapabilitiesCreateInfo*             pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VpCapabilities*                             pCapabilities) {
+
+    VpCapabilities_T* capabilities = new VpCapabilities_T();
+    VkResult result = capabilities->init(pCreateInfo);
+    *pCapabilities = capabilities;
+
+    return result;
+}
+
+/// Destroys allocator object.
+VPAPI_ATTR void vpDestroyCapabilities(
+    VpCapabilities                              capabilities,
+    const VkAllocationCallbacks*                pAllocator) {
+
+    delete capabilities;
+}
+
+VPAPI_ATTR VkResult vpGetProfiles(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    uint32_t*                                   pPropertyCount,
+    VpProfileProperties*                        pProperties) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = VK_SUCCESS;
 
     if (pProperties == nullptr) {
@@ -780,83 +1169,128 @@ VPAPI_ATTR VkResult vpGetProfiles(uint32_t *pPropertyCount, VpProfileProperties 
         } else {
             *pPropertyCount = detail::profileCount;
         }
-        for (uint32_t i = 0; i < *pPropertyCount; ++i) {
-            pProperties[i] = detail::profiles[i].props;
+        for (uint32_t property_index = 0; property_index < *pPropertyCount; ++property_index) {
+            pProperties[property_index] = detail::profiles[property_index].props;
         }
     }
     return result;
 }
 
-VPAPI_ATTR VkResult vpGetProfileRequiredProfiles(const VpProfileProperties *pProfile, uint32_t *pPropertyCount, VpProfileProperties *pProperties) {
+VPAPI_ATTR VkResult vpGetProfileRequiredProfiles(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    uint32_t*                                   pPropertyCount,
+    VpProfileProperties*                        pProperties) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = VK_SUCCESS;
 
-    const detail::VpProfileDesc* pDesc = detail::vpGetProfileDesc(pProfile->profileName);
-    if (pDesc == nullptr) return VK_ERROR_UNKNOWN;
+    const detail::VpProfileDesc* desc = detail::vpGetProfileDesc(pProfile->profileName);
+    if (desc == nullptr) {
+        return VK_ERROR_UNKNOWN;
+    }
 
     if (pProperties == nullptr) {
-        *pPropertyCount = pDesc->requiredProfileCount;
+        *pPropertyCount = desc->requiredProfileCount;
     } else {
-        if (*pPropertyCount < pDesc->requiredProfileCount) {
+        if (*pPropertyCount < desc->requiredProfileCount) {
             result = VK_INCOMPLETE;
         } else {
-            *pPropertyCount = pDesc->requiredProfileCount;
+            *pPropertyCount = desc->requiredProfileCount;
         }
-        for (uint32_t i = 0; i < *pPropertyCount; ++i) {
-            pProperties[i] = pDesc->pRequiredProfiles[i];
+        for (uint32_t property_index = 0; property_index < *pPropertyCount; ++property_index) {
+            pProperties[property_index] = desc->pRequiredProfiles[property_index];
         }
     }
     return result;
 }
 
-VPAPI_ATTR uint32_t vpGetProfileAPIVersion(const VpProfileProperties* pProfile) {
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile, nullptr);
+VPAPI_ATTR uint32_t vpGetProfileAPIVersion(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile, nullptr);
 
     uint32_t major = 0;
     uint32_t minor = 0;
     uint32_t patch = 0;
 
-    for (std::size_t i = 0, n = profiles.size(); i < n; ++i) {
-        const detail::VpProfileDesc* pDesc = detail::vpGetProfileDesc(profiles[i].profileName);
-        if (pDesc == nullptr) return 0;
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
+        if (desc == nullptr) {
+            return 0;
+        }
 
-        major = std::max<uint32_t>(major, VK_API_VERSION_MAJOR(pDesc->minApiVersion));
-        minor = std::max<uint32_t>(minor, VK_API_VERSION_MINOR(pDesc->minApiVersion));
-        patch = std::max<uint32_t>(patch, VK_API_VERSION_PATCH(pDesc->minApiVersion));
+        major = std::max<uint32_t>(major, VK_API_VERSION_MAJOR(desc->minApiVersion));
+        minor = std::max<uint32_t>(minor, VK_API_VERSION_MINOR(desc->minApiVersion));
+        patch = std::max<uint32_t>(patch, VK_API_VERSION_PATCH(desc->minApiVersion));
     }
 
     return VK_MAKE_API_VERSION(0, major, minor, patch);
 }
 
-VPAPI_ATTR VkResult vpGetProfileFallbacks(const VpProfileProperties *pProfile, uint32_t *pPropertyCount, VpProfileProperties *pProperties) {
+VPAPI_ATTR VkResult vpGetProfileFallbacks(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    uint32_t*                                   pPropertyCount,
+    VpProfileProperties*                        pProperties) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = VK_SUCCESS;
 
-    const detail::VpProfileDesc* pDesc = detail::vpGetProfileDesc(pProfile->profileName);
-    if (pDesc == nullptr) return VK_ERROR_UNKNOWN;
+    const detail::VpProfileDesc* desc = detail::vpGetProfileDesc(pProfile->profileName);
+    if (desc == nullptr) {
+        return VK_ERROR_UNKNOWN;
+    }
 
     if (pProperties == nullptr) {
-        *pPropertyCount = pDesc->fallbackCount;
+        *pPropertyCount = desc->fallbackCount;
     } else {
-        if (*pPropertyCount < pDesc->fallbackCount) {
+        if (*pPropertyCount < desc->fallbackCount) {
             result = VK_INCOMPLETE;
         } else {
-            *pPropertyCount = pDesc->fallbackCount;
+            *pPropertyCount = desc->fallbackCount;
         }
         for (uint32_t i = 0; i < *pPropertyCount; ++i) {
-            pProperties[i] = pDesc->pFallbacks[i];
+            pProperties[i] = desc->pFallbacks[i];
         }
     }
     return result;
 }
 
-VPAPI_ATTR VkResult vpHasMultipleVariantsProfile(const VpProfileProperties *pProfile, VkBool32 *pHasMultipleVariants) {
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile, nullptr);
+VPAPI_ATTR VkResult vpHasMultipleVariantsProfile(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pHasMultipleVariants) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
 
-    for (std::size_t profile_index = 0, profile_count = profiles.size(); profile_index < profile_count; ++profile_index) {
-        const detail::VpProfileDesc* pDesc = detail::vpGetProfileDesc(profiles[profile_index].profileName);
-        if (pDesc == nullptr) return VK_ERROR_UNKNOWN;
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile, nullptr);
 
-        for (uint32_t capabilities_index = 0, n = pDesc->requiredCapabilityCount; capabilities_index < n; ++capabilities_index) {
-            if (pDesc->pRequiredCapabilities[capabilities_index].variantCount > 1) {
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
+        if (desc == nullptr) {
+            return VK_ERROR_UNKNOWN;
+        }
+
+        for (uint32_t caps_index = 0, caps_count = desc->requiredCapabilityCount; caps_index < caps_count; ++caps_index) {
+            if (desc->pRequiredCapabilities[caps_index].variantCount > 1) {
                 *pHasMultipleVariants = VK_TRUE;
                 return VK_SUCCESS;
             }
@@ -867,22 +1301,38 @@ VPAPI_ATTR VkResult vpHasMultipleVariantsProfile(const VpProfileProperties *pPro
     return VK_SUCCESS;
 }
 
-VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, const VpProfileProperties *pProfile, VkBool32 *pSupported, uint32_t *pPropertyCount, VpBlockProperties* pProperties) {
+VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                      capabilities,
+#endif//VP_USE_OBJECT
+    const char*                         pLayerName,
+    const VpProfileProperties*          pProfile,
+    VkBool32*                           pSupported,
+    uint32_t*                           pPropertyCount,
+    VpBlockProperties*                  pProperties) {
+#ifdef VP_USE_OBJECT
+    const VpCapabilities_T& vp = capabilities == nullptr ? VpCapabilities_T::Get() : *capabilities;
+#else
+    const VpCapabilities_T& vp = VpCapabilities_T::Get();
+#endif//VP_USE_OBJECT
+
     VkResult result = VK_SUCCESS;
 
-    uint32_t api_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
-    static PFN_vkEnumerateInstanceVersion pfnEnumerateInstanceVersion =
-        (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion");
+    uint32_t api_version = VK_API_VERSION_1_0;
+    PFN_vkEnumerateInstanceVersion pfnEnumerateInstanceVersion = vp.singleton ?
+        (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion") : vp.EnumerateInstanceVersion;
     if (pfnEnumerateInstanceVersion != nullptr) {
         result = pfnEnumerateInstanceVersion(&api_version);
         if (result != VK_SUCCESS) {
             *pSupported = VK_FALSE;
             return result;
-        }
+        } /* else {
+            VP_DEBUG_MSGF("Instance API version %u.%u.%u", VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version), VK_API_VERSION_PATCH(api_version));
+        } */
     }
 
     uint32_t supported_instance_extension_count = 0;
-    result = vkEnumerateInstanceExtensionProperties(pLayerName, &supported_instance_extension_count, nullptr);
+    result = vp.EnumerateInstanceExtensionProperties(pLayerName, &supported_instance_extension_count, nullptr);
     if (result != VK_SUCCESS) {
         *pSupported = VK_FALSE;
         return result;
@@ -891,7 +1341,7 @@ VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, 
     if (supported_instance_extension_count > 0) {
         supported_instance_extensions.resize(supported_instance_extension_count);
     }
-    result = vkEnumerateInstanceExtensionProperties(pLayerName, &supported_instance_extension_count, supported_instance_extensions.data());
+    result = vp.EnumerateInstanceExtensionProperties(pLayerName, &supported_instance_extension_count, supported_instance_extensions.data());
     if (result != VK_SUCCESS) {
         *pSupported = VK_FALSE;
         return result;
@@ -902,8 +1352,8 @@ VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, 
     // We require VK_KHR_get_physical_device_properties2 if we are on Vulkan 1.0
     if (api_version < VK_API_VERSION_1_1) {
         bool foundGPDP2 = false;
-        for (size_t i = 0; i < supported_instance_extensions.size(); ++i) {
-            if (strcmp(supported_instance_extensions[i].extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
+        for (size_t ext_index = 0, ext_count = supported_instance_extensions.size(); ext_index < ext_count; ++ext_index) {
+            if (strcmp(supported_instance_extensions[ext_index].extensionName, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
                 foundGPDP2 = true;
                 break;
             }
@@ -926,8 +1376,8 @@ VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, 
         return result;
     }
 
-    for (std::size_t i = 0; i < pProfileDesc->requiredProfileCount; ++i) {
-        result = detail::vpGetInstanceProfileSupportSingleProfile(0, supported_instance_extensions, &pProfileDesc->pRequiredProfiles[i], &supported, supported_blocks, unsupported_blocks);
+    for (std::size_t required_profile_index = 0; required_profile_index < pProfileDesc->requiredProfileCount; ++required_profile_index) {
+        result = detail::vpGetInstanceProfileSupportSingleProfile(0, supported_instance_extensions, &pProfileDesc->pRequiredProfiles[required_profile_index], &supported, supported_blocks, unsupported_blocks);
         if (result != VK_SUCCESS) {
             *pSupported = supported;
             return result;
@@ -944,8 +1394,8 @@ VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, 
         } else {
             *pPropertyCount = static_cast<uint32_t>(blocks.size());
         }
-        for (uint32_t i = 0, n = static_cast<uint32_t>(blocks.size()); i < n; ++i) {
-            pProperties[i] = blocks[i];
+        for (uint32_t block_index = 0, block_count = static_cast<uint32_t>(blocks.size()); block_index < block_count; ++block_index) {
+            pProperties[block_index] = blocks[block_index];
         }
     }
 
@@ -953,16 +1403,37 @@ VPAPI_ATTR VkResult vpGetInstanceProfileVariantsSupport(const char *pLayerName, 
     return result;
 }
 
-VPAPI_ATTR VkResult vpGetInstanceProfileSupport(const char *pLayerName, const VpProfileProperties *pProfile, VkBool32 *pSupported) {
+VPAPI_ATTR VkResult vpGetInstanceProfileSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const char*                                 pLayerName,
+    const VpProfileProperties*                  pProfile,
+    VkBool32*                                   pSupported) {
     uint32_t count = 0;
-    return vpGetInstanceProfileVariantsSupport(pLayerName, pProfile, pSupported, &count, nullptr);
+
+    return vpGetInstanceProfileVariantsSupport(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pLayerName, pProfile, pSupported, &count, nullptr);
 }
 
+VPAPI_ATTR VkResult vpCreateInstance(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpInstanceCreateInfo*                 pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkInstance*                                 pInstance) {
+#ifdef VP_USE_OBJECT
+    const VpCapabilities_T& vp = capabilities == nullptr ? VpCapabilities_T::Get() : *capabilities;
+#else
+    const VpCapabilities_T& vp = VpCapabilities_T::Get();
+#endif//VP_USE_OBJECT
 
-VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo,
-                                     const VkAllocationCallbacks *pAllocator, VkInstance *pInstance) {
     if (pCreateInfo == nullptr || pInstance == nullptr) {
-        return vkCreateInstance(pCreateInfo == nullptr ? nullptr : pCreateInfo->pCreateInfo, pAllocator, pInstance);
+        return vp.CreateInstance(pCreateInfo == nullptr ? nullptr : pCreateInfo->pCreateInfo, pAllocator, pInstance);
     }
 
     const std::vector<VpBlockProperties>& blocks = detail::GatherBlocks(
@@ -970,22 +1441,24 @@ VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo,
         pCreateInfo->enabledProfileBlockCount, pCreateInfo->pEnabledProfileBlocks);
 
     std::vector<const char*> extensions;
-    for (std::uint32_t i = 0, n = pCreateInfo->pCreateInfo->enabledExtensionCount; i < n; ++i) {
-        extensions.push_back(pCreateInfo->pCreateInfo->ppEnabledExtensionNames[i]);
+    for (std::uint32_t ext_index = 0, ext_count = pCreateInfo->pCreateInfo->enabledExtensionCount; ext_index < ext_count; ++ext_index) {
+        extensions.push_back(pCreateInfo->pCreateInfo->ppEnabledExtensionNames[ext_index]);
     }
 
-    for (std::size_t i = 0, n = blocks.size(); i < n; ++i) {
-        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(blocks[i].profiles.profileName);
-        if (pProfileDesc == nullptr) return VK_ERROR_UNKNOWN;
+    for (std::size_t block_index = 0, block_count = blocks.size(); block_index < block_count; ++block_index) {
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(blocks[block_index].profiles.profileName);
+        if (profile_desc == nullptr) {
+            return VK_ERROR_UNKNOWN;
+        }
 
-        for (std::size_t j = 0, p = pProfileDesc->requiredCapabilityCount; j < p; ++j) {
-            const detail::VpCapabilitiesDesc* pCapsDesc = &pProfileDesc->pRequiredCapabilities[j];
+        for (std::size_t caps_index = 0, caps_count = profile_desc->requiredCapabilityCount; caps_index < caps_count; ++caps_index) {
+            const detail::VpCapabilitiesDesc* caps_desc = &profile_desc->pRequiredCapabilities[caps_index];
 
-            for (std::size_t v = 0, q = pCapsDesc->variantCount; v < q; ++v) {
-                const detail::VpVariantDesc* variant = &pCapsDesc->pVariants[v];
+            for (std::size_t variant_index = 0, variant_count = caps_desc->variantCount; variant_index < variant_count; ++variant_index) {
+                const detail::VpVariantDesc* variant = &caps_desc->pVariants[variant_index];
 
-                if (strcmp(blocks[i].blockName, "") != 0) {
-                    if (strcmp(variant->blockName, blocks[i].blockName) != 0) {
+                if (strcmp(blocks[block_index].blockName, "") != 0) {
+                    if (strcmp(variant->blockName, blocks[block_index].blockName) != 0) {
                         continue;
                     }
                 }
@@ -999,7 +1472,11 @@ VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo,
     if (pCreateInfo->pCreateInfo->pApplicationInfo != nullptr) {
         appInfo = *pCreateInfo->pCreateInfo->pApplicationInfo;
     } else if (!blocks.empty()) {
-        appInfo.apiVersion = vpGetProfileAPIVersion(&blocks[0].profiles);
+        appInfo.apiVersion = vpGetProfileAPIVersion(
+#ifdef VP_USE_OBJECT
+            capabilities,
+#endif//VP_USE_OBJECT
+            &blocks[0].profiles);
     }
 
     VkInstanceCreateInfo createInfo = *pCreateInfo->pCreateInfo;
@@ -1008,8 +1485,8 @@ VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo,
     // Need to include VK_KHR_get_physical_device_properties2 if we are on Vulkan 1.0
     if (createInfo.pApplicationInfo->apiVersion < VK_API_VERSION_1_1) {
         bool foundGPDP2 = false;
-        for (size_t i = 0; i < extensions.size(); ++i) {
-            if (strcmp(extensions[i], VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
+        for (size_t ext_index = 0, ext_count = extensions.size(); ext_index < ext_count; ++ext_index) {
+            if (strcmp(extensions[ext_index], VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
                 foundGPDP2 = true;
                 break;
             }
@@ -1021,8 +1498,8 @@ VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo,
 
 #ifdef __APPLE__
     bool has_portability_ext = false;
-    for (std::size_t i = 0, n = extensions.size(); i < n; ++i) {
-        if (strcmp(extensions[i], VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0) {
+    for (std::size_t ext_index = 0, ext_count = extensions.size(); ext_index < ext_count; ++ext_index) {
+        if (strcmp(extensions[ext_index], VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0) {
             has_portability_ext = true;
             break;
         }
@@ -1040,15 +1517,29 @@ VPAPI_ATTR VkResult vpCreateInstance(const VpInstanceCreateInfo *pCreateInfo,
         createInfo.ppEnabledExtensionNames = extensions.data();
     }
 
-    return vkCreateInstance(&createInfo, pAllocator, pInstance);
+    return vp.CreateInstance(&createInfo, pAllocator, pInstance);
 }
 
-VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instance, VkPhysicalDevice physicalDevice,
-                                                              const VpProfileProperties *pProfile, VkBool32 *pSupported, uint32_t *pPropertyCount, VpBlockProperties* pProperties) {
+VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    VkInstance instance,
+    VkPhysicalDevice physicalDevice,
+    const VpProfileProperties *pProfile,
+    VkBool32 *pSupported,
+    uint32_t *pPropertyCount,
+    VpBlockProperties* pProperties) {
+#ifdef VP_USE_OBJECT
+    const VpCapabilities_T& vp = capabilities == nullptr ? VpCapabilities_T::Get() : *capabilities;
+#else
+    const VpCapabilities_T& vp = VpCapabilities_T::Get();
+#endif//VP_USE_OBJECT
+
     VkResult result = VK_SUCCESS;
 
     uint32_t supported_device_extension_count = 0;
-    result = vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &supported_device_extension_count, nullptr);
+    result = vp.EnumerateDeviceExtensionProperties(physicalDevice, nullptr, &supported_device_extension_count, nullptr);
     if (result != VK_SUCCESS) {
         return result;
     }
@@ -1056,7 +1547,7 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
     if (supported_device_extension_count > 0) {
         supported_device_extensions.resize(supported_device_extension_count);
     }
-    result = vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &supported_device_extension_count, supported_device_extensions.data());
+    result = vp.EnumerateDeviceExtensionProperties(physicalDevice, nullptr, &supported_device_extension_count, supported_device_extensions.data());
     if (result != VK_SUCCESS) {
         return result;
     }
@@ -1066,8 +1557,12 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
         supported_device_extensions.resize(supported_device_extension_count);
     }
 
-    const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(pProfile->profileName);
-    if (pProfileDesc == nullptr) return VK_ERROR_UNKNOWN;
+    {
+        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(pProfile->profileName);
+        if (pProfileDesc == nullptr) {
+            return VK_ERROR_UNKNOWN;
+        }
+    }
 
     struct GPDP2EntryPoints {
         PFN_vkGetPhysicalDeviceFeatures2KHR                 pfnGetPhysicalDeviceFeatures2;
@@ -1091,15 +1586,24 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
         bool supported;
     } userData{physicalDevice, supported_blocks, unsupported_blocks};
 
+    if (!vp.singleton) {
+        userData.gpdp2.pfnGetPhysicalDeviceFeatures2 = vp.GetPhysicalDeviceFeatures2;
+        userData.gpdp2.pfnGetPhysicalDeviceProperties2 = vp.GetPhysicalDeviceProperties2;
+        userData.gpdp2.pfnGetPhysicalDeviceFormatProperties2 = vp.GetPhysicalDeviceFormatProperties2;
+        userData.gpdp2.pfnGetPhysicalDeviceQueueFamilyProperties2 = vp.GetPhysicalDeviceQueueFamilyProperties2;
+    }
+
     // Attempt to load core versions of the GPDP2 entry points
-    userData.gpdp2.pfnGetPhysicalDeviceFeatures2 =
-        (PFN_vkGetPhysicalDeviceFeatures2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFeatures2");
-    userData.gpdp2.pfnGetPhysicalDeviceProperties2 =
-        (PFN_vkGetPhysicalDeviceProperties2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceProperties2");
-    userData.gpdp2.pfnGetPhysicalDeviceFormatProperties2 =
-        (PFN_vkGetPhysicalDeviceFormatProperties2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFormatProperties2");
-    userData.gpdp2.pfnGetPhysicalDeviceQueueFamilyProperties2 =
-        (PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceQueueFamilyProperties2");
+    if (userData.gpdp2.pfnGetPhysicalDeviceFeatures2 == nullptr) {
+        userData.gpdp2.pfnGetPhysicalDeviceFeatures2 =
+            (PFN_vkGetPhysicalDeviceFeatures2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFeatures2");
+        userData.gpdp2.pfnGetPhysicalDeviceProperties2 =
+            (PFN_vkGetPhysicalDeviceProperties2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceProperties2");
+        userData.gpdp2.pfnGetPhysicalDeviceFormatProperties2 =
+            (PFN_vkGetPhysicalDeviceFormatProperties2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFormatProperties2");
+        userData.gpdp2.pfnGetPhysicalDeviceQueueFamilyProperties2 =
+            (PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceQueueFamilyProperties2");
+    }
 
     // If not successful, try to load KHR variant
     if (userData.gpdp2.pfnGetPhysicalDeviceFeatures2 == nullptr) {
@@ -1120,37 +1624,38 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
         return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 
-    VP_DEBUG_MSGF("Checking device support for profile %s (%s). You may find the details of the capabilities of this device on https://vulkan.gpuinfo.org/\\n", pProfile->profileName, detail::vpGetDeviceAndDriverInfoString(physicalDevice, userData.gpdp2.pfnGetPhysicalDeviceProperties2).c_str());
-
     bool supported = true;
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile);
 
-    for (std::size_t i = 0, n = profiles.size(); i < n; ++i) {
-        const char* profile_name = profiles[i].profileName;
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const char* profile_name = gathered_profiles[profile_index].profileName;
 
-        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(profile_name);
-        if (pProfileDesc == nullptr) return VK_ERROR_UNKNOWN;
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profile_name);
+        if (profile_desc == nullptr) {
+            return VK_ERROR_UNKNOWN;
+        }
 
         bool supported_profile = true;
 
-
-        if (pProfileDesc->props.specVersion < profiles[i].specVersion) {
-            VP_DEBUG_MSGF("Unsupported requested %s profile version: %u, profile supported at version %u", profile_name, pProfileDesc->props.specVersion, pProfile->specVersion);
+        if (profile_desc->props.specVersion < gathered_profiles[profile_index].specVersion) {
+            VP_DEBUG_MSGF("Unsupported requested %s profile version: %u, profile supported at version %u", profile_name, profile_desc->props.specVersion, pProfile->specVersion);
             supported_profile = false;
         }
 
-        VpBlockProperties block{profiles[i], pProfileDesc->minApiVersion};
+        VpBlockProperties block{gathered_profiles[profile_index], profile_desc->minApiVersion};
 
-        VkPhysicalDeviceProperties props{};
-        vkGetPhysicalDeviceProperties(physicalDevice, &props);
-        if (!detail::vpCheckVersion(props.apiVersion, pProfileDesc->minApiVersion)) {
-            VP_DEBUG_MSGF("Unsupported API version: %u.%u.%u", VK_API_VERSION_MAJOR(pProfileDesc->minApiVersion), VK_API_VERSION_MINOR(pProfileDesc->minApiVersion), VK_API_VERSION_PATCH(pProfileDesc->minApiVersion));
-            supported_profile = false;
+        {
+            VkPhysicalDeviceProperties device_properties{};
+            vkGetPhysicalDeviceProperties(physicalDevice, &device_properties);
+            if (!detail::vpCheckVersion(device_properties.apiVersion, profile_desc->minApiVersion)) {
+                VP_DEBUG_MSGF("Unsupported API version: %u.%u.%u", VK_API_VERSION_MAJOR(profile_desc->minApiVersion), VK_API_VERSION_MINOR(profile_desc->minApiVersion), VK_API_VERSION_PATCH(profile_desc->minApiVersion));
+                supported_profile = false;
+            }
         }
 
-        for (uint32_t required_capability_index = 0; required_capability_index < pProfileDesc->requiredCapabilityCount; ++required_capability_index) {
-            const detail::VpCapabilitiesDesc* required_capabilities = &pProfileDesc->pRequiredCapabilities[required_capability_index];
+        for (uint32_t required_capability_index = 0; required_capability_index < profile_desc->requiredCapabilityCount; ++required_capability_index) {
+            const detail::VpCapabilitiesDesc* required_capabilities = &profile_desc->pRequiredCapabilities[required_capability_index];
 
             bool supported_block = false;
 
@@ -1159,8 +1664,8 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
 
                 bool supported_variant = true;
 
-                for (uint32_t i = 0; i < variant_desc.deviceExtensionCount; ++i) {
-                    const char *requested_extension = variant_desc.pDeviceExtensions[i].extensionName;
+                for (uint32_t ext_index = 0; ext_index < variant_desc.deviceExtensionCount; ++ext_index) {
+                    const char *requested_extension = variant_desc.pDeviceExtensions[ext_index].extensionName;
                     if (!detail::CheckExtension(supported_device_extensions.data(), supported_device_extensions.size(), requested_extension)) {
                         supported_variant = false;
                     }
@@ -1173,8 +1678,10 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
                     static_cast<VkBaseOutStructure*>(static_cast<void*>(&features)), &userData,
                     [](VkBaseOutStructure* p, void* pUser) {
                         UserData* pUserData = static_cast<UserData*>(pUser);
-                        pUserData->gpdp2.pfnGetPhysicalDeviceFeatures2(pUserData->physicalDevice,
-                                                                        static_cast<VkPhysicalDeviceFeatures2KHR*>(static_cast<void*>(p)));
+                        pUserData->gpdp2.pfnGetPhysicalDeviceFeatures2(
+                            pUserData->physicalDevice,
+                            static_cast<VkPhysicalDeviceFeatures2KHR*>(static_cast<void*>(p)));
+
                         pUserData->supported = true;
                         while (p != nullptr) {
                             if (!pUserData->variant->feature.pfnComparator(p)) {
@@ -1188,13 +1695,15 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
                     supported_variant = false;
                 }
 
-                VkPhysicalDeviceProperties2KHR props{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR };
+                VkPhysicalDeviceProperties2KHR device_properties2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR };
                 userData.variant->chainers.pfnProperty(
-                    static_cast<VkBaseOutStructure*>(static_cast<void*>(&props)), &userData,
+                    static_cast<VkBaseOutStructure*>(static_cast<void*>(&device_properties2)), &userData,
                     [](VkBaseOutStructure* p, void* pUser) {
                         UserData* pUserData = static_cast<UserData*>(pUser);
-                        pUserData->gpdp2.pfnGetPhysicalDeviceProperties2(pUserData->physicalDevice,
-                                                                         static_cast<VkPhysicalDeviceProperties2KHR*>(static_cast<void*>(p)));
+                        pUserData->gpdp2.pfnGetPhysicalDeviceProperties2(
+                            pUserData->physicalDevice,
+                            static_cast<VkPhysicalDeviceProperties2KHR*>(static_cast<void*>(p)));
+
                         pUserData->supported = true;
                         while (p != nullptr) {
                             if (!pUserData->variant->property.pfnComparator(p)) {
@@ -1208,15 +1717,17 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
                     supported_variant = false;
                 }
 
-                for (uint32_t i = 0; i < userData.variant->formatCount && supported_variant; ++i) {
-                    userData.index = i;
-                    VkFormatProperties2KHR props{ VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2_KHR };
+                for (uint32_t format_index = 0; format_index < userData.variant->formatCount && supported_variant; ++format_index) {
+                    userData.index = format_index;
+                    VkFormatProperties2KHR format_properties2{ VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2_KHR };
                     userData.variant->chainers.pfnFormat(
-                        static_cast<VkBaseOutStructure*>(static_cast<void*>(&props)), &userData,
+                        static_cast<VkBaseOutStructure*>(static_cast<void*>(&format_properties2)), &userData,
                         [](VkBaseOutStructure* p, void* pUser) {
                             UserData* pUserData = static_cast<UserData*>(pUser);
-                            pUserData->gpdp2.pfnGetPhysicalDeviceFormatProperties2(pUserData->physicalDevice, pUserData->variant->pFormats[pUserData->index].format,
-                                                                                   static_cast<VkFormatProperties2KHR*>(static_cast<void*>(p)));
+                            pUserData->gpdp2.pfnGetPhysicalDeviceFormatProperties2(
+                                pUserData->physicalDevice,
+                                pUserData->variant->pFormats[pUserData->index].format,
+                                static_cast<VkFormatProperties2KHR*>(static_cast<void*>(p)));
                             pUserData->supported = true;
                             while (p != nullptr) {
                                 if (!pUserData->variant->pFormats[pUserData->index].pfnComparator(p)) {
@@ -1270,16 +1781,39 @@ VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileVariantsSupport(VkInstance instanc
     return VK_SUCCESS;
 }
 
-VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(VkInstance instance, VkPhysicalDevice physicalDevice,
-                                                      const VpProfileProperties *pProfile, VkBool32 *pSupported) {
+VPAPI_ATTR VkResult vpGetPhysicalDeviceProfileSupport(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    VkInstance                                  instance,
+    VkPhysicalDevice                            physicalDevice,
+    const VpProfileProperties*                  pProfile,
+    VkBool32 *pSupported) {
     uint32_t count = 0;
-    return vpGetPhysicalDeviceProfileVariantsSupport(instance, physicalDevice, pProfile, pSupported, &count, nullptr);
+
+    return vpGetPhysicalDeviceProfileVariantsSupport(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        instance, physicalDevice, pProfile, pSupported, &count, nullptr);
 }
 
-VPAPI_ATTR VkResult vpCreateDevice(VkPhysicalDevice physicalDevice, const VpDeviceCreateInfo *pCreateInfo,
-                                   const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
+VPAPI_ATTR VkResult vpCreateDevice(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    VkPhysicalDevice                            physicalDevice,
+    const VpDeviceCreateInfo*                   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDevice*                                   pDevice) {
+#ifdef VP_USE_OBJECT
+    const VpCapabilities_T& vp = capabilities == nullptr ? VpCapabilities_T::Get() : *capabilities;
+#else
+    const VpCapabilities_T& vp = VpCapabilities_T::Get();
+#endif//VP_USE_OBJECT
+
     if (physicalDevice == VK_NULL_HANDLE || pCreateInfo == nullptr || pDevice == nullptr) {
-        return vkCreateDevice(physicalDevice, pCreateInfo == nullptr ? nullptr : pCreateInfo->pCreateInfo, pAllocator, pDevice);
+        return vp.CreateDevice(physicalDevice, pCreateInfo == nullptr ? nullptr : pCreateInfo->pCreateInfo, pAllocator, pDevice);
     }
 
     const std::vector<VpBlockProperties>& blocks = detail::GatherBlocks(
@@ -1290,28 +1824,28 @@ VPAPI_ATTR VkResult vpCreateDevice(VkPhysicalDevice physicalDevice, const VpDevi
     std::vector<VkStructureType> structureTypes;
 
     std::vector<const char*> extensions;
-    for (std::uint32_t i = 0, n = pCreateInfo->pCreateInfo->enabledExtensionCount; i < n; ++i) {
-        extensions.push_back(pCreateInfo->pCreateInfo->ppEnabledExtensionNames[i]);
+    for (std::uint32_t ext_index = 0, ext_count = pCreateInfo->pCreateInfo->enabledExtensionCount; ext_index < ext_count; ++ext_index) {
+        extensions.push_back(pCreateInfo->pCreateInfo->ppEnabledExtensionNames[ext_index]);
     }
 
-    for (std::size_t i = 0, n = blocks.size(); i < n; ++i) {
-        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(blocks[i].profiles.profileName);
+    for (std::size_t block_index = 0, block_count = blocks.size(); block_index < block_count; ++block_index) {
+        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(blocks[block_index].profiles.profileName);
         if (pProfileDesc == nullptr) return VK_ERROR_UNKNOWN;
 
-        for (std::size_t j = 0, p = pProfileDesc->requiredCapabilityCount; j < p; ++j) {
-            const detail::VpCapabilitiesDesc* pCapsDesc = &pProfileDesc->pRequiredCapabilities[j];
+        for (std::size_t caps_index = 0, caps_count = pProfileDesc->requiredCapabilityCount; caps_index < caps_count; ++caps_index) {
+            const detail::VpCapabilitiesDesc* pCapsDesc = &pProfileDesc->pRequiredCapabilities[caps_index];
 
-            for (std::size_t v = 0, q = pCapsDesc->variantCount; v < q; ++v) {
-                const detail::VpVariantDesc* variant = &pCapsDesc->pVariants[v];
+            for (std::size_t variant_index = 0, variant_count = pCapsDesc->variantCount; variant_index < variant_count; ++variant_index) {
+                const detail::VpVariantDesc* variant = &pCapsDesc->pVariants[variant_index];
 
-                if (strcmp(blocks[i].blockName, "") != 0) {
-                    if (strcmp(variant->blockName, blocks[i].blockName) != 0) {
+                if (strcmp(blocks[block_index].blockName, "") != 0) {
+                    if (strcmp(variant->blockName, blocks[block_index].blockName) != 0) {
                         continue;
                     }
                 }
 
-                for (uint32_t t = 0; t < variant->featureStructTypeCount; ++t) {
-                    const VkStructureType type = variant->pFeatureStructTypes[t];
+                for (uint32_t type_index = 0; type_index < variant->featureStructTypeCount; ++type_index) {
+                    const VkStructureType type = variant->pFeatureStructTypes[type_index];
                     if (std::find(structureTypes.begin(), structureTypes.end(), type) == std::end(structureTypes)) {
                         structureTypes.push_back(type);
                     }
@@ -1332,21 +1866,23 @@ VPAPI_ATTR VkResult vpCreateDevice(VkPhysicalDevice physicalDevice, const VpDevi
         pFeatures->features = *pCreateInfo->pCreateInfo->pEnabledFeatures;
     }
 
-    for (std::size_t i = 0, n = blocks.size(); i < n; ++i) {
-        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(blocks[i].profiles.profileName);
-        if (pProfileDesc == nullptr) return VK_ERROR_UNKNOWN;
+    for (std::size_t block_index = 0, block_count = blocks.size(); block_index < block_count; ++block_index) {
+        const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(blocks[block_index].profiles.profileName);
+        if (pProfileDesc == nullptr) {
+            return VK_ERROR_UNKNOWN;
+        }
 
-        for (std::size_t j = 0, p = pProfileDesc->requiredCapabilityCount; j < p; ++j) {
-            const detail::VpCapabilitiesDesc* pCapsDesc = &pProfileDesc->pRequiredCapabilities[j];
+        for (std::size_t caps_index = 0, caps_count = pProfileDesc->requiredCapabilityCount; caps_index < caps_count; ++caps_index) {
+            const detail::VpCapabilitiesDesc* pCapsDesc = &pProfileDesc->pRequiredCapabilities[caps_index];
 
-            for (std::size_t v = 0, q = pCapsDesc->variantCount; v < q; ++v) {
-                const detail::VpVariantDesc* variant = &pCapsDesc->pVariants[v];
+            for (std::size_t variant_index = 0, variant_count = pCapsDesc->variantCount; variant_index < variant_count; ++variant_index) {
+                const detail::VpVariantDesc* variant = &pCapsDesc->pVariants[variant_index];
 
-                VkBaseOutStructure* p = reinterpret_cast<VkBaseOutStructure*>(pFeatures);
+                VkBaseOutStructure* base_ptr = reinterpret_cast<VkBaseOutStructure*>(pFeatures);
                 if (variant->feature.pfnFiller != nullptr) {
-                    while (p != nullptr) {
-                        variant->feature.pfnFiller(p);
-                        p = p->pNext;
+                    while (base_ptr != nullptr) {
+                        variant->feature.pfnFiller(base_ptr);
+                        base_ptr = base_ptr->pNext;
                     }
                 }
             }
@@ -1366,24 +1902,56 @@ VPAPI_ATTR VkResult vpCreateDevice(VkPhysicalDevice physicalDevice, const VpDevi
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    return vkCreateDevice(physicalDevice, &createInfo, pAllocator, pDevice);
+    return vp.CreateDevice(physicalDevice, &createInfo, pAllocator, pDevice);
 }
 
-VPAPI_ATTR VkResult vpGetProfileInstanceExtensionProperties(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pPropertyCount, VkExtensionProperties *pProperties) {
-    return detail::vpGetProfileExtensionProperties(pProfile, pBlockName, detail::EXTENSION_INSTANCE, pPropertyCount, pProperties);
+VPAPI_ATTR VkResult vpGetProfileInstanceExtensionProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pPropertyCount,
+    VkExtensionProperties*                      pProperties) {
+    return detail::vpGetProfileExtensionProperties(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pProfile, pBlockName, detail::EXTENSION_INSTANCE, pPropertyCount, pProperties);
 }
 
-VPAPI_ATTR VkResult vpGetProfileDeviceExtensionProperties(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pPropertyCount, VkExtensionProperties *pProperties) {
-    return detail::vpGetProfileExtensionProperties(pProfile, pBlockName, detail::EXTENSION_DEVICE, pPropertyCount, pProperties);
+VPAPI_ATTR VkResult vpGetProfileDeviceExtensionProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pPropertyCount,
+    VkExtensionProperties*                      pProperties) {
+    return detail::vpGetProfileExtensionProperties(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pProfile, pBlockName, detail::EXTENSION_DEVICE, pPropertyCount, pProperties);
 }
 
-VPAPI_ATTR VkResult vpGetProfileFeatures(const VpProfileProperties *pProfile, const char* pBlockName, void *pNext) {
+VPAPI_ATTR VkResult vpGetProfileFeatures(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    void*                                       pNext) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = pBlockName == nullptr ? VK_SUCCESS : VK_INCOMPLETE;
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile);
 
-    for (std::size_t profile_index = 0, profile_count = profiles.size(); profile_index < profile_count; ++profile_index) {
-        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profiles[profile_index].profileName);
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
         if (profile_desc == nullptr) return VK_ERROR_UNKNOWN;
 
         for (uint32_t capability_index = 0; capability_index < profile_desc->requiredCapabilityCount; ++capability_index) {
@@ -1412,21 +1980,32 @@ VPAPI_ATTR VkResult vpGetProfileFeatures(const VpProfileProperties *pProfile, co
     return result;
 }
 
-VPAPI_ATTR VkResult vpGetProfileProperties(const VpProfileProperties *pProfile, const char* pBlockName, void *pNext) {
+VPAPI_ATTR VkResult vpGetProfileProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    void*                                       pNext) {
     VkResult result = pBlockName == nullptr ? VK_SUCCESS : VK_INCOMPLETE;
 
     VkBool32 multiple_variants = VK_FALSE;
-    if (vpHasMultipleVariantsProfile(pProfile, &multiple_variants) == VK_ERROR_UNKNOWN) {
+    if (vpHasMultipleVariantsProfile(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pProfile,
+        &multiple_variants) == VK_ERROR_UNKNOWN) {
         return VK_ERROR_UNKNOWN;
     }
     if (multiple_variants == VK_TRUE && pBlockName == nullptr) {
         return VK_ERROR_UNKNOWN;
     }
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile);
 
-    for (std::size_t profile_index = 0, profile_count = profiles.size(); profile_index < profile_count; ++profile_index) {
-        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profiles[profile_index].profileName);
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
         if (profile_desc == nullptr) return VK_ERROR_UNKNOWN;
 
         for (uint32_t capability_index = 0; capability_index < profile_desc->requiredCapabilityCount; ++capability_index) {
@@ -1455,15 +2034,26 @@ VPAPI_ATTR VkResult vpGetProfileProperties(const VpProfileProperties *pProfile, 
     return result;
 }
 
-VPAPI_ATTR VkResult vpGetProfileFormats(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pFormatCount, VkFormat *pFormats) {
+VPAPI_ATTR VkResult vpGetProfileFormats(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pFormatCount,
+    VkFormat*                                   pFormats) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = pBlockName == nullptr ? VK_SUCCESS : VK_INCOMPLETE;
 
     std::vector<VkFormat> results;
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile);
 
-    for (std::size_t profile_index = 0, profile_count = profiles.size(); profile_index < profile_count; ++profile_index) {
-        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(profiles[profile_index].profileName);
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const detail::VpProfileDesc* profile_desc = detail::vpGetProfileDesc(gathered_profiles[profile_index].profileName);
         if (profile_desc == nullptr) return VK_ERROR_UNKNOWN;
 
         for (uint32_t capability_index = 0; capability_index < profile_desc->requiredCapabilityCount; ++capability_index) {
@@ -1478,9 +2068,9 @@ VPAPI_ATTR VkResult vpGetProfileFormats(const VpProfileProperties *pProfile, con
                     result = VK_SUCCESS;
                 }
 
-                for (uint32_t i = 0; i < variant.formatCount; ++i) {
-                    if (std::find(results.begin(), results.end(), variant.pFormats[i].format) == std::end(results)) {
-                        results.push_back(variant.pFormats[i].format);
+                for (uint32_t format_index = 0; format_index < variant.formatCount; ++format_index) {
+                    if (std::find(results.begin(), results.end(), variant.pFormats[format_index].format) == std::end(results)) {
+                        results.push_back(variant.pFormats[format_index].format);
                     }
                 }
             }
@@ -1505,13 +2095,24 @@ VPAPI_ATTR VkResult vpGetProfileFormats(const VpProfileProperties *pProfile, con
     return result;
 }
 
-VPAPI_ATTR VkResult vpGetProfileFormatProperties(const VpProfileProperties *pProfile, const char* pBlockName, VkFormat format, void *pNext) {
+VPAPI_ATTR VkResult vpGetProfileFormatProperties(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    VkFormat                                    format,
+    void*                                       pNext) {
+#ifdef VP_USE_OBJECT
+    (void)capabilities;
+#endif//VP_USE_OBJECT
+
     VkResult result = pBlockName == nullptr ? VK_SUCCESS : VK_INCOMPLETE;
 
-    const std::vector<VpProfileProperties>& profiles = detail::GatherProfiles(*pProfile);
+    const std::vector<VpProfileProperties>& gathered_profiles = detail::GatherProfiles(*pProfile);
 
-    for (std::size_t i = 0, n = profiles.size(); i < n; ++i) {
-        const char* profile_name = profiles[i].profileName;
+    for (std::size_t profile_index = 0, profile_count = gathered_profiles.size(); profile_index < profile_count; ++profile_index) {
+        const char* profile_name = gathered_profiles[profile_index].profileName;
 
         const detail::VpProfileDesc* pProfileDesc = detail::vpGetProfileDesc(profile_name);
         if (pProfileDesc == nullptr) return VK_ERROR_UNKNOWN;
@@ -1529,15 +2130,15 @@ VPAPI_ATTR VkResult vpGetProfileFormatProperties(const VpProfileProperties *pPro
                     result = VK_SUCCESS;
                 }
 
-                for (uint32_t i = 0; i < variant.formatCount; ++i) {
-                    if (variant.pFormats[i].format != format) {
+                for (uint32_t format_index = 0; format_index < variant.formatCount; ++format_index) {
+                    if (variant.pFormats[format_index].format != format) {
                         continue;
                     }
 
-                    VkBaseOutStructure* p = static_cast<VkBaseOutStructure*>(static_cast<void*>(pNext));
-                    while (p != nullptr) {
-                        variant.pFormats[i].pfnFiller(p);
-                        p = p->pNext;
+                    VkBaseOutStructure* base_ptr = static_cast<VkBaseOutStructure*>(static_cast<void*>(pNext));
+                    while (base_ptr != nullptr) {
+                        variant.pFormats[format_index].pfnFiller(base_ptr);
+                        base_ptr = base_ptr->pNext;
                     }
 #if defined(VK_VERSION_1_3) || defined(VK_KHR_format_feature_flags2)
                     VkFormatProperties2KHR* fp2 = static_cast<VkFormatProperties2KHR*>(
@@ -1546,14 +2147,14 @@ VPAPI_ATTR VkResult vpGetProfileFormatProperties(const VpProfileProperties *pPro
                         detail::vpGetStructure(pNext, VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3_KHR));
                     if (fp3 != nullptr) {
                         VkFormatProperties2KHR fp{ VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2_KHR };
-                        variant.pFormats[i].pfnFiller(static_cast<VkBaseOutStructure*>(static_cast<void*>(&fp)));
+                        variant.pFormats[format_index].pfnFiller(static_cast<VkBaseOutStructure*>(static_cast<void*>(&fp)));
                         fp3->linearTilingFeatures |= static_cast<VkFormatFeatureFlags2KHR>(fp3->linearTilingFeatures | fp.formatProperties.linearTilingFeatures);
                         fp3->optimalTilingFeatures |= static_cast<VkFormatFeatureFlags2KHR>(fp3->optimalTilingFeatures | fp.formatProperties.optimalTilingFeatures);
                         fp3->bufferFeatures |= static_cast<VkFormatFeatureFlags2KHR>(fp3->bufferFeatures | fp.formatProperties.bufferFeatures);
                     }
                     if (fp2 != nullptr) {
                         VkFormatProperties3KHR fp{ VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3_KHR };
-                        variant.pFormats[i].pfnFiller(static_cast<VkBaseOutStructure*>(static_cast<void*>(&fp)));
+                        variant.pFormats[format_index].pfnFiller(static_cast<VkBaseOutStructure*>(static_cast<void*>(&fp)));
                         fp2->formatProperties.linearTilingFeatures |= static_cast<VkFormatFeatureFlags>(fp2->formatProperties.linearTilingFeatures | fp.linearTilingFeatures);
                         fp2->formatProperties.optimalTilingFeatures |= static_cast<VkFormatFeatureFlags>(fp2->formatProperties.optimalTilingFeatures | fp.optimalTilingFeatures);
                         fp2->formatProperties.bufferFeatures |= static_cast<VkFormatFeatureFlags>(fp2->formatProperties.bufferFeatures | fp.bufferFeatures);
@@ -1567,16 +2168,49 @@ VPAPI_ATTR VkResult vpGetProfileFormatProperties(const VpProfileProperties *pPro
     return result;
 }
 
-VPAPI_ATTR VkResult vpGetProfileFeatureStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes) {
-    return detail::vpGetProfileStructureTypes(pProfile, pBlockName, detail::STRUCTURE_FEATURE, pStructureTypeCount, pStructureTypes);
+VPAPI_ATTR VkResult vpGetProfileFeatureStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes) {
+    return detail::vpGetProfileStructureTypes(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pProfile, pBlockName, detail::STRUCTURE_FEATURE, pStructureTypeCount, pStructureTypes);
 }
 
-VPAPI_ATTR VkResult vpGetProfilePropertyStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes) {
-    return detail::vpGetProfileStructureTypes(pProfile, pBlockName, detail::STRUCTURE_PROPERTY, pStructureTypeCount, pStructureTypes);
+VPAPI_ATTR VkResult vpGetProfilePropertyStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes) {
+    return detail::vpGetProfileStructureTypes(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pProfile, pBlockName, detail::STRUCTURE_PROPERTY, pStructureTypeCount, pStructureTypes);
 }
 
-VPAPI_ATTR VkResult vpGetProfileFormatStructureTypes(const VpProfileProperties *pProfile, const char* pBlockName, uint32_t *pStructureTypeCount, VkStructureType *pStructureTypes) {
-    return detail::vpGetProfileStructureTypes(pProfile, pBlockName, detail::STRUCTURE_FORMAT, pStructureTypeCount, pStructureTypes);
+VPAPI_ATTR VkResult vpGetProfileFormatStructureTypes(
+#ifdef VP_USE_OBJECT
+    VpCapabilities                              capabilities,
+#endif//VP_USE_OBJECT
+    const VpProfileProperties*                  pProfile,
+    const char*                                 pBlockName,
+    uint32_t*                                   pStructureTypeCount,
+    VkStructureType*                            pStructureTypes) {
+    return detail::vpGetProfileStructureTypes(
+#ifdef VP_USE_OBJECT
+        capabilities,
+#endif//VP_USE_OBJECT
+        pProfile, pBlockName, detail::STRUCTURE_FORMAT, pStructureTypeCount, pStructureTypes);
 }
 '''
 
@@ -1626,8 +2260,8 @@ PRIVATE_IMPL_FEATURES_CHAIN_IMPL = '''
         const std::size_t offset = sizeof(VkBaseOutStructure);
         const VkBaseOutStructure* q = reinterpret_cast<const VkBaseOutStructure*>(pCreateInfo->pCreateInfo->pNext);
         while (q) {
-            std::size_t count = this->structureSize[q->sType];
-            for (std::size_t i = 0, n = count; i < n; ++i) {
+            const std::size_t count = this->structureSize[q->sType];
+            for (std::size_t index = 0; index < count; ++index) {
                 const VkBaseOutStructure* pInputStruct = reinterpret_cast<const VkBaseOutStructure*>(q);
                 VkBaseOutStructure* pOutputStruct = reinterpret_cast<VkBaseOutStructure*>(detail::vpGetStructure(&this->requiredFeaturesChain, q->sType));
                 const uint8_t* pInputData = reinterpret_cast<const uint8_t*>(pInputStruct) + offset;
@@ -1635,7 +2269,7 @@ PRIVATE_IMPL_FEATURES_CHAIN_IMPL = '''
                 const VkBool32* input = reinterpret_cast<const VkBool32*>(pInputData);
                 VkBool32* output = reinterpret_cast<VkBool32*>(pOutputData);
 
-                output[i] = (output[i] == VK_TRUE || input[i] == VK_TRUE) ? VK_TRUE : VK_FALSE;
+                output[index] = (output[index] == VK_TRUE || input[index] == VK_TRUE) ? VK_TRUE : VK_FALSE;
             }
             q = q->pNext;
         }
@@ -1818,6 +2452,7 @@ class VulkanDefinitions():
                 self.types.add(type.get('name'))
 
     def addDependencies(self, xml, targetApi):
+        # Add types that are required by required types as dependency
         for type in xml.findall("./types/type[@requires]"):
             apiList = type.get('api')
 
@@ -1828,6 +2463,17 @@ class VulkanDefinitions():
             name = type.find('./name')
             if name is not None and name.text in self.types:
                 self.types.add(type.get('requires'))
+
+        # Add types that contain the definition of required alias types as dependency
+        for type in xml.findall("./types/type[@alias]"):
+
+            # Skip dependency if it does not apply to the target API
+            if apiList is not None and not targetApi in apiList.split(','):
+                continue
+
+            name = type.get('name')
+            if name in self.types:
+                self.types.add(type.get('alias'))
 
 
 class VulkanDefinitionScope():
@@ -2171,6 +2817,13 @@ class VulkanRegistry():
                     aliasStructDef.aliases = baseStructDef.aliases
                     aliasStructDef.aliases.append(name)
 
+                    # Use alias structure dependencies as the structure dependencies if the latter has none
+                    # This is needed to handle the case when the structure is not part of the target API
+                    # but is a dependency of the alias
+                    if baseStructDef.definedByVersion is None and len(baseStructDef.definedByExtensions) == 0:
+                        baseStructDef.definedByVersion = aliasStructDef.definedByVersion
+                        baseStructDef.definedByExtensions = aliasStructDef.definedByExtensions
+
                     if baseStructDef.sType != None:
                         sTypeAlias = None
 
@@ -2464,8 +3117,8 @@ class VulkanRegistry():
             self.structs['VkPhysicalDeviceVulkan13Properties'].members['storageTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
             self.structs['VkPhysicalDeviceVulkan13Properties'].members['uniformTexelBufferOffsetAlignmentBytes'].limittype = 'min,pot'
             self.structs['VkPhysicalDeviceVulkan13Properties'].members['uniformTexelBufferOffsetSingleTexelAlignment'].limittype = 'exact'
-            self.structs['VkPhysicalDeviceVulkan13Properties'].members['minSubgroupSize'].limittype = 'exact'
-            self.structs['VkPhysicalDeviceVulkan13Properties'].members['maxSubgroupSize'].limittype = 'exact'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['minSubgroupSize'].limittype = 'min,pot'
+            self.structs['VkPhysicalDeviceVulkan13Properties'].members['maxSubgroupSize'].limittype = 'max,pot'
 
         if 'VkPhysicalDeviceTexelBufferAlignmentProperties' in self.structs:
             self.structs['VkPhysicalDeviceTexelBufferAlignmentProperties'].members['storageTexelBufferOffsetAlignmentBytes'].limittype = 'min,pot'
@@ -3592,7 +4245,6 @@ class VulkanProfilesLibraryGenerator():
             if self.debugMessages:
                 f.write('#include <vulkan/debug/{0}.h>\n'.format(self.outputFilename))
                 f.write(DEBUG_MSG_CB_DEFINE)
-                f.write(DEBUG_MSG_UTIL_IMPL)
             else:
                 f.write('#include <vulkan/{0}.h>\n'.format(self.outputFilename))
             f.write(self.gen_privateImpl())
@@ -3610,7 +4262,6 @@ class VulkanProfilesLibraryGenerator():
             f.write(API_DEFS)
             if self.debugMessages:
                 f.write(DEBUG_MSG_CB_DEFINE)
-                f.write(DEBUG_MSG_UTIL_IMPL)
             f.write(self.gen_privateImpl())
             f.write(self.gen_publicImpl())
 
