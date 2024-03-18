@@ -150,12 +150,12 @@ TEST(api_capabilities_object, get_api_version) {
 TEST(api_capabilities_object, get_required_profiles) {
     Capabilities object;
 
-    const VpProfileProperties profileProperties = {VP_LUNARG_DESKTOP_BASELINE_2023_NAME, 1};
+    const VpProfileProperties profileProperties = {VP_KHR_ROADMAP_2024_NAME, VP_KHR_ROADMAP_2024_SPEC_VERSION};
 
     uint32_t propertyCount = 0;
     VkResult result0 = vpGetProfileRequiredProfiles(object.handle, &profileProperties, &propertyCount, nullptr);
     EXPECT_EQ(VK_SUCCESS, result0);
-    EXPECT_TRUE(propertyCount == 2);
+    EXPECT_TRUE(propertyCount == 1);
 }
 
 TEST(api_capabilities_object, get_profile_fallback) {
@@ -176,6 +176,7 @@ TEST(api_capabilities_object, has_multiple_variants_profile) {
 
     VkBool32 has_multiple_variants = VK_TRUE;
     VkResult result0 = vpHasMultipleVariantsProfile(object.handle, &profileProperties, &has_multiple_variants);
+    EXPECT_EQ(VK_SUCCESS, result0);
     EXPECT_EQ(VK_FALSE, has_multiple_variants);
 }
 

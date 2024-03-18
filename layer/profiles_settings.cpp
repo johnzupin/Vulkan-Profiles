@@ -48,6 +48,8 @@ void WarnMissingFormatFeatures2(ProfileLayerSettings *layer_settings, const char
                format_device_support_string(device_features).c_str(), features.c_str());
 }
 
+
+
 std::string GetDebugActionsLog(DebugActionFlags flags) {
     std::string result = {};
 
@@ -116,11 +118,12 @@ void LogMessage(ProfileLayerSettings *layer_settings, DebugReportBits report, co
 
     char log[STRING_BUFFER];
     snprintf(log, STRING_BUFFER, "%s", GetLogPrefix(report));
+    std::size_t len = std::strlen(log);
 
     va_list list;
 
     va_start(list, message);
-    vsnprintf(log, STRING_BUFFER, message, list);
+    vsnprintf(log + len, STRING_BUFFER, message, list);
     va_end(list);
 
     if (layer_settings->log.debug_actions & DEBUG_ACTION_STDOUT_BIT) {

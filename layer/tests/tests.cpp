@@ -42,16 +42,20 @@ class LayerTests : public VkTestFramework {
 TEST_F(LayerTests, TestDesktop2023) {
     TEST_DESCRIPTION("Test specifying device extensions to be excluded from being reported by the device");
 
-    static const char* profile_file_data = JSON_PROFILES_PATH "VP_LUNARG_desktop_baseline.json";
+    static const char* profile_dir_data = JSON_PROFILES_PATH;
     static const char* profile_name_data = "VP_LUNARG_desktop_baseline_2023";
     VkBool32 emulate_portability_data = VK_TRUE;
     VkBool32 debug_fail_on_error = VK_FALSE;
+    const std::vector<const char*> debug_reports = {"DEBUG_REPORT_ERROR_BIT", "DEBUG_REPORT_WARNING_BIT",
+                                                    "DEBUG_REPORT_NOTIFICATION_BIT", "DEBUG_REPORT_DEBUG_BIT"};
 
     std::vector<VkLayerSettingEXT> settings = {
-        {kLayerName, kLayerSettingsProfileFile, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, {&profile_file_data}},
+        {kLayerName, kLayerSettingsProfileDirs, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, {&profile_dir_data}},
         {kLayerName, kLayerSettingsProfileName, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, {&profile_name_data}},
         {kLayerName, kLayerSettingsEmulatePortability, VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &emulate_portability_data},
-        {kLayerName, kLayerSettingsDebugFailOnError, VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &debug_fail_on_error}};
+        {kLayerName, kLayerSettingsDebugFailOnError, VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &debug_fail_on_error},
+        {kLayerName, kLayerSettingsDebugReports, VK_LAYER_SETTING_TYPE_STRING_EXT, static_cast<uint32_t>(debug_reports.size()), &debug_reports[0]}
+    };
 
     profiles_test::VulkanInstanceBuilder inst_builder;
     VkResult err = inst_builder.init(settings);
@@ -63,6 +67,13 @@ TEST_F(LayerTests, TestDesktop2023) {
         printf("Profile not supported on device, skipping test.\n");
         return;
     }
+
+    VkPhysicalDeviceProperties gpu_props{};
+    vkGetPhysicalDeviceProperties(gpu, &gpu_props);
+
+    ASSERT_EQ(gpu_props.limits.maxImageDimension1D, 16384);
+    ASSERT_EQ(gpu_props.limits.maxImageDimension2D, 16384);
+    ASSERT_EQ(gpu_props.limits.maxImageDimension3D, 2048);
 }
 #endif//__ANDROID__
 
@@ -756,7 +767,7 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesPartial) {
                 if ((device_qf_props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT &&
                     device_qf_props[i].minImageTransferGranularity.width <= 4 &&
                     device_qf_props[i].minImageTransferGranularity.height <= 4) {
-                    device_queue_index = i;
+                    device_queue_index = static_cast<int32_t>(i);
                     break;
                 }
             }
@@ -768,8 +779,8 @@ TEST_F(LayerTests, TestQueueFamilyPropertiesPartial) {
             ASSERT_EQ(qf_props[0].minImageTransferGranularity.height, 4u);
 
             if (device_queue_index != -1) {
-                ASSERT_EQ(qf_props[0].minImageTransferGranularity.depth, device_qf_props[device_queue_index].minImageTransferGranularity.depth);
-                ASSERT_EQ(qf_props[0].timestampValidBits, device_qf_props[device_queue_index].timestampValidBits);
+                ASSERT_EQ(qf_props[0].minImageTransferGranularity.depth, device_qf_props[static_cast<std::size_t>(device_queue_index)].minImageTransferGranularity.depth);
+                ASSERT_EQ(qf_props[0].timestampValidBits, device_qf_props[static_cast<std::size_t>(device_queue_index)].timestampValidBits);
             }
         }
     }
