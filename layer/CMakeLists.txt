@@ -54,6 +54,8 @@ add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
 source_group("JSON Manifest" FILES ${LAYER_NAME}.json.in)
 source_group("Export Files" FILES ${LAYER_NAME}.def ${LAYER_NAME}.map)
 
+# ProfilesLayer build target
+
 if(IOS)
     add_library(ProfilesLayer SHARED)
 else()
@@ -62,7 +64,6 @@ endif()
 
 set_target_properties(ProfilesLayer PROPERTIES FOLDER "Profiles layer")
 set_target_properties(ProfilesLayer PROPERTIES OUTPUT_NAME ${LAYER_NAME})
-lunarg_target_compiler_configurations(ProfilesLayer ${BUILD_TESTS})
 
 if (MSVC)
     target_compile_options(ProfilesLayer PRIVATE "$<$<CONFIG:Release>:/Zi>")
@@ -77,11 +78,11 @@ elseif(APPLE)
 
 if(IOS)
       set_target_properties(ProfilesLayer PROPERTIES
-	FRAMEWORK			TRUE
+      FRAMEWORK TRUE
         MACOSX_FRAMEWORK_BUNDLE_VERSION "${VulkanHeaders_VERSION}"
         MACOSX_FRAMEWORK_SHORT_VERSION_STRING "${VulkanHeaders_VERSION}"
-	MACOSX_FRAMEWORK_IDENTIFIER 	com.khronos.VkLayer_khronos_profiles
-        )
+        MACOSX_FRAMEWORK_IDENTIFIER com.khronos.VkLayer_khronos_profiles
+      )
 else()
     set_target_properties(ProfilesLayer PROPERTIES SUFFIX ".dylib")
 endif()
@@ -103,14 +104,14 @@ set(PYTHON_SCRIPTS
 source_group("Python Files" FILES ${PYTHON_SCRIPTS})
 
 target_sources(ProfilesLayer PRIVATE
-    profiles_interface.cpp
-    profiles_interface.h
     profiles_settings.cpp
     profiles_settings.h
     profiles_json.cpp
     profiles_json.h
     profiles_util.cpp
     profiles_util.h
+    profiles_interface.cpp
+    profiles_interface.h
     profiles_generated.cpp
     profiles.h
     vk_layer_table.cpp
@@ -122,6 +123,8 @@ target_sources(ProfilesLayer PRIVATE
 )
 
 target_link_libraries(ProfilesLayer PRIVATE
+    Vulkan::CompilerConfiguration 
+    Vulkan::CompilerConfigurationExtra
     Vulkan::LayerSettings
     Vulkan::Headers
     Vulkan::UtilityHeaders

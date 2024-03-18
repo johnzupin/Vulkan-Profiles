@@ -68,13 +68,13 @@ TEST_F(TestsMechanism, check_extension) {
     {
         uint32_t extCount = 0;
         VkResult result = vkEnumerateInstanceExtensionProperties("VK_LAYER_KHRONOS_profiles", &extCount, nullptr);
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_TRUE(extCount >= 1);
 
         std::vector<VkExtensionProperties> ext(extCount);
         result = vkEnumerateInstanceExtensionProperties("VK_LAYER_KHRONOS_profiles", &extCount, ext.data());
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         bool found_ext = false;
         for (std::size_t i = 0, n = ext.size(); i < n; ++i) {
@@ -128,13 +128,13 @@ TEST_F(TestsMechanism, selecting_profile_file) {
 
         uint32_t extCount = 0;
         result = vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extCount, nullptr);
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_EQ(1, extCount);
 
         std::vector<VkExtensionProperties> ext(extCount);
         result = vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extCount, ext.data());
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_STREQ("VK_KHR_maintenance3", ext[0].extensionName);
 
@@ -171,13 +171,13 @@ TEST_F(TestsMechanism, selecting_profile_file) {
 
         uint32_t extCount = 0;
         result = vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extCount, nullptr);
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_EQ(1, extCount);
 
         std::vector<VkExtensionProperties> ext(extCount);
         result = vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extCount, ext.data());
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_STREQ("VK_KHR_maintenance3", ext[0].extensionName);
 
@@ -284,13 +284,13 @@ TEST_F(TestsMechanism, selecting_profile_dirs) {
 
         uint32_t extCount = 0;
         result = vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extCount, nullptr);
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_EQ(1, extCount);
 
         std::vector<VkExtensionProperties> ext(extCount);
         result = vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extCount, ext.data());
-        ASSERT_EQ(err, VK_SUCCESS);
+        ASSERT_EQ(result, VK_SUCCESS);
 
         EXPECT_STREQ("VK_KHR_maintenance3", ext[0].extensionName);
 
@@ -330,8 +330,6 @@ TEST_F(TestsMechanism, selecting_profile_with_required_profiles) {
             inst_builder.reset();
             return;
         }
-
-        VkResult result = VK_SUCCESS;
 
         VkPhysicalDeviceProperties2 gpu_props2{};
         gpu_props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -429,7 +427,7 @@ TEST_F(TestsMechanism, default_feature_values) {
         const char* default_feature_values_data = "DEFAULT_FEATURE_VALUES_FALSE";
         const char* debug_reports_data = "DEBUG_REPORT_MAX_ENUM";
 
-        std::vector<VkLayerSettingEXT> settings = {
+        const std::vector<VkLayerSettingEXT> settings = {
             {kLayerName, kLayerSettingsProfileFile, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, &profile_file_data},
             {kLayerName, kLayerSettingsProfileName, VK_LAYER_SETTING_TYPE_STRING_EXT, 1, &profile_name_data},
             {kLayerName, kLayerSettingsEmulatePortability, VK_LAYER_SETTING_TYPE_BOOL32_EXT, 1, &emulate_portability_data},
