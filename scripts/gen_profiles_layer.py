@@ -46,7 +46,7 @@ COPYRIGHT_HEADER = '''
  * - Mike Weiblen
  * - Arda Coskunses
  * - Jeremy Kniager
- 
+
  * This file is ***GENERATED***.  Do Not Edit.
  * See scripts/gen_profiles_layer.py for modifications.
  */
@@ -651,7 +651,7 @@ GET_VALUE_FUNCTIONS = '''
         return valid;
     }
 
-    bool GetValue(const char* device_name, const Json::Value &parent, const std::string &member, const char *name, int32_t *dest, bool not_modifiable, bool requested_profile, 
+    bool GetValue(const char* device_name, const Json::Value &parent, const std::string &member, const char *name, int32_t *dest, bool not_modifiable, bool requested_profile,
                   std::function<bool(ProfileLayerSettings *, bool, const char *, const char *, int32_t, int32_t, bool)> warn_func = nullptr) {
         if (member != name) {
             return true;
@@ -1629,7 +1629,7 @@ VkResult JsonLoader::LoadFile(const std::string& filename) {
     }
 
     LogMessage(&layer_settings, DEBUG_REPORT_NOTIFICATION_BIT, "Loading \\"%s\\"\\n", filename.c_str());
-    
+
     if (layer_settings.simulate.profile_validation) {
         JsonValidator validator;
         if (!validator.Init()) {
@@ -2939,6 +2939,9 @@ class VulkanProfilesLayerGenerator():
     emulated_extensions = ['VK_KHR_portability_subset']
     additional_features = ['VkPhysicalDeviceFeatures', 'VkPhysicalDevicePortabilitySubsetFeaturesKHR']
     additional_properties = ['VkPhysicalDeviceProperties', 'VkPhysicalDeviceLimits', 'VkPhysicalDeviceSparseProperties', 'VkPhysicalDeviceToolProperties', 'VkPhysicalDevicePortabilitySubsetPropertiesKHR']
+    # VkPhysicalDeviceHostImageCopyFeaturesEXT is not ignored to allow the people using the MockICD to still have the feature enabled,
+    # but use the properties in the MockICD until HostImageCopyPropertiesEXT is fixed.
+    ignored_structs = ['VkPhysicalDeviceHostImageCopyPropertiesEXT']
 
     def generate(self, path, registry):
         self.registry = registry
@@ -3175,7 +3178,7 @@ class VulkanProfilesLayerGenerator():
         first = True
         count = 0
         for name, value  in registry.structs.items():
-            if name == 'VkPhysicalDeviceHostImageCopyPropertiesEXT' or name == 'VkPhysicalDeviceHostImageCopyFeaturesEXT':
+            if name in self.ignored_structs:
                 continue
             if (extends in value.extends and value.isAlias == False) or (name in additional):
                 aliases = value.aliases.copy()
@@ -3561,6 +3564,9 @@ class VulkanProfilesLayerGenerator():
 
     def generate_fill_case(self, struct):
         structure = registry.structs[struct]
+        if structure.name in self.ignored_structs:
+            print(structure.name)
+            return ''
         gen = '            case ' + structure.sType + ':\n'
         gen += '                '
         if structure.definedByExtensions:
