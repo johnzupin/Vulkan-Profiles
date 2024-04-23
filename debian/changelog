@@ -1,3 +1,39 @@
+vulkan-profiles (1.3.282.0~rc4-1lunarg22.04-1) jammy; urgency=medium
+
+  [ Christophe ]
+  * library: Fix warnings #645
+  * cmake: Fix build argument being totally ignored
+  * cmake: Using the shared Vulkan compiler configuration from UtilityLibraries repo
+  * layer: Refactor log messages on profile loading
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 281
+  * profiles: Ignore host image copy structs in pNext chains
+
+  [ spencer-lunarg ]
+  * profiles: Don't ignore VkPhysicalDeviceHostImageCopyFeaturesEXT
+
+  [ Christophe ]
+  * doc: Clean up overview doc
+  * test: Fix build warnings
+  * library: Remove desktop baseline profiles from generated library
+  * library: Fix vkGetPhysicalDeviceProperties that was not externally loadable
+  * doc: Updated changelog
+
+  [ Ian Elliott ]
+  * Remove minMemoryMapAlignment from ABP 2021 and 2022
+
+  [ Alex Rønne Petersen ]
+  * Fix update_deps.py script to handle Windows Arm64.
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 282
+
+  [ Christophe ]
+  * layer: Clean up setting name for vkconfig display
+
+ -- john <john@odin>  Tue, 23 Apr 2024 08:58:23 -0600
+
 vulkan-profiles (1.3.280.0~rc4-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
