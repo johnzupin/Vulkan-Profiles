@@ -184,6 +184,7 @@ class PhysicalDeviceData {
     uint32_t GetEffectiveVersion() {
         return requested_version < physical_device_properties_.apiVersion ? requested_version
                                                                           : physical_device_properties_.apiVersion;
+
     }
 
     VkInstance instance() const { return instance_; }
@@ -1984,8 +1985,9 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
         }
     }
 
+
     bool changed_version = false;
-    if (!layer_settings->simulate.profile_file.empty() || layer_settings->simulate.profile_dirs.empty()) {
+    if (!layer_settings->simulate.profile_file.empty() || !layer_settings->simulate.profile_dirs.empty()) {
         const uint32_t profile_api_version = json_loader.GetProfileApiVersion();
         if (VK_API_VERSION_MAJOR(requested_version) < VK_API_VERSION_MAJOR(profile_api_version) ||
             VK_API_VERSION_MINOR(requested_version) < VK_API_VERSION_MINOR(profile_api_version)) {
@@ -3534,8 +3536,17 @@ class VulkanProfilesLayerGenerator():
     def generate_physical_device_chain_case(self, ext, version, property_names, feature_names):
         gen = self.generate_platform_protect_begin(ext)
         if ext:
-            ext_name = registry.extensions[ext].upperCaseName
-            gen += '\n                if (PhysicalDeviceData::HasExtension(&pdd, ' + ext_name + '_EXTENSION_NAME)) {\n'
+            gen += '\n                if ('
+            first = True
+            for promotedTo in [ext] + registry.getExtensionPromotedToExtensionList(ext):
+                if first:
+                    first = False
+                else:
+                    gen += ' || '
+                gen += 'PhysicalDeviceData::HasExtension(&pdd, '
+                gen += registry.extensions[promotedTo].upperCaseName + '_EXTENSION_NAME'
+                gen += ')'
+            gen += ') {\n'
         else:
             gen += '\n                if (api_version_above_' + str(version.major) + '_' + str(version.minor) + ') {\n'
         for property_name in property_names:
