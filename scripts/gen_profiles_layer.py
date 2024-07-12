@@ -2943,7 +2943,7 @@ class VulkanProfilesLayerGenerator():
     additional_properties = ['VkPhysicalDeviceProperties', 'VkPhysicalDeviceLimits', 'VkPhysicalDeviceSparseProperties', 'VkPhysicalDeviceToolProperties', 'VkPhysicalDevicePortabilitySubsetPropertiesKHR']
     # VkPhysicalDeviceHostImageCopyFeaturesEXT is not ignored to allow the people using the MockICD to still have the feature enabled,
     # but use the properties in the MockICD until HostImageCopyPropertiesEXT is fixed.
-    ignored_structs = ['VkPhysicalDeviceHostImageCopyPropertiesEXT']
+    ignored_structs = ['VkPhysicalDeviceHostImageCopyPropertiesEXT', 'VkPhysicalDeviceLayeredApiPropertiesListKHR']
 
     def generate(self, path, registry):
         self.registry = registry
@@ -3576,7 +3576,6 @@ class VulkanProfilesLayerGenerator():
     def generate_fill_case(self, struct):
         structure = registry.structs[struct]
         if structure.name in self.ignored_structs:
-            print(structure.name)
             return ''
         gen = '            case ' + structure.sType + ':\n'
         gen += '                '
@@ -3610,6 +3609,8 @@ class VulkanProfilesLayerGenerator():
         return gen
 
     def generate_get_value_function(self, structure):
+        if (structure in self.ignored_structs):
+            return ''
         gen = self.generate_platform_protect_begin(structure)
         gen += 'bool JsonLoader::GetStruct(const char* device_name, bool requested_profile, const Json::Value &parent, ' + structure + ' *dest) {\n'
         gen += '    (void)dest;\n'
@@ -3834,6 +3835,8 @@ class VulkanProfilesLayerGenerator():
         if (var_name == 'physical_device_mesh_shader_features_' or var_name == 'physical_device_mesh_shader_properties_') and nv:
             var_name += 'nv_'
         if (var_name == 'physical_device_cooperative_matrix_features_' or var_name == 'physical_device_cooperative_matrix_properties_') and nv:
+            var_name += 'nv_'
+        if (var_name == 'physical_device_device_generated_commands_properties_' or var_name == 'physical_device_device_generated_commands_features_') and nv:
             var_name += 'nv_'
         if (var_name == 'physical_device_shader_core_properties_' and arm):
             var_name += 'arm_'
