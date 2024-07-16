@@ -1,3 +1,32 @@
+vulkan-profiles (1.3.290.0~rc1-1lunarg24.04-1) noble; urgency=medium
+
+  [ Christophe ]
+  * layer: Fix simulate API version not applied with profile dir
+
+  [ spencer-lunarg ]
+  * layers: Add NV to extension name
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 284
+
+  [ Christophe ]
+  * doc: Clean up future work: everything was implemented
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 285
+  * profiles: Update to header 286
+  * profiles: Update to header 287
+
+  [ John Zupin ]
+  * tests: Update android targetSdkVersion from 26 to 33
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 288
+  * profiles: Update to header 289
+  * profiles: Update to header 290
+
+ -- john <john@odin>  Tue, 16 Jul 2024 14:45:10 -0600
+
 vulkan-profiles (1.3.283.0~rc1-1lunarg22.04-1) jammy; urgency=medium
 
   [ ziga-lunarg ]
