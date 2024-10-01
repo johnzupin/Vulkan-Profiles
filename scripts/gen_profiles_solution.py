@@ -3292,6 +3292,12 @@ class VulkanRegistry():
         if 'VkPhysicalDeviceMaintenance6PropertiesKHR' in self.structs:
             self.structs['VkPhysicalDeviceMaintenance6PropertiesKHR'].members['maxCombinedImageSamplerDescriptorCount'].limittype = 'max'
 
+        if 'VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT' in self.structs:
+            self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT'].members['supportedIndirectCommandsInputModes'].limittype = 'bitmask'
+            self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT'].members['supportedIndirectCommandsShaderStages'].limittype = 'bitmask'
+            self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT'].members['supportedIndirectCommandsShaderStagesPipelineBinding'].limittype = 'bitmask'
+            self.structs['VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT'].members['supportedIndirectCommandsShaderStagesShaderBinding'].limittype = 'bitmask'
+
         # TODO: The registry xml is also missing limittype definitions for format and queue family properties
         # For now we just add the important ones, this needs a larger overhaul in the vk.xml
         self.structs['VkFormatProperties'].members['linearTilingFeatures'].limittype = 'bitmask'
@@ -5470,7 +5476,7 @@ class VulkanProfilesDocGenerator():
                 return '-'
             elif type(value[0]) == str:
                 # Bitmask, match the Vulkan Specification's formatting
-                return '({0})'.format(' | '.join(value))
+                return '({0})'.format(' \\| '.join(value))
             else:
                 # Array, match the Vulkan Specification's formatting
                 return '({0})'.format(','.join(str(el) for el in value))
