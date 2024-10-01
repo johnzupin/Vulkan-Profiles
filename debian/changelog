@@ -1,3 +1,40 @@
+vulkan-profiles (1.3.296.0~rc1-1lunarg24.04-1) noble; urgency=medium
+
+  [ Christophe ]
+  * layer: Fix log message buffer overflow
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 291
+
+  [ Christophe ]
+  * layer: Fix crash when setting a file path to profile_dirs setting
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 292
+
+  [ Christophe ]
+  * C.I.: Fix Github actions failing due to too old CMake required version in valijson
+
+  [ Ian Elliott ]
+  * Add Android 16 profile
+
+  [ Christophe ]
+  * profiles: Don't mix profile config file and profile file for ease of use
+  * profile doc: Fix visualization of generated doc
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 293
+
+  [ Christophe ]
+  * test: Fix internal C.I. on ARM
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 294
+  * profiles: Update to header 295
+  * profiles: Update to header 296
+
+ -- john <john@odin>  Tue, 01 Oct 2024 11:44:34 -0600
+
 vulkan-profiles (1.3.290.0~rc2-1lunarg24.04-1) noble; urgency=medium
 
   [ Christophe ]
