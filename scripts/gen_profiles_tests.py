@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
 # Copyright (c) 2021-2024 LunarG, Inc.
+# Copyright (c) 2024 RasterGrid Kft.
 #
 # Licensed under the Apache License, Version 2.0 (the "License")
 # you may not use this file except in compliance with the License.
@@ -106,7 +107,8 @@ class TestsCapabilitiesGenerated : public VkTestFramework {
         const char* profile_name_data = "VP_LUNARG_test_api";
         VkBool32 emulate_portability_data = VK_TRUE;
         const std::vector<const char*> simulate_capabilities = {
-            "SIMULATE_API_VERSION_BIT", "SIMULATE_FEATURES_BIT", "SIMULATE_PROPERTIES_BIT", "SIMULATE_EXTENSIONS_BIT", "SIMULATE_FORMATS_BIT", "SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT"};
+            "SIMULATE_API_VERSION_BIT", "SIMULATE_FEATURES_BIT", "SIMULATE_PROPERTIES_BIT", "SIMULATE_EXTENSIONS_BIT", "SIMULATE_FORMATS_BIT",
+            "SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT", "SIMULATE_VIDEO_CAPABILITIES_BIT", "SIMULATE_VIDEO_FORMATS_BIT"};
         const std::vector<const char*> debug_reports = {
             "DEBUG_REPORT_ERROR_BIT"};
 
@@ -491,6 +493,16 @@ class ProfileGenerator():
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
+                    elif property_type == "VkPipelineRobustnessBufferBehavior":
+                        enum = self.get_enum('VkPipelineRobustnessBufferBehavior', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkPipelineRobustnessImageBehavior":
+                        enum = self.get_enum('VkPipelineRobustnessImageBehavior', False)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
                     elif property_type == "char":
                         gen += "\""
                         gen += property_name
@@ -624,7 +636,7 @@ class ProfileGenerator():
         for ext in value.definedByExtensions:
             gen += '#ifdef ' + registry.extensions[ext].name + '\n'
 
-        gen += '    bool supported = false;\n'
+        gen += '    bool supported = true;\n'
         for ext in value.definedByExtensions:
             gen += '    supported = supported && IsSupported(gpu_profile, "' + registry.extensions[ext].name + '");\n\n'
 
@@ -655,7 +667,7 @@ class ProfileGenerator():
                         if 'VkConformanceVersion' in member_type:
                             continue
 
-                        gen += '    if (supported) {\n'
+                        gen += '    if (!supported) {\n'
                         if type(property_value) is list:
                             if (len(property_value) > 1):
                                 for i in range(len(property_value)):
