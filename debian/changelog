@@ -1,3 +1,19 @@
+vulkan-profiles (1.4.309.0~rc1-1lunarg24.04-1) noble; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 305
+  * profiles: Update overwriting xml limittypes
+  * profiles: Update overwriting limit types
+  * profiles: Update to header 306
+  * docs: Update copyright year
+  * profiles: Update to header 307
+  * profiles: Update to header 309
+
+  [ Daniel Rakos ]
+  * layer: Initialize PhysicalDeviceData members
+
+ -- john <john@odin>  Tue, 04 Mar 2025 11:16:13 -0700
+
 vulkan-profiles (1.4.304.0~rc1-1lunarg24.04-1) noble; urgency=medium
 
   [ ziga-lunarg ]
