@@ -624,7 +624,7 @@ class ProfileMerger():
                     continue
 
                 xmlmember = self.registry.structs[property].members[member]
-                if xmlmember.limittype == 'exact' or xmlmember.limittype == 'noauto':
+                if (xmlmember.limittype == 'exact' or xmlmember.limittype == 'noauto') and not xmlmember.isDynamicallySizedArrayWithCap():
                     del merged[member]
                 #elif 'mul'  in xmlmember.limittype and xmlmember.type == 'float':
                 #    del merged[member]
@@ -634,7 +634,7 @@ class ProfileMerger():
                     merged[member] = entry[member]
             elif not member in merged:
                 xmlmember = self.registry.structs[property].members[member]
-                if xmlmember.limittype == 'exact' or xmlmember.limittype == 'noauto':
+                if (xmlmember.limittype == 'exact' or xmlmember.limittype == 'noauto') and not xmlmember.isDynamicallySizedArrayWithCap():
                     continue
                 elif self.mode == 'union' or self.first is True:
                     if xmlmember.type == 'uint64_t' or xmlmember.type == 'VkDeviceSize':
@@ -642,10 +642,6 @@ class ProfileMerger():
                     else:
                         merged[member] = entry[member]
             else:
-                # VK_EXT_host_image_copy is unsupported
-                if property == 'VkPhysicalDeviceHostImageCopyPropertiesEXT':
-                    continue
-
                 # Merge properties
                 xmlmember = self.registry.structs[property].members[member]
                 if xmlmember.limittype == 'struct':
@@ -664,7 +660,7 @@ class ProfileMerger():
                     self.merge_members(merged, member, entry, xmlmember)
 
     def merge_members(self, merged, member, entry, xmlmember):
-        if xmlmember.limittype == 'exact' or xmlmember.limittype == 'noauto':
+        if (xmlmember.limittype == 'exact' or xmlmember.limittype == 'noauto') and not xmlmember.isDynamicallySizedArrayWithCap():
             del merged[member]
         elif self.mode == 'union':
             #if xmlmember.limittype == 'exact':
@@ -681,6 +677,8 @@ class ProfileMerger():
                         merged[member]['width'] = entry[member]['width']
                     if entry[member]['height'] > merged[member]['height']:
                         merged[member]['height'] = entry[member]['height']
+                elif xmlmember.type == 'VkBool32':
+                    merged[member] = merged[member] or entry[member]
                 elif xmlmember.arraySize == 3:
                     if entry[member][0] > merged[member][0]:
                         merged[member][0] = entry[member][0]
@@ -702,6 +700,8 @@ class ProfileMerger():
                         merged[member]['width'] = entry[member]['width']
                     if entry[member]['height'] < merged[member]['height']:
                         merged[member]['height'] = entry[member]['height']
+                elif xmlmember.type == 'VkBool32':
+                    merged[member] = merged[member] and entry[member]
                 elif xmlmember.arraySize == 3:
                     if entry[member][0] < merged[member][0]:
                         merged[member][0] = entry[member][0]
@@ -723,17 +723,16 @@ class ProfileMerger():
                         merged[member] = merged[member] or smember
                     else:
                         merged[member].append(smember)
-            elif xmlmember.limittype == 'not':
-                for smember in entry[member]:
-                    if smember in merged[member]:
-                        merged[member] = (not merged[member]) or (not smember)
-                    else:
-                        merged[member].append(smember)
             elif xmlmember.limittype == 'range':
                 if entry[member][0] < merged[member][0]:
                     merged[member][0] = entry[member][0]
                 if entry[member][1] > merged[member][1]:
                     merged[member][1] = entry[member][1]
+            elif xmlmember.isDynamicallySizedArrayWithCap():
+                entry_set = set(merged[member])
+                merged_set = set(entry[member])
+                union_set = merged_set.union(entry_set)
+                merged[member] = list(union_set)
             else:
                 print("ERROR: Unknown limitype: " + xmlmember.limittype + " for " + member)
         elif self.mode == 'intersection':
@@ -751,6 +750,8 @@ class ProfileMerger():
                         merged[member]['width'] = entry[member]['width']
                     if entry[member]['height'] < merged[member]['height']:
                         merged[member]['height'] = entry[member]['height']
+                elif xmlmember.type == 'VkBool32':
+                    merged[member] = merged[member] and entry[member]
                 elif xmlmember.arraySize == 3:
                     if entry[member][0] < merged[member][0]:
                         merged[member][0] = entry[member][0]
@@ -782,6 +783,8 @@ class ProfileMerger():
                         merged[member]['width'] = entry[member]['width']
                     if entry[member]['height'] < merged[member]['height']:
                         merged[member]['height'] = entry[member]['height']
+                elif xmlmember.type == 'VkBool32':
+                    merged[member] = merged[member] or entry[member]
                 elif xmlmember.arraySize == 3:
                     if entry[member][0] < merged[member][0]:
                         merged[member][0] = entry[member][0]
@@ -808,32 +811,12 @@ class ProfileMerger():
                 else:
                     print("ERROR: '" + member + " 'values with 'min' limittype unknown case.")
             elif xmlmember.limittype == 'bitmask':
-                if xmlmember.type == 'VkBool32':
-                    if member in entry:
-                        merged[member] = merged[member] and entry[member]
-                        if (not merged[member]):
-                            del merged[member]
-                    else:
-                        merged.remove(member)
-                else:
-                    remove_list = []
-                    for value in merged[member]:
-                        if value not in entry[member]:
-                            remove_list.append(value)
-                    for value in remove_list:
-                        merged[member].remove(value)
-            elif xmlmember.limittype == 'not':
-                if xmlmember.type == 'VkBool32':
-                    if member in entry:
-                        merged[member] = merged[member] or entry[member]
-                        if (merged[member]):
-                            del merged[member]
-                    else:
-                        merged.remove(member)
-                else:
-                    for value in merged[member]:
-                        if value not in entry[member]:
-                            merged[member].remove(value)
+                remove_list = []
+                for value in merged[member]:
+                    if value not in entry[member]:
+                        remove_list.append(value)
+                for value in remove_list:
+                    merged[member].remove(value)
             elif xmlmember.limittype == 'range':
                 if entry[member][0] > merged[member][0]:
                     merged[member][0] = entry[member][0]
@@ -841,6 +824,11 @@ class ProfileMerger():
                     merged[member][1] = entry[member][1]
                 #if member[1] < member[0]:
                 #    merged.pop(member, None)
+            elif xmlmember.isDynamicallySizedArrayWithCap():
+                entry_set = set(merged[member])
+                merged_set = set(entry[member])
+                intersection_set = merged_set.intersection(entry_set)
+                merged[member] = list(intersection_set)
             else:
                 print("ERROR: Unknown limitype: " + xmlmember.limittype + " for " + member)
         else:

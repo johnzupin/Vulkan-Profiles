@@ -156,8 +156,10 @@ bool IsSupported(VkPhysicalDevice device, const char* extension_name){
 class ProfileGenerator():
     i = 1
     skipped_features = []
-    skipped_members = ["sType", "pNext", "physicalDevices", "driverID"]
-    skipped_properties_structs = ["VkPhysicalDeviceHostImageCopyPropertiesEXT", "VkPhysicalDeviceLineRasterizationPropertiesEXT", "VkPhysicalDeviceLayeredApiPropertiesListKHR"]
+    skipped_members = ["sType", "pNext", "physicalDevices", "driverID", "copySrcLayoutCount", "copyDstLayoutCount"]
+    skipped_properties_structs = ["VkPhysicalDeviceLineRasterizationPropertiesEXT", "VkPhysicalDeviceLayeredApiPropertiesListKHR", "VkPhysicalDeviceFragmentDensityMapOffsetPropertiesEXT"]
+    # Currently crashes in a driver
+    skipped_test_structs = ["VkPhysicalDeviceTileShadingPropertiesQCOM"]
 
     def generate_profile(self, outProfile, registry):
         with open(outProfile, 'w') as f:
@@ -286,7 +288,7 @@ class ProfileGenerator():
         gen = ''
         first = True
         self.test_values = dict()
-        for name, value  in registry.structs.items():
+        for name, value in registry.structs.items():
             if ('VkPhysicalDeviceProperties2' in value.extends and value.definedByExtensions):
                 if (name in self.skipped_properties_structs):
                     continue
@@ -397,6 +399,11 @@ class ProfileGenerator():
                         self.i += 1
                     elif property_type == "VkQueueFlags":
                         enum = self.get_enum('VkQueueFlagBits', True)
+                        gen += enum[0]
+                        self.test_values[name][property] = enum[1]
+                        self.i += 1
+                    elif property_type == "VkImageLayout":
+                        enum = self.get_enum('VkImageLayout', True)
                         gen += enum[0]
                         self.test_values[name][property] = enum[1]
                         self.i += 1
@@ -627,6 +634,8 @@ class ProfileGenerator():
 
     def gen_properties_test(self, registry, name, value):
         gen = ''
+        if name in self.skipped_test_structs:
+            return gen
         if not hasattr(self, 'test_values'):
             return gen
         # No members to test in property
