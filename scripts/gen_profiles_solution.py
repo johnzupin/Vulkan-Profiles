@@ -3093,7 +3093,10 @@ class VulkanStructMember():
         self.arraySizeMember = None
         self.nullTerminated = False
         self.arraySize = None
+        self.arraySizeCap = None
 
+    def isDynamicallySizedArrayWithCap(self):
+            return self.isArray and self.arraySizeCap is not None
 
 class VulkanStruct():
     def __init__(self, name):
@@ -3383,6 +3386,8 @@ class VulkanExtension(VulkanDefinitionScope):
 
 # Dynamic arrays are ill-formed, but some of them still have a maximum size that can be used
 struct_with_valid_dynamic_array = ["VkQueueFamilyGlobalPriorityProperties"]
+# These dynamic arrays have a known maximum possible size
+struct_with_dynamic_array_size_cap = ["VkPhysicalDeviceHostImageCopyProperties", "VkPhysicalDeviceHostImageCopyPropertiesEXT", "VkPhysicalDeviceVulkan14Properties"]
 
 class VulkanRegistry():
     def __init__(self, registryFile, api = 'vulkan'):
@@ -3548,9 +3553,14 @@ class VulkanRegistry():
                                 structDef.members[name].isArray = True
                                 structDef.members[name].arraySizeMember = len
 
+                                # Some arrays have a natural maximum size even if they are dynamic.  For example, a list
+                                # of VkImageLayouts, because that enum itself is limited.
+                                if structDef.members[name].type == 'VkImageLayout':
+                                    structDef.members[name].arraySizeCap = 64
+
             # If any of the members is a dynamic array then we should remove the corresponding count member
             for member in list(structDef.members.values()):
-                if member.isArray and member.arraySizeMember != None and struct.get('name') not in struct_with_valid_dynamic_array:
+                if member.isArray and member.arraySizeMember != None and struct.get('name') not in struct_with_valid_dynamic_array and struct.get('name') not in struct_with_dynamic_array_size_cap:
                     structDef.members.pop(member.arraySizeMember, None)
 
             # Store struct definition
@@ -4233,10 +4243,10 @@ class VulkanRegistry():
         self.overwrite('VkPhysicalDeviceLimits', 'bufferImageGranularity', ['noauto'], 'min,mul')
         self.overwrite('VkPhysicalDeviceLimits', 'pointSizeGranularity', ['max'], 'min,mul')
         self.overwrite('VkPhysicalDeviceLimits', 'lineWidthGranularity', ['max'], 'min,mul')
-        self.overwrite('VkPhysicalDeviceLimits', 'strictLines', ['noauto', 'bitmask'], 'exact')
-        self.overwrite('VkPhysicalDeviceLimits', 'standardSampleLocations', ['noauto', 'bitmask'], 'exact')
+        self.overwrite('VkPhysicalDeviceLimits', 'strictLines', ['noauto', 'bitmask', 'exact'], 'max')
+        self.overwrite('VkPhysicalDeviceLimits', 'standardSampleLocations', ['noauto', 'bitmask', 'exact'], 'max')
 
-        self.overwrite('VkPhysicalDeviceSparseProperties', 'residencyAlignedMipSize', ['bitmask'], 'not')
+        self.overwrite('VkPhysicalDeviceSparseProperties', 'residencyAlignedMipSize', ['bitmask', 'not'], 'min')
 
         self.overwrite('VkPhysicalDeviceVulkan11Properties', 'deviceUUID', ['None'], 'exact')
         self.overwrite('VkPhysicalDeviceVulkan11Properties', 'driverUUID', ['None'], 'exact')
@@ -4323,7 +4333,7 @@ class VulkanRegistry():
 
         self.overwrite('VkPhysicalDeviceConservativeRasterizationPropertiesEXT', 'primitiveOverestimationSize', ['None'], 'exact')
         self.overwrite('VkPhysicalDeviceConservativeRasterizationPropertiesEXT', 'extraPrimitiveOverestimationSizeGranularity', ['None'], 'min,mul')
-        self.overwrite('VkPhysicalDeviceConservativeRasterizationPropertiesEXT', 'conservativePointAndLineRasterization', ['None'], 'bitmask')
+        self.overwrite('VkPhysicalDeviceConservativeRasterizationPropertiesEXT', 'conservativePointAndLineRasterization', ['None', 'bitmask'], 'max')
         self.overwrite('VkPhysicalDeviceConservativeRasterizationPropertiesEXT', 'degenerateTrianglesRasterized', ['None'], 'exact')
         self.overwrite('VkPhysicalDeviceConservativeRasterizationPropertiesEXT', 'degenerateLinesRasterized', ['None'], 'exact')
 
@@ -4338,8 +4348,8 @@ class VulkanRegistry():
         self.overwrite('VkPhysicalDevicePCIBusInfoPropertiesEXT', 'pciDevice', ['None'], 'noauto')
         self.overwrite('VkPhysicalDevicePCIBusInfoPropertiesEXT', 'pciFunction', ['None'], 'noauto')
 
-        self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'hasPrimary', ['None'], 'bitmask')
-        self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'hasRender', ['None'], 'bitmask')
+        self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'hasPrimary', ['None', 'bitmask'], 'max')
+        self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'hasRender', ['None', 'bitmask'], 'max')
         self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'primaryMajor', ['None'], 'noauto')
         self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'primaryMinor', ['None'], 'noauto')
         self.overwrite('VkPhysicalDeviceDrmPropertiesEXT', 'renderMajor', ['None'], 'noauto')
@@ -4386,7 +4396,7 @@ class VulkanRegistry():
 
         self.overwrite('VkPhysicalDeviceSchedulingControlsPropertiesARM', 'schedulingControlsFlags', ['None'], 'bitmask')
 
-        self.overwrite('VkPhysicalDeviceExternalFormatResolvePropertiesANDROID', 'nullColorAttachmentWithExternalFormatResolve', ['noauto'], 'not')
+        self.overwrite('VkPhysicalDeviceExternalFormatResolvePropertiesANDROID', 'nullColorAttachmentWithExternalFormatResolve', ['noauto', 'not'], 'min')
 
         self.overwrite('VkPhysicalDeviceRenderPassStripedPropertiesARM', 'renderPassStripeGranularity', ['None'], 'min')
         self.overwrite('VkPhysicalDeviceRenderPassStripedPropertiesARM', 'maxRenderPassStripes', ['None'], 'max')
@@ -4398,7 +4408,7 @@ class VulkanRegistry():
         self.overwrite('VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT', 'supportedIndirectCommandsShaderStagesPipelineBinding', ['None'], 'bitmask')
         self.overwrite('VkPhysicalDeviceDeviceGeneratedCommandsPropertiesEXT', 'supportedIndirectCommandsShaderStagesShaderBinding', ['None'], 'bitmask')
 
-        self.overwrite('VkPhysicalDeviceCooperativeVectorPropertiesNV', 'maxCooperativeVectorComponents', ['None'], 'min')
+        self.overwrite('VkPhysicalDeviceCooperativeVectorPropertiesNV', 'maxCooperativeVectorComponents', ['None'], 'max')
 
         # TODO: The registry xml is also missing limittype definitions for format and queue family properties
         # For now we just add the important ones, this needs a larger overhaul in the vk.xml
@@ -5035,13 +5045,7 @@ class VulkanProfile():
                     # Use parent's limit type
                     limittype = parentLimittype
 
-                if limittype == 'not':
-                    # Compare everything else with equality
-                    comparePredFmt = '{0} == {1}'
-                elif limittype == 'bitmask' and type == 'VkBool32':
-                    # Compare everything else with equality
-                    comparePredFmt = '{0} == {1}'
-                elif limittype == 'bitmask':
+                if limittype == 'bitmask':
                     # Compare bitmask by checking if device value contains every bit of profile value
                     comparePredFmt = 'vpCheckFlags({0}, {1})'
                 elif limittype == 'bits':
@@ -5083,9 +5087,10 @@ class VulkanProfile():
                     # Compare range limit by checking if device range is larger than or equal to profile range
                     comparePredFmt = [ '{0} <= {1}', '{0} >= {1}' ]
                 elif limittype == 'exact' or limittype == 'struct':
-                    # Compare everything else with equality
+                    # Compare exact and struct values with equality
                     comparePredFmt = '{0} == {1}'
                 elif limittype is None or limittype == 'noauto':
+                    # Compare everything else with equality
                     comparePredFmt = '{0} == {1}'
                 else:
                     Log.f("Unsupported limittype '{0}' in member '{1}' of structure '{2}'".format(limittype, member, structDef.name))
@@ -6415,7 +6420,7 @@ class VulkanProfilesSchemaGenerator():
         return gen
 
 
-    def gen_array(self, type, size, definitions):
+    def gen_array(self, type, size, sizeCap, definitions):
         arraySize = self.registry.evalArraySize(size)
         if isinstance(arraySize, list) and len(arraySize) == 1:
             # This is the last dimension of a multi-dimensional array
@@ -6434,7 +6439,7 @@ class VulkanProfilesSchemaGenerator():
             # Multi-dimensional array
             return OrderedDict({
                 "type": "array",
-                "items": self.gen_array(type, arraySize[1:], definitions),
+                "items": self.gen_array(type, arraySize[1:], None, definitions),
                 "uniqueItems": False,
                 # We don't have information from vk.xml to be able to tell what's the minimum
                 # number of items that may need to be specified
@@ -6450,7 +6455,7 @@ class VulkanProfilesSchemaGenerator():
                 # We don't have information from vk.xml to be able to tell what's the minimum
                 # number of items that may need to be specified
                 # "minItems": arraySize,
-                "maxItems": arraySize
+                "maxItems": arraySize if arraySize is not None else sizeCap
             })
 
 
@@ -6504,13 +6509,15 @@ class VulkanProfilesSchemaGenerator():
                 continue
 
             if memberDef.isArray:
-                if memberDef.arraySizeMember != None and name not in struct_with_valid_dynamic_array:
+                if memberDef.arraySizeMember != None and name not in struct_with_valid_dynamic_array and name not in struct_with_dynamic_array_size_cap:
                     # This array is a dynamic one (count + pointer to array) which is not allowed
                     # for return structures. Such structures hence are ill-formed and shouldn't
                     # be included in the schema
                     Log.w("Ignoring member '{0}' in struct '{1}' containing ill-formed pointer to array".format(memberName, name))
                 else:
-                    members[memberDef.name] = self.gen_array(memberDef.type, memberDef.arraySize, definitions)
+                    if memberDef.arraySizeMember != None and name in struct_with_dynamic_array_size_cap:
+                        Log.w("Member '{0}' in struct '{1}' is a pointer to array with a known maximum size, it will be ignored in the API library, but supported in the layer".format(memberName, name))
+                    members[memberDef.name] = self.gen_array(memberDef.type, memberDef.arraySize, memberDef.arraySizeCap, definitions)
             else:
                 members[memberDef.name] = self.gen_type(memberDef.type, definitions)
 
@@ -7007,8 +7014,6 @@ class VulkanProfilesDocGenerator():
             return member
         elif limittype == 'exact':
             return member + ' (exact)'
-        elif limittype == 'not':
-            return member + ' (not)'
         elif limittype == 'max':
             return member + ' (max)'
         elif limittype == 'max,pot' or limittype == 'pot,max':
