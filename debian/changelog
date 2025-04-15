@@ -1,3 +1,28 @@
+vulkan-profiles (1.4.312.0~rc1-1lunarg22.04-1) jammy; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles: Fix limittype overwrite for maxCooperativeVectorComponents
+
+  [ Christophe ]
+  * profiles: Clean up copyrights
+
+  [ Juan Ramos ]
+  * jsoncpp: Update to 1.9.6
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 311
+
+  [ Daniel Rakos ]
+  * Bool limittype fixes
+
+  [ ziga-lunarg ]
+  * profiles: Add layer support for VK_EXT_host_image_copy
+  * profiles: Update to header 312
+  * profiles: Update disabling dialog boxes on windows
+  * profiles: Add missing new lines in log messages
+
+ -- john <john@odin>  Tue, 15 Apr 2025 15:51:28 -0600
+
 vulkan-profiles (1.4.309.0~rc2-1lunarg22.04-1) jammy; urgency=medium
 
   [ Christophe ]
