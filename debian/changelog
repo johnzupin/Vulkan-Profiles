@@ -1,3 +1,10 @@
+vulkan-profiles (1.4.313.0~rc1-1lunarg22.04-1) jammy; urgency=medium
+
+  [ ziga-lunarg ]
+  * profiles: Update to header 313
+
+ -- john <john@odin>  Tue, 29 Apr 2025 11:33:57 -0600
+
 vulkan-profiles (1.4.312.0~rc1-1lunarg22.04-1) jammy; urgency=medium
 
   [ ziga-lunarg ]
